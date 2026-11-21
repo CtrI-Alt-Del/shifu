@@ -11,12 +11,12 @@ last_updated_at: 2026-11-21
 | --- | --- |
 | Implementation | Curriculum/Learning contracts, persistence, evaluation and web flow are implemented. The temporary ordering demonstration was removed from the seed and local database after user validation. The initial diagnostic read correction is retained. The user explicitly waived Penpot validation. |
 | Automated checks | Integrated ordering and translation candidate: 305 focused server use-case cases covered by the accepted selections, 44 domain and 2 provider tests; 94 PostgreSQL controller tests passed with one inherited collection warning. Seven affected HTTP cases passed again after the final preview/replay corrections. The four Inngest cases passed across the two direct cases and two real registered-job cases on isolated port 17777. Web: 96-test selection plus the updated 14-test hook suite; 25 browser routes plus the one cold-start timeout case passed on its focused rerun. |
-| Type / lint / complexity | Server Ruff/format: 1639 files passed; scoped strict types and full Web types passed. Full Web Biome: 757 files passed without warnings. Architecture: Server Tach passed, Web dependency-cruiser passed for 749 modules/3008 dependencies. Full Server basedpyright still reports the same unrelated Intelligence test error at line 267. Web build passed with a plugin timing diagnostic. Root uv metadata warning remains. |
+| Type / lint / complexity | Full Server/Web types passed after the EV-40 integration fixes. The EV-41 test-only follow-up passed Web types and changed-test Biome. Existing external/test-environment warnings remain recorded separately. |
 | Manual checks | The user confirmed functional validation of the ordering interaction on 2026-11-19. This confirmation does not establish execution of every Spec manual scenario. Automated PostgreSQL/controller and browser selections cover core persistence, privacy, submission and result assertions. |
 | Visual checks | Runtime screenshots for initial, correct and incorrect desktop/mobile states were reviewed. The user waived Penpot comparison and page-wide design checks. Visual review found readable states, non-color outcome cues, and mobile actions clear of navigation and Mentor FAB. |
 | Independent review | Implementation review found no new source issue. Visual review approved the current correct/incorrect desktop and mobile runtime captures. Penpot comparison was waived by the user. |
 | Blockers | No known issue remains in the independently reviewed merge scope. Published completion awaits current-head CI. Local limitations are the unrelated full Server type error, inherited pytest collection warning, root uv metadata warning and Corepack bootstrap DNS. |
-| Candidate | `codex/shifu-129-ordering-questions`, merging verified `origin/main` at `5c80da79`; all 25 conflict paths resolved to preserve SHIFU-129 ordering and SHIFU-122 translation. |
+| Candidate | Branch `codex/shifu-129-ordering-questions`; main7f83855a is integrated, implementation head48f40d74, followed by coverage-only tests and this record. |
 
 # Progress
 
@@ -84,6 +84,8 @@ last_updated_at: 2026-11-21
 
 | EV-40 | Main update and CI corrections / Automated | Partial | 2026-11-21, merge of origin/main 7f83855a | Preserved ordering, translation, fill-blanks and pair matching across contracts, mapping, preview, submission, evaluation and Web. Domain104/provider2 passed. Use-case selection407: initial fixture failures corrected; affected250 cases passed again, remaining157 unchanged. Full Server basedpyright: zero errors/warnings; controllers/test payload/migration scoped types also pass. Web full types/Biome pass; graph47 and content172 tests pass. | Fixed ELK constructor failures reaching fallback and stale test mocks. Intelligence test payload was still unchanged on latest main; latest user requirement for green CI authorized the minimal dict[str,object] annotation. Generated merge migration46a3cef1cbec unifying reminder4316ce01866a and ordering61de5a9b2c84; alembic heads shows one head. Real HTTP43 cases could not set up because Docker engine named pipe was missing; no local DB migration applied. Old mobile graph reset browser case could not be validated locally because cold browser setup timed out before interaction; no speculative reset change. User will follow the new CI manually and explicitly asked not to wait for completion. Publication is not claimed green or complete. |
 
+| EV-41 | Sonar new-code coverage correction / Automated | Local checks passed; remote gate pending | Follow-up to head48f40d74, 2026-11-21 | GitHub Web run44956637231 job137006747236 and the Sonar quality-gate API showed both red checks were one cause: new_coverage73.1 below80. Downloaded web-coverage into a new external temporary folder. Added13 cases across the existing activity page, owning hook and result-detail suites. Focused109 passed. Full installed Vitest run --coverage --reporter=dot:197 files /1811 tests passed. Web tsc --noEmit and changed-test Biome passed. | New cases verify read-only restored order and passage reuse, failed preview retry with frozen answer, idempotent submission retry, invalid permutations, provisional correct/incorrect and inconclusive feedback, protected/released accepted orders and missing historical steps. No production code, coverage exclusion or threshold changed. Full-file local lines/branches: feedback100/87.27%, result98/94.16%, activity hook92.58/88.88%. These are whole-file local metrics, not Sonar new-code coverage. Global local lines80.61%; remote gate remains for the next CI. Full suite emitted existing jsdom/Motion/router diagnostics; no warning-free repository claim. pnpm bootstrap hit sandbox registry DNS, so identical installed manifest executables were used. User will monitor CI manually. |
+
 # Findings
 
 | ACH | Problem / evidence / affected CA | Severity | Affected checks | Status / correction / verification |
@@ -114,12 +116,12 @@ last_updated_at: 2026-11-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `codex/shifu-129-ordering-questions`; integrates main `5c80da79` preserving translation and ordering. |
+| Candidate | Branch `codex/shifu-129-ordering-questions`; main7f83855a is integrated, implementation head48f40d74, followed by coverage-only tests and this record. |
 | Completed | Ordering implementation, private passage persistence, evaluation/result and accessible UI. User accepted the interaction. Temporary Skill removed from seed and local database. Initial diagnostic read correction retained. Both formats preserved through the merge and independently reviewed. Current focused, HTTP, browser, job and static evidence is EV-37–39. |
-| Unfinished | The user will monitor new-head CI manually. No CI-success claim is made. Full Server types retain an unrelated Intelligence test error. Inherited pytest collection and root uv metadata warnings remain. Prior XP REST-transport cases remain outside scope and were excluded by their exact name. |
-| Uncommitted work | Merge b151e2ac is committed and pushed. Only this publication evidence update is pending. No user work was reset or stashed. Runtime screenshots, credentials, storage and build artifacts stay ignored. |
+| Unfinished | User will monitor the new-head CI manually. Remote Sonar gate and final pipeline outcome are not asserted. |
+| Uncommitted work | EV-41 coverage tests and this record are published together. No unrelated user changes. Generated coverage/logs remain ignored. |
 | Active processes | Task-owned Vite on port17000 was stopped after browser validation. All task-owned pytest/build sessions finished; fixture-owned Testcontainers were cleaned. Shared user services remain running. |
-| Next action | Inspect current-head checks and reviews on PR #55 and commit the resulting publication evidence. No seed rerun is needed. |
+| Next action | User checks the new PR #55 pipeline and performs the merge manually if approved. No CI wait or PR merge by the agent. |
 
 # Delivery
 
@@ -132,4 +134,4 @@ last_updated_at: 2026-11-21
 | Publication | PR #55: https://github.com/CtrI-Alt-Del/shifu/pull/55, base main, head codex/shifu-129-ordering-questions. Initial published implementation SHA b151e2ac69fd1749846cc7ec0c09edef0e1c4925 was mergeable; current update integrates main7f83855a and CI fixes. No reviews or review conversations existed at initial readback; CI is pending. No merge or deployment requested/performed. |
 | Source verification | Learning 83066881 v33 and Curriculum 83034113 v19 confirmed again through Atlassian on 2026-11-19, parent 82804737. Prior complete page reads remain valid because versions are unchanged. No external source mutation. |
 | Documentation Alignment | Spec revision1 unchanged; design account-retention rule, diagnosis and current Evaluation included. |
-| Limitations | No known issue in the reviewed integration scope. Local full Server type check has an unrelated error; inherited pytest collection and root uv metadata warnings remain. Full acceptance does not imply a warning-free repository. |
+| Limitations | New-head CI has not been awaited, per user instruction. Prior jsdom/router/Motion diagnostics and workspace metadata warnings are not hidden or represented as zero warnings. |

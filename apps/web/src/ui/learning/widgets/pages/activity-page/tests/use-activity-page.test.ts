@@ -240,6 +240,136 @@ describe('useActivityPage', () => {
     })
   })
 
+  describe('ordering recovery and immutable passage', () => {
+    function makeActivity(
+      overrides: Partial<ChoiceActivityDetail> = {},
+    ): ChoiceActivityDetail {
+      return {
+        ...activity,
+        questions: [
+          {
+            key: 'order-1',
+            kind: 'ordering',
+            prompt: 'Organize as etapas.',
+            steps: [
+              { key: 'wash', text: 'Lavar' },
+              { key: 'cut', text: 'Cortar' },
+              { key: 'cook', text: 'Cozinhar' },
+            ],
+            initialOrderedStepKeys: ['cut', 'wash', 'cook'],
+            verified: null,
+          },
+        ],
+        ...overrides,
+      }
+    }
+
+    it('restores verified feedback after reload and submits the persisted passage without another preview', async () => {
+      const base = makeActivity()
+      const question = base.questions[0]
+      if (question.kind !== 'ordering') throw new Error('Expected ordering fixture')
+      const saved = {
+        orderedStepKeys: ['wash', 'cut', 'cook'],
+        score: 100,
+        isCorrect: true,
+        explanation: 'Sequência verificada.',
+      }
+      const restored = makeActivity({
+        orderingPassageKey: 'persisted-passage',
+        questions: [{ ...question, verified: saved }],
+      })
+      const onPreview = vi.fn()
+      const onSubmit = vi.fn().mockResolvedValue(submitted)
+      vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValue('new-submission') })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: restored, onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+
+      expect(result.current.currentOrderingOrder).toEqual(saved.orderedStepKeys)
+      expect(result.current.feedback).toEqual({
+        status: 'conclusive',
+        ...saved,
+        orderedStepKeys: undefined,
+      })
+      expect(result.current.isOrderingVerified).toBe(true)
+      expect(result.current.hasUnsentAnswers).toBe(false)
+      act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+      expect(result.current.currentOrderingOrder).toEqual(saved.orderedStepKeys)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+      expect(onSubmit).toHaveBeenCalledWith({
+        activityRevision: 'revision-1',
+        answers: [
+          {
+            kind: 'ordering',
+            questionKey: 'order-1',
+            orderedStepKeys: saved.orderedStepKeys,
+          },
+        ],
+        passageKey: 'persisted-passage',
+        submissionKey: 'new-submission',
+      })
+    })
+
+    it('retries a failed verification with its frozen order and original passage, then retries submission idempotently', async () => {
+      const onPreview = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({
+          status: 'conclusive',
+          score: 0,
+          isCorrect: false,
+          explanation: 'Revise a sequência.',
+        })
+      const onSubmit = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue(submitted)
+      const randomUUID = vi
+        .fn()
+        .mockReturnValueOnce('same-passage')
+        .mockReturnValueOnce('same-submission')
+      vi.stubGlobal('crypto', { randomUUID })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: makeActivity(), onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+      act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasFeedbackError).toBe(true)
+      expect(result.current.hasUnsentAnswers).toBe(true)
+      act(() => result.current.handleOrderingOrderChange(['wash', 'cut', 'cook']))
+      expect(result.current.currentOrderingOrder).toEqual(['cook', 'cut', 'wash'])
+      await act(async () => result.current.handleContinue())
+      expect(onPreview.mock.calls[1]).toEqual(onPreview.mock.calls[0])
+      expect(result.current.feedback?.isCorrect).toBe(false)
+      expect(result.current.hasUnsentAnswers).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasSubmissionError).toBe(true)
+      await act(async () => result.current.handleContinue())
+      expect(onSubmit.mock.calls[1]).toEqual(onSubmit.mock.calls[0])
+      expect(randomUUID).toHaveBeenCalledTimes(2)
+      expect(result.current.hasSubmissionError).toBe(false)
+    })
+
+    it.each([
+      ['missing', ['wash', 'cut']],
+      ['duplicate', ['wash', 'wash', 'cook']],
+      ['unknown', ['wash', 'cut', 'unknown']],
+    ])('does not preview an invalid %s permutation', async (_name, order) => {
+      const onPreview = vi.fn()
+      const { result } = renderHook(
+        () => useActivityPage({ activity: makeActivity(), onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+      act(() => result.current.handleOrderingOrderChange(order))
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+    })
+  })
+
   it('preserves direct choice-only advance and submission without preliminary or revision', async () => {
     const legacyActivity = {
       ...activity,
