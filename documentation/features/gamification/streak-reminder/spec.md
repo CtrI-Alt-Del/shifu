@@ -1,7 +1,7 @@
 ---
 title: SHIFU-132 — Streak reminder by browser push at the chosen hour
-status: completed
-revision: 5
+status: ready
+revision: 6
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-132
@@ -14,6 +14,7 @@ scope:
   - apps/server/src/shifu/shared
   - apps/server/src/shifu/composition
   - apps/server/src/shifu/app.py
+  - apps/server/src/shifu/rest/handlers
   - apps/server/migrations
   - apps/server/tach.toml
   - apps/server/tests
@@ -35,7 +36,7 @@ scope:
   - pnpm-lock.yaml
   - apps/web/src/routes/account/profile
   - apps/web/tests
-last_updated_at: 2026-11-18
+last_updated_at: 2026-11-21
 ---
 
 # Objective
@@ -93,9 +94,9 @@ Contract.
 | RF-02 | Gamification RP-14; JN-14 | Due detection runs every 15 minutes. An account is due only in the run whose scheduled 15-minute slot starts exactly at `reminder_hour:00` in the account's current time zone. Changing the time zone keeps the same hour in the new zone. A failed slot run retried by Inngest evaluates the same slot. A lost slot sends nothing that day. |
 | RF-03 | Gamification RP-14; JN-14 | A reminder is requested only when, at that slot: the account is active; the current streak as of the local date is at least 1; no practice day is recognized on that local date; and the hour still matches. A pending evaluation does not block the reminder. Practice already recognized before the hour prevents it. No AI participates. |
 | RF-04 | Gamification RP-14, RP-12; Communication RP-08 | The request carries the account, local date, streak length and the UTC instant that ends that local date. It grants no XP and changes no streak, calendar, achievement, reward feedback or Learning state. |
-| RF-05 | Communication RP-08 | A push subscription is created only after the browser grants permission and is linked to the authenticated account. Registering an endpoint already linked to another account re-links it to the caller. One account cannot read or change another account's subscriptions or preference. |
+| RF-05 | Communication RP-08 | A push subscription is created only after the browser grants permission and is linked to the authenticated account. Registering an endpoint already linked to another account re-links it to the caller. One account cannot read or change another account's subscriptions or preference. The endpoint must belong to a trusted push service: `https`, no credentials, port 443, and a host that is `fcm.googleapis.com`, `updates.push.services.mozilla.com`, or a subdomain of `push.apple.com` or `notify.windows.com`. The host is read from the raw address: lower-case letters, digits, hyphens and dots only, and the authority is exactly the host or `host:443`, so backslashes, percent signs, `@`, other ports and a trailing dot are refused. Any other endpoint is refused with 422 and nothing is stored: a non-`https` address fails the request schema with the generic validation message, and every other refusal returns the subscription message (revision 6). |
 | RF-06 | Communication RP-08; JN-07; Identity RP-06 | The reminder preference belongs to the account and applies to every browser. It is off until the learner turns it on. While it is off, no reminder is sent to any browser. |
-| RF-07 | Communication RP-05, RP-08; JN-07, JN-08 | Communication accepts at most one streak reminder per account and local date, including replays and repeated requests. It sends the reminder to every active subscription, at most once per browser. A browser answered as expired or revoked is removed without retry, and the other browsers stay valid. Temporary failures are retried only until the end of the learner's local day; then the reminder is dropped without late delivery. Other permanent failures are not retried for that browser. |
+| RF-07 | Communication RP-05, RP-08; JN-07, JN-08 | Communication accepts at most one streak reminder per account and local date, including replays and repeated requests. It sends the reminder to every active subscription, at most once per browser. A browser answered as expired or revoked is removed without retry, and the other browsers stay valid. Temporary failures are retried only until the end of the learner's local day; then the reminder is dropped without late delivery. Other permanent failures are not retried for that browser. The server never follows an HTTP redirect from a push service (revision 6). |
 | RF-08 | Communication RP-02, RP-08; Gamification RP-14 | The notification is in pt-BR, identifies Shifu and states the streak length, for example "Sua sequência de 7 dias termina hoje — pratique para mantê-la" ("1 dia" in the singular). It contains no learning data, credentials, tokens or Identity action links. Opening it focuses or opens Shifu at `/`; without a valid session the normal Identity entry flow applies. |
 | RF-09 | Gamification RP-14; JN-15 | The invite opens right after the first recognized practice day, never on first access and never in browsers that cannot receive push. It explains the benefit before the browser permission request. Answering it ("Agora não", "Ativar lembretes", then allowed, blocked or dismissed) is recorded once per account and it does not reopen. Declining blocks nothing. After permission is granted, the browser is enrolled, the preference turns on and the hour step opens prefilled with the current hour (18 by default). |
 | RF-10 | Identity RP-06; Gamification RP-13, RP-14; JN-15 | Sua conta shows a reminders card: the switch (all browsers), the hour select that saves on selection, a text notice when notifications are blocked in this browser, and a text notice when this browser cannot receive push. Every control works by keyboard and no state depends only on color, on desktop and mobile. |
@@ -119,7 +120,7 @@ Contract.
 | CA-12 | RF-07 | Three browsers answering accepted, gone and temporary failure | Delivery runs until the temporary one is accepted | The gone browser is removed without retry; the others receive exactly one push; retries follow the backoff | CI-02, CI-10 |
 | CA-13 | RF-07 | A browser that keeps failing temporarily | The end of the learner's local day passes | The reminder is expired and nothing is sent afterwards | CI-02, CI-10 |
 | CA-14 | RF-06, RF-07 | A reminder waiting for a retry | The learner turns the preference off | The next attempt sends nothing and the reminder ends skipped | CI-02 |
-| CA-15 | RF-08 | Streak lengths 1 and 7 | The message is composed and the notification is clicked | Body reads "Sua sequência de 1 dia termina hoje — pratique para mantê-la" / "… de 7 dias …"; title "Shifu"; URL `/`; no learning data or tokens; click focuses or opens Shifu | CI-02, VM-03 |
+| CA-15 | RF-08 | Streak lengths 1 and 7 | The message is composed and the notification is clicked | Body reads "Sua sequência de 1 dia termina hoje — pratique para mantê-la" / "… de 7 dias …"; title "Shifu"; URL `/`; no learning data or tokens; click focuses or opens Shifu; in a real browser the worker shows the notification from a delivered push (CI-13); the click focusing or opening Shifu at `/` is proven by VM-03; the worker's same-origin guard for a foreign URL has no automated or manual proof, because the server always sends `/` (limit recorded, revision 6) | CI-02, CI-13, VM-03 |
 | CA-16 | RF-09 | A learner without any practice day, then after the first recognized practice day | The app shell refreshes the invite state | The invite stays closed before; it opens after, over the current protected page, explaining the benefit before any permission request | CI-01, CI-11, CI-13, VM-01 |
 | CA-17 | RF-09 | The invite is open | The learner chooses "Agora não", or "Ativar lembretes" then allows, blocks or dismisses | The invite is answered once and never reopens; on allow, subscription and preference are saved and the hour step shows 18:00; on block or dismiss a toast points to Sua conta | CI-01, CI-11, CI-13, VM-01 |
 | CA-18 | RF-09 | A browser without push support | The invite state is pending | The invite does not open and remains unanswered | CI-11, CI-13 |
@@ -128,6 +129,8 @@ Contract.
 | CA-21 | RF-12 | A subscribed, eligible local account | The developer runs the demo command, again the same day, and with `SHIFU_SERVER_APP_MODE` not `local` | Each local run delivers one notification, because it clears the day's earlier reminder first (revision 4; revision 1 had the second run send nothing); the non-local run refuses without effect | CI-01, VM-03 |
 | CA-23 | RF-12 | A local account with a reminder for the current local day in any status (skipped, failed, sent, pending, expired or cancelled), and reminders of other days | The demo command clears the current reminders and requests again | Every reminder whose local day has not ended is removed with its deliveries; reminders of ended days stay; subscriptions, preference and events are untouched; an account with nothing to clear is a no-op | CI-02, VM-03 |
 | CA-22 | RF-13 | Authenticated and anonymous callers; production-like settings without push keys; a private key that does not produce the configured public key | They request the public key; the server starts; the push provider is built | Authenticated callers get the configured public key; anonymous get 401; startup fails with a safe message that echoes no key; a mismatched pair is refused before any push is sent, and a matching pair is accepted with or without base64 padding | CI-02, CI-07, CI-05 |
+| CA-24 | RF-05 | An authenticated learner | They register an endpoint on each trusted host, then one with `http`, an untrusted host, a lookalike such as `fcm.googleapis.com.example.test`, the bare `push.apple.com`, credentials in the address, a port other than 443, an IP literal, a backslash such as `https://evil.example\.push.apple.com/x`, a trailing dot, a percent-encoded host and an upper-case host | The subscription PUT runs | Trusted endpoints return 204 and are stored; every other endpoint returns 422 and nothing is stored, with the generic validation message for the non-`https` address and the subscription message for the rest | CI-02, CI-07 |
+| CA-25 | RF-07 | A push service that answers a send with a redirect to another address | Delivery runs | The redirect is not followed, the target address receives no request, and the browser's delivery ends `FAILED` with code `http_302` | CI-10 |
 
 Isolation, persistence, failure, recovery and concurrency are covered by CA-08,
 CA-11 to CA-14 and CA-20. Accessibility is covered by CA-16 to CA-19.
@@ -219,7 +222,7 @@ Owners: Gamification and Communication; Identity supplies one provider. Rules:
 | Modify | Shared telemetry | `TelemetryJob` in `shared/core/interfaces/telemetry_provider.py`; `_JOB_BY_FUNCTION_ID` in `shared/messaging/inngest/job_lifecycle_telemetry.py` | Four new job identifiers |
 | Modify | Composition | `apps/server/src/shifu/app.py` | `FastAPIApp.register` gains an optional keyword `push_notification_provider: PushNotificationProvider \| None = None`, like the existing provider parameters; when omitted it builds `PywebpushPushNotificationProvider` from `ENVIRONMENT`, or `None` when push is unconfigured in `local`. It also builds the Identity provider and the Communication router, and passes `StreakReminderRequestedEvent.EVENT_NAME` and `AccountDeletedEvent.EVENT_NAME` to Communication jobs |
 | Create | Composition | `apps/server/src/shifu/composition/send_streak_reminder_now.py`; Poe task `reminders:send-now` | Local-only demo command |
-| Modify | Architecture boundaries | `apps/server/tach.toml` | Adds `shifu.gamification` to `shifu.composition.depends_on`, so the demo command may call `RequestStreakReminderUseCase`; no other boundary changes |
+| Modify | Architecture boundaries | `apps/server/tach.toml` | Adds `shifu.gamification` to `shifu.composition.depends_on`, so the demo command may call `RequestStreakReminderUseCase`. Revision 6 adds `shifu.communication` to `shifu.rest.depends_on`, so the global `AppErrorHandler` may import the two Communication errors; Communication depends only on Shared, so no cycle appears. No other boundary changes |
 | Modify | Staging provisioning | `scripts/populate-staging-secrets.mjs` | Generates and provisions `SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY`, `SHIFU_WEB_PUSH_VAPID_PUBLIC_KEY` and `SHIFU_WEB_PUSH_SUBJECT`, so staging keeps starting once the keys are required |
 | Modify | Staging infrastructure (revision 2) | `iac/staging/locals.tf` (`server_required_secret_keys`), `iac/README.md` | The ECS task only receives the secret keys listed there, so the three `SHIFU_WEB_PUSH_*` keys must be listed or staging refuses to start. An already populated staging secret needs the three keys added before deploy |
 | Modify | Migrations | New Alembic revision generated with `uv run poe db:migrate "add streak reminders"` | Generated filename recorded in Evaluation; reviewed before use |
@@ -228,11 +231,14 @@ Owners: Gamification and Communication; Identity supplies one provider. Rules:
 | Create | Web | Service worker, core types, push provision adapter, Communication service, hooks, invite, card, Switch | Tree below |
 | Modify | Web | `gamification-service.ts`, account profile page and route, `AppLayout`, XP band hook | Slot, mount and invalidation below |
 | Create/Modify | Web toasts (revision 2) | `sonner` dependency (`apps/web/package.json`, `pnpm-lock.yaml`), `src/ui/shadcn/sonner.tsx`, `src/ui/shared/notifications/index.ts`, `RootLayout` | The UI catch-block rule requires Sonner toasts, which did not exist. Adds the dependency, the shared wrapper (`showErrorToast`, `showWarningToast`, `showInfoToast`) and one `Toaster` mount in the root layout |
-| Modify | Communication (revision 2) | `PushDeliveriesRepository.remove`, `communication/rest/communication_error_handler.py` | Implementation additions: removing a temporary-failure reservation needs `remove`; a Communication error handler gives HTTP 503 its specific message |
+| Modify | Communication (revision 2) | `PushDeliveriesRepository.remove`, `communication/rest/communication_error_handler.py` | Implementation additions: removing a temporary-failure reservation needs `remove`; a Communication error handler gives HTTP 503 its specific message. The handler is superseded by revision 6: its mappings live in the global `AppErrorHandler` |
 | Create/Modify | Communication (revisions 3, 4) | `ClearCurrentStreakRemindersUseCase` in `communication/core/use_cases/clear_current_streak_reminders_use_case.py`; `StreakRemindersRepository.find_many_open_by_account_id` and `remove` (port and SQLAlchemy adapter) | Declarations in "Revision 3 declarations" below |
 | Modify | Communication provider (revision 5) | `PywebpushPushNotificationProvider.__init__` | Derives the public key from the private key and raises `ValueError('The web push VAPID private key does not match the public key')` when it differs from the configured public key (padding ignored). The message echoes no key. `app.py` builds the provider at registration, so the process fails at startup instead of failing every send with HTTP 403 |
 | Modify | Composition (revisions 3, 4) | `composition/send_streak_reminder_now.py` | Calls the new use case before `RequestStreakReminderUseCase`, through `SqlalchemyCommunicationDatabase` and `SystemClockProvider`; no new Tach dependency (composition already depends on Communication) |
 | Modify | Documentation (revision 3) | `documentation/tooling.md` | Describes the clearing behavior of the demo command |
+| Create/Modify | Communication (revision 6) | `communication/core/domain/structures/trusted_push_endpoint.py`, `RegisterPushSubscriptionUseCase`, `PywebpushPushNotificationProvider` | Endpoint allowlist in the use case; the provider never follows redirects. Declarations in "Revision 6 declarations" |
+| Modify/Delete | REST (revision 6) | `apps/server/src/shifu/rest/handlers/app_error_handler.py`, `apps/server/src/shifu/app.py`; delete `communication/rest/communication_error_handler.py` | The two Communication error mappings move to the global handler with the same status, code and message |
+| Modify/Delete | Web (revision 6) | `apps/web/public/sw.js` renamed to `service-worker.js`, `browser-push-notification-provider.ts`, `tests/identity/account-profile-page.test.ts`, `tests/shared/app-layout.test.ts`; delete `hooks/tests/streak-reminder-service-worker.test.ts` | The worker is proven by a real-browser scenario, not by a suite aimed at the plugin |
 
 ### Expected file tree
 
@@ -250,6 +256,7 @@ apps/server/
 │   └── gamification/gamification.rest                                [M]
 ├── src/shifu/
 │   ├── app.py                                                         [M]
+│   ├── rest/handlers/app_error_handler.py                             [M] revision 6
 │   ├── composition/send_streak_reminder_now.py                        [N]
 │   ├── shared/
 │   │   ├── constants/environment.py                                   [M]
@@ -287,6 +294,7 @@ apps/server/
 │   ├── communication/
 │   │   ├── core/domain/entities/{push_subscription,streak_reminder_preference,streak_reminder,push_delivery}.py [N]
 │   │   ├── core/domain/structures/{streak_reminder_request,streak_reminder_message,push_delivery_outcome}.py      [N]
+│   │   ├── core/domain/structures/trusted_push_endpoint.py                                                          [N] revision 6
 │   │   ├── core/domain/enums/{streak_reminder_status,push_delivery_status,push_delivery_outcome_kind}.py          [N]
 │   │   ├── core/domain/errors/{push_unavailable_error,invalid_push_subscription_error}.py                          [N]
 │   │   ├── core/interfaces/communication_database.py                                                               [M]
@@ -302,6 +310,7 @@ apps/server/
 │   │   ├── messaging/inngest/jobs/purge_push_data_on_account_deleted_job.py                                        [N]
 │   │   ├── pipes/communication_pipe.py                                                                             [N]
 │   │   ├── providers/push/pywebpush/pywebpush_push_notification_provider.py                                            [N]
+│   │   ├── rest/communication_error_handler.py                                                                      [D] moved into the global handler (revision 6)
 │   │   ├── rest/router.py                                                                                          [N]
 │   │   └── rest/controllers/{get_push_public_key,register_push_subscription,get_streak_reminder_preference,change_streak_reminder_preference}_controller.py [N]
 │   └── fakers/
@@ -322,7 +331,7 @@ apps/server/
         └── communication/test_purge_push_data_on_account_deleted_job.py [N]
 
 apps/web/
-├── public/sw.js                                                       [N] push → notification; click → focus/open "/"
+├── public/service-worker.js                                           [N] push → notification; click → focus/open "/" (renamed from sw.js in revision 6)
 ├── src/core/gamification/streak-reminder.ts                           [N] { hour, inviteStatus }
 ├── src/core/communication/streak-reminder-preference.ts               [N]
 ├── src/core/communication/browser-push-notification.ts                             [N] permission + subscription contracts
@@ -675,8 +684,11 @@ Concepts:
   plain columns (Q11) and never logged. The entity accepts any absolute
   `http` or `https` URL up to 2048 characters with non-empty keys, otherwise
   `InvalidPushSubscriptionError`. The REST request schema additionally requires
-  `https`, so learners can register only real push services, while job tests
-  can seed subscriptions pointing at the local plain-HTTP push stub.
+  `https`. From revision 6, `RegisterPushSubscriptionUseCase` also requires a
+  trusted endpoint (`TrustedPushEndpoint`, see "Revision 6 declarations"), so
+  learners can register only real push services. The entity stays permissive, so
+  job tests keep seeding subscriptions through the repository with the local
+  plain-HTTP push stub.
 - **Streak reminder preference.** One row per account, created on the first
   change. Absent means off.
 - **Streak reminder.** The single daily reminder record per account and local
@@ -716,11 +728,37 @@ Concepts:
   - `WebPushException` with status 404 or 410: `GONE`.
   - Status 429, any 5xx, `requests` timeouts or connection errors: `TEMPORARY_FAILURE`.
   - Any other status: `PERMANENT_FAILURE`.
+  - A redirect (3xx) is never followed (revision 6): the provider sends through a session that disables redirects, so the answer maps to `PERMANENT_FAILURE` with code `http_<status>` (for example `http_302`).
 
   Codes are short slugs such as `http_413`; no endpoint, key or body is ever
   returned or logged. When push settings are absent in `local`, composition
   passes `None`; the public-key use case raises `PushUnavailableError` (HTTP 503)
   and delivery records `FAILED` with code `push_unconfigured`.
+
+### Revision 6 declarations
+
+```python
+@structure
+class TrustedPushEndpoint:  # communication/core/domain/structures/trusted_push_endpoint.py
+    EXACT_HOSTS: ClassVar[frozenset[str]] = frozenset({'fcm.googleapis.com', 'updates.push.services.mozilla.com'})
+    SUFFIX_DOMAINS: ClassVar[tuple[str, ...]] = ('push.apple.com', 'notify.windows.com')
+    value: str
+    @classmethod
+    def create(cls, endpoint: str, *, error_type: type[AppError] = InvalidPushSubscriptionError) -> 'TrustedPushEndpoint': ...
+    # accepts only: scheme `https://`, then an authority that fully matches (re.fullmatch) ^[a-z0-9.-]+(:443)?$ taken from the raw
+    # string up to the first '/', '?' or '#' (no urlsplit differential: backslash, '%', '@', uppercase and
+    # other ports are refused), whose host has no empty label, does not end with '.', and equals an
+    # EXACT_HOSTS entry or is a proper subdomain of a SUFFIX_DOMAINS entry
+
+class RegisterPushSubscriptionUseCase:  # unchanged signature
+    def execute(self, account_id: str, *, endpoint: str, p256dh_key: str, auth_secret: str, now: datetime) -> None: ...
+    # first step: TrustedPushEndpoint.create(endpoint); raises InvalidPushSubscriptionError
+```
+
+- `PywebpushPushNotificationProvider.send` builds one `requests.Session` subclass instance per send, inside a `with` block so it is closed afterwards, whose `send` forces `allow_redirects=False` (every `request`, `post` or `get` goes through `send`), and passes it to `pywebpush.webpush(..., requests_session=session)`. A per-send session avoids sharing a session between worker threads. `max_redirects = 0` is not used because it raises `TooManyRedirects`, which would map to `request_invalid` instead of `http_<status>`.
+- `AppErrorHandler` gains `handle_push_unavailable_error` (503, code `push_unavailable`, the error's message) and `handle_invalid_push_subscription_error` (422 through `status.HTTP_422_UNPROCESSABLE_CONTENT`, the non-deprecated constant, code `validation_error`, the error's message), registered with the other specific errors. The three existing uses of the deprecated `HTTP_422_UNPROCESSABLE_ENTITY` in the same file switch to the same-valued `HTTP_422_UNPROCESSABLE_CONTENT`, so the Communication controller runs stay free of that framework warning. `communication/rest/communication_error_handler.py` and its registration in `app.py` are removed. Status, code and message do not change.
+- The browser worker moves from `public/sw.js` to `public/service-worker.js` and is registered at `/service-worker.js` with scope `/`. Its behaviour does not change. Browsers that registered `/sw.js` locally keep a stale registration until the new one replaces it at the same scope.
+- Subscriptions stored before revision 6 are not re-validated. The feature is unmerged, so no deployed data exists.
 
 ### Revision 3 and 4 declarations
 
@@ -835,7 +873,7 @@ All endpoints require `AuthenticationPipe.get_authenticated_user` and act only o
 | `PUT /gamification/streak-reminder/hour` | `{"hour": 19}` (int) | 200 settings body | 401, 404, 422 for non-integer or 6..22 violation |
 | `POST /gamification/streak-reminder/invite-answer` | — | 200 settings body (`inviteStatus: "answered"`) | 401, 404 |
 | `GET /communication/push-subscriptions/public-key` | — | 200 `{"publicKey": "<base64url>"}` | 401; 503 when push is not configured |
-| `PUT /communication/push-subscriptions` | `{"endpoint": "https://…", "keys": {"p256dh": "…", "auth": "…"}}` | 204 | 401; 422 for a non-https endpoint, length over limit or empty keys |
+| `PUT /communication/push-subscriptions` | `{"endpoint": "https://…", "keys": {"p256dh": "…", "auth": "…"}}` | 204 | 401; 422 for a non-https endpoint, an endpoint outside the trusted push services (revision 6), length over limit or empty keys |
 | `GET /communication/streak-reminder-preference` | — | 200 `{"enabled": false}` | 401 |
 | `PUT /communication/streak-reminder-preference` | `{"enabled": true}` | 200 `{"enabled": true}` | 401, 422 |
 
@@ -890,7 +928,7 @@ export type BrowserPushNotificationSubscription = { endpoint: string; keys: { p2
 export interface BrowserPushNotificationProvider {
   getPermission(): BrowserPushNotificationPermission
   requestPermission(): Promise<BrowserPushNotificationPermission>
-  subscribe(publicKey: string): Promise<BrowserPushNotificationSubscription>   // registers /sw.js, reuses an existing subscription
+  subscribe(publicKey: string): Promise<BrowserPushNotificationSubscription>   // registers /service-worker.js, reuses an existing subscription
   getSubscription(): Promise<BrowserPushNotificationSubscription | null>
 }
 ```
@@ -962,7 +1000,7 @@ export interface BrowserPushNotificationProvider {
   `remindersCard?: ReactNode`, rendered between `ProfileForm` and
   `PrivacyCard`. The route `src/routes/account/profile/index.tsx` passes
   `<StreakReminderCard />`.
-- **Service worker.** `public/sw.js` is plain JavaScript served at `/sw.js`
+- **Service worker.** `public/service-worker.js` is plain JavaScript served at `/service-worker.js`
   with scope `/`.
   - On `push`, it parses `{title, body, url, tag}` and calls
     `showNotification(title, { body, tag, icon: '/favicon.svg', data: { url } })`.
@@ -1077,7 +1115,7 @@ sequenceDiagram
         Shell->>Browser: request notification permission
         alt allowed
             Shell->>C: GET push public key
-            Shell->>Browser: register sw.js + subscribe(public key)
+            Shell->>Browser: register service-worker.js + subscribe(public key)
             Shell->>C: PUT push-subscriptions (endpoint + keys)
             Shell->>C: PUT streak-reminder-preference {enabled: true}
             Shell->>L: hour step, 18:00 prefilled
@@ -1158,7 +1196,7 @@ the event in job tests.
     during the test cannot produce false passes or failures.
   - **Push service stub:** the new `tests/fixtures/push_service_stub_fixture.py`
     serves a local HTTP endpoint whose per-path responses are programmable
-    (201, 410, 404, 429, 500, 400). It records received requests, so
+    (201, 410, 404, 429, 500, 400, and 302 with a `Location` header to another stub path, revision 6). It records received requests, so
     subscriptions point at it and pywebpush posts real encrypted payloads. The
     VAPID key pair is generated per test session.
   - **Clean-up:** `clear_application_tables` after each test.
@@ -1223,14 +1261,15 @@ absence of events for rejected cases.
 
 ### CI-02 — Communication reminder use cases
 
-**Criteria:** CA-08, CA-09, CA-10, CA-11, CA-12, CA-13, CA-14, CA-15, CA-22, CA-23
+**Criteria:** CA-08, CA-09, CA-10, CA-11, CA-12, CA-13, CA-14, CA-15, CA-22, CA-23, CA-24
 
 **Expected result:**
 - Clearing (CA-23): every open reminder is removed whatever its status; an
   account with nothing open is a no-op; subscriptions, preference and events are
   never touched.
 - Registration creates a subscription and re-links an existing endpoint; invalid
-  input is rejected.
+  input is rejected, including every endpoint outside the trusted push services
+  (CA-24).
 - The preference defaults to off and changes persist.
 - Queueing records one reminder per account and local date; a replay returns
   the existing row; the reminder is skipped when the preference is off or there
@@ -1261,7 +1300,7 @@ uv run pytest tests/communication/core/use_cases/test_get_push_public_key_use_ca
 ```
 
 **Passing condition:** All files run and pass. Every outcome kind, status
-transition and retry boundary has an explicit assertion. Existing email
+transition and retry boundary has an explicit assertion, and so does every enumerated CA-24 endpoint. Existing email
 use-case tests remain untouched.
 
 ### CI-03 — Server types
@@ -1296,7 +1335,7 @@ configured, per [Tooling](../../../tooling.md#scoped-type-lint-and-complexity-ch
 
 **Scope:** Tach boundaries. Communication and Gamification must import only
 Shared; composition may import Shared, Identity, Communication, Curriculum,
-Intelligence and, after the `tach.toml` change, Gamification. Also covers the build, the Alembic
+Intelligence and, after the `tach.toml` change, Gamification; `shifu.rest` may import Shared, Identity and, from revision 6, Communication (for the two moved error mappings). Also covers the build, the Alembic
 revision and settings validation.
 
 ```bash
@@ -1337,12 +1376,12 @@ Persistence is verified through a fresh request or session.
 
 ### CI-07 — Communication reminder controllers
 
-**Criteria:** CA-08, CA-09, CA-22
+**Criteria:** CA-08, CA-09, CA-22, CA-24
 
 **Expected result:**
-- The public key is returned when configured; 503 when not.
+- The public key is returned when configured; 503 when not. The 503 and the 422 for an invalid subscription come from the global `AppErrorHandler` with the same status, code and message as before (revision 6).
 - Subscription PUT returns 204, upserts the row and re-links the endpoint
-  between two accounts; 422 for a non-https endpoint or empty keys.
+  between two accounts; 422 for a non-https endpoint, an untrusted host or empty keys, and nothing is stored.
 - The preference GET defaults to false, and PUT persists.
 - 401 without a session on all four endpoints.
 - Two further cases in the same file (revision 5): a private key that does not produce the configured public key makes `PywebpushPushNotificationProvider` raise with a message that echoes neither key, and the matching pair is accepted with or without padding.
@@ -1363,7 +1402,7 @@ cd apps/server
 uv run pytest tests/communication/server/controllers/test_get_push_public_key_controller.py tests/communication/server/controllers/test_register_push_subscription_controller.py tests/communication/server/controllers/test_get_streak_reminder_preference_controller.py tests/communication/server/controllers/test_change_streak_reminder_preference_controller.py
 ```
 
-**Passing condition:** All pass, and the router is registered in the real app.
+**Passing condition:** All pass, and the router is registered in the real app. Each enumerated CA-24 endpoint has its own assertion, and the existing controller fixtures use trusted hosts.
 
 ### CI-08 — Gamification fan-out job
 
@@ -1408,7 +1447,7 @@ SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest tests/messaging/inngest/jobs/gamifi
 
 ### CI-10 — Communication delivery and purge jobs
 
-**Criteria:** CA-10, CA-11, CA-12, CA-13, CA-20
+**Criteria:** CA-10, CA-11, CA-12, CA-13, CA-20, CA-25
 
 **Expected result:**
 - With the push stub:
@@ -1418,7 +1457,8 @@ SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest tests/messaging/inngest/jobs/gamifi
   - 500 then 201 retries once after the scheduled delay;
   - persistent 429 past `expires_at` ends expired without later requests;
   - a disabled preference or no subscription ends skipped with no request;
-  - the 429 scenario asserts `expired` and no stub request after `expires_at`.
+  - the 429 scenario asserts `expired` and no stub request after `expires_at`;
+  - a 302 to another stub path is not followed: that path receives no request and the delivery ends `FAILED` with code `http_302` (CA-25).
 - Purge cancels pending reminders and deletes the account's subscriptions,
   preference, reminders and deliveries. Another account stays intact, and a
   replay is a no-op.
@@ -1502,7 +1542,7 @@ pnpm --filter web exec vitest run src/ui/gamification/widgets/components/streak-
 
 ### CI-13 — Browser route scenarios
 
-**Criteria:** CA-16, CA-17, CA-18, CA-19
+**Criteria:** CA-15, CA-16, CA-17, CA-18, CA-19
 
 **Expected result:**
 - On an authenticated protected page with a `pending` state, the invite opens;
@@ -1514,9 +1554,10 @@ pnpm --filter web exec vitest run src/ui/gamification/widgets/components/streak-
 - Keyboard path through the dialog and the card works at 1440×900 and 390×844.
 - No console errors.
 - The app layout mounts the invite only for authenticated learners.
+- A real-worker scenario (revision 6, CA-15) in `account-profile-page.test.ts`, run in full Chromium (`test.use({ channel: 'chromium' })` at the top of the file, because Playwright allows `channel` only there, so every scenario in `account-profile-page.test.ts` runs in full Chromium) with the notification permission granted through `context.grantPermissions(['notifications'])` and without the browser stub. A spike on 2026-11-21 showed that Playwright's headless shell denies notifications and shows none, and that no Playwright Chromium has a push backend, so a real `pushManager.subscribe` fails with `AbortError`. An init script therefore replaces only `PushManager.prototype.subscribe` with a fixed `https://fcm.googleapis.com/…` subscription. Turning the card switch on registers the real `/service-worker.js`, which controls the page. The registration id comes from `ServiceWorker.workerRegistrationUpdated` on a CDP session, and `ServiceWorker.deliverPushMessage` delivers each payload. A valid payload yields, through `registration.getNotifications()`, the expected title, body, tag, icon and `data.url`. A malformed payload yields the default notification (title `Shifu`, empty body) and no page error. If full Chromium is unavailable the scenario is Blocked, never skipped. The notification click is not covered here.
 
 **Proof:** modified `apps/web/tests/shared/app-layout.test.ts` for the invite
-scenarios, because `AppLayout` mounts the invite. Modified
+scenarios (its stub assertion becomes `register /service-worker.js`), because `AppLayout` mounts the invite. Modified
 `apps/web/tests/identity/account-profile-page.test.ts` for the card scenarios,
 because the card renders on that page's route. Both names satisfy the
 test-integrity rule for routed layouts and pages.
@@ -1530,7 +1571,7 @@ under `apps/web/.playwright-cli/logs/`.
 
 ### CI-14 — Web types, lint, complexity lint, architecture, build and test integrity
 
-**Scope:** `apps/web` plus `public/sw.js`, and the repository test-integrity
+**Scope:** `apps/web` plus `public/service-worker.js`, and the repository test-integrity
 gate.
 
 ```bash
@@ -1545,7 +1586,7 @@ pnpm check:test-integrity
 rules are recorded as the web complexity disposition. Dedicated metrics are
 **Blocked** for the same reason as CI-04. Test integrity accepts every new test
 file. If Biome's configuration does not include `public/`, the Spec's lint
-obligation for `sw.js` is satisfied by passing its path explicitly. If Biome
+obligation for `service-worker.js` is satisfied by passing its path explicitly. If Biome
 still ignores it, the gap is recorded as a finding instead of being skipped
 silently.
 
@@ -1756,7 +1797,7 @@ Fix failures, rerun affected checks, and reuse unaffected current proof.
 | Jira [SHIFU-132](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-132), parent SHIFU-30, sprint "SHIFU Sprint 3" | Delivery scope and validation | Link in Evaluation and PR | No Jira write without request |
 | Penpot "Shifu (copiar)", Desktop and Mobile pages | Visual intent | Boards confirmed present on 2026-11-18 | Re-export at validation |
 | [`documentation/modules.md`](../../../modules.md) | Ownership | Already states the reminder ownership; confirm no change | — |
-| [`documentation/architecture.md`](../../../architecture.md) and `apps/server/tach.toml` | Async processing, module boundaries | Add browser push to Communication's integrations, the shared `ActiveAccountProvider` contract beside `AuthenticationProvider`, and Composition's new dependency on Gamification | Update during implementation |
+| [`documentation/architecture.md`](../../../architecture.md) and `apps/server/tach.toml` | Async processing, module boundaries | Add browser push to Communication's integrations, the shared `ActiveAccountProvider` contract beside `AuthenticationProvider`, Composition's new dependency on Gamification, and REST's new dependency on Communication (revision 6) | Update during implementation |
 | `scripts/populate-staging-secrets.mjs` | Staging configuration | Provision the three `SHIFU_WEB_PUSH_*` values | Update during implementation; staging start depends on it |
 | [`documentation/rules.md`](../../../rules.md) | Rule routing | Its `validation-package-rules.md` row names `packages/validation`, which does not exist in this repository; not applicable here | Report as a stale router entry; no change in this delivery |
 | [`documentation/tooling.md`](../../../tooling.md) and `apps/server/.env.example` | Environment variables and commands | Document `SHIFU_WEB_PUSH_*`, key generation and `uv run poe reminders:send-now` | Update during implementation |
@@ -1773,3 +1814,4 @@ Fix failures, rerun affected checks, and reuse unaffected current proof.
 | 3 | 2026-11-19 | RF-12 and CA-21 refined, CA-23 added: the local demo command clears the current day's `skipped` or `failed` reminder before requesting, so a missing subscription does not use up the day. `sent`, `pending`, `expired` and `cancelled` reminders are never cleared and the scheduled flow keeps one reminder per account and day. Adds `ClearUnsentStreakRemindersUseCase` and two `StreakRemindersRepository` methods. | User request after a local demo run ended `skipped` for an account with no browser subscription (Evaluation ACH-13). Not a Confluence change: the PRD rule of one reminder per day is unchanged for every real flow. |
 | 4 | 2026-11-19 | CA-21 and CA-23 reversed in part: the demo command clears the current day's reminder in every status, including `sent` and `pending`, and a repeat the same day delivers again. Revision 3's `sent` and `pending` exemption and the `CLEARABLE_STATUSES` filter are removed. The use case is renamed `ClearCurrentStreakRemindersUseCase`. | User decision: the command must always be able to resend. Local demo command only; the scheduled flow and the PRD rule are unchanged. |
 | 5 | 2026-11-19 | RF-13 and CA-22 extended: the push provider refuses a private key that does not produce the configured public key, so a mismatched pair stops startup. Scope: `PywebpushPushNotificationProvider` constructor and the CI-07 configuration proof. | Found while explaining key use: a mismatched pair starts normally and then every send fails with HTTP 403, classified as a permanent failure, with no warning (Evaluation ACH-14). User approved the check. |
+| 6 | 2026-11-21 | RF-05 and RF-07 extended, CA-24 and CA-25 added, CA-15 gains CI-13: the subscription endpoint must belong to a trusted push service (allowlist checked by `RegisterPushSubscriptionUseCase`), the push provider never follows redirects, the two Communication error mappings move into the global `AppErrorHandler` (this supersedes revision 2's Communication error handler), the browser worker is renamed `service-worker.js` and is proven by a real-browser scenario instead of a Vitest suite aimed at the plugin. | PR #54 review threads by Tico1606 (endpoint restriction, REST Rules, Widget Testing Rules). User decisions Q17 A (allowlist and no redirects, no private-address resolution check) and Q18 A (Playwright test in `account-profile-page.test.ts`, worker renamed `service-worker.js`). Not a Confluence change. |

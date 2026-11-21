@@ -584,6 +584,13 @@ account-wide streak-reminder preference, and delivers the reminder through a
 `gamification/streak-reminder.requested`; Communication consumes it through an event
 name injected by composition.
 
+The server later sends a request to every stored subscription endpoint, so
+registration accepts only endpoints of known push services (`fcm.googleapis.com`,
+`updates.push.services.mozilla.com`, `*.push.apple.com` and `*.notify.windows.com`,
+over `https` on port 443), and the provider never follows a redirect. The shared REST
+error handler imports the two Communication errors it translates, so `shifu.rest`
+may depend on `shifu.communication`.
+
 ### Business dependencies
 
 ```text
