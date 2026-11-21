@@ -85,7 +85,14 @@ class PushServiceRequest:
 
 
 class PushServiceStub:
-    """A programmable Web Push service listening on a local plain-HTTP port."""
+    """A programmable Web Push service listening on a local plain-HTTP port.
+
+    A redirect status answers with a `Location` pointing at the `REDIRECT_TARGET`
+    endpoint, so a test can prove the server never follows it.
+    """
+
+    REDIRECT_STATUSES = frozenset({301, 302, 307, 308})
+    REDIRECT_TARGET = 'redirect-target'
 
     def __init__(self) -> None:
         self._lock = Lock()
@@ -115,6 +122,8 @@ class PushServiceStub:
                 )
                 payload = f'stub status {status}'.encode()
                 self.send_response(status)
+                if status in stub.REDIRECT_STATUSES:
+                    self.send_header('location', stub.endpoint(stub.REDIRECT_TARGET))
                 self.send_header('content-length', str(len(payload)))
                 self.end_headers()
                 self.wfile.write(payload)

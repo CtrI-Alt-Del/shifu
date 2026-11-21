@@ -5,13 +5,13 @@
 GET {{baseUrl}}/communication/push-subscriptions/public-key
 Authorization: Bearer {{accessToken}}
 
-### Push subscription: register this browser for the caller (204; an endpoint registered by another account moves to the caller)
+### Push subscription: register this browser for the caller (204; an endpoint registered by another account moves to the caller; 422 unless the host is a trusted push service: fcm.googleapis.com, updates.push.services.mozilla.com, *.push.apple.com or *.notify.windows.com)
 PUT {{baseUrl}}/communication/push-subscriptions
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "endpoint": "https://push.example.com/send/replace-with-local-endpoint",
+  "endpoint": "https://fcm.googleapis.com/fcm/send/replace-with-local-endpoint",
   "keys": {
     "p256dh": "replace-with-local-p256dh-key",
     "auth": "replace-with-local-auth-secret"

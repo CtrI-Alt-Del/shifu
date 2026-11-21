@@ -1,7 +1,7 @@
 import base64
 import json
 from http import HTTPStatus
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast, override
 
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid
@@ -9,6 +9,7 @@ from pywebpush import (
     WebPushException,
     webpush,  # pyright: ignore[reportUnknownVariableType]
 )
+from requests import PreparedRequest, Response, Session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import RequestException, Timeout
 
@@ -21,6 +22,19 @@ from shifu.communication.core.domain.structures import (
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric import ec
+
+
+class _NoRedirectSession(Session):
+    """A session that returns a redirect answer instead of following it.
+
+    The subscription endpoint comes from a browser, so a push service must not be
+    able to send the server to another address.
+    """
+
+    @override
+    def send(self, request: PreparedRequest, **kwargs: Any) -> Response:
+        kwargs['allow_redirects'] = False
+        return super().send(request, **kwargs)
 
 
 class PywebpushPushNotificationProvider:
@@ -91,20 +105,22 @@ class PywebpushPushNotificationProvider:
             ensure_ascii=False,
         )
         try:
-            response = webpush(
-                subscription_info={
-                    'endpoint': subscription.endpoint,
-                    'keys': {
-                        'p256dh': subscription.p256dh_key,
-                        'auth': subscription.auth_secret,
+            with _NoRedirectSession() as session:
+                response = webpush(
+                    subscription_info={
+                        'endpoint': subscription.endpoint,
+                        'keys': {
+                            'p256dh': subscription.p256dh_key,
+                            'auth': subscription.auth_secret,
+                        },
                     },
-                },
-                data=payload,
-                vapid_private_key=self._vapid,
-                vapid_claims={'sub': self._subject},
-                ttl=ttl_seconds,
-                timeout=self._timeout_seconds,
-            )
+                    data=payload,
+                    vapid_private_key=self._vapid,
+                    vapid_claims={'sub': self._subject},
+                    ttl=ttl_seconds,
+                    timeout=self._timeout_seconds,
+                    requests_session=session,
+                )
         except WebPushException as error:
             return self._outcome_for_status(error.status_code)
         except Timeout:

@@ -389,6 +389,33 @@ class TestDeliverStreakReminderJob:
             ]
             assert len(session.scalars(select(PushSubscriptionModel)).all()) == 1
 
+    def test_should_not_follow_a_redirect_from_a_push_service(
+        self,
+        inngest_fixture: 'InngestFixture',
+        push_service_stub: PushServiceStub,
+    ) -> None:
+        account_id = SystemIdentifierProvider().generate()
+        _seed(inngest_fixture, push_service_stub, account_id, browsers=('redirecting',))
+        push_service_stub.program('redirecting', 302)
+
+        event_ids = _publish_requested(
+            inngest_fixture,
+            account_id,
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
+        )
+
+        inngest_fixture.wait_for_database(
+            lambda session: _reminder_status(session, account_id) == 'failed'
+        )
+        _wait_for_runs(inngest_fixture, event_ids, 'COMPLETED')
+        assert len(push_service_stub.requests('redirecting')) == 1
+        assert push_service_stub.requests(PushServiceStub.REDIRECT_TARGET) == []
+        with inngest_fixture.inspection_session() as session:
+            deliveries = session.scalars(select(PushDeliveryModel)).all()
+            assert [(d.status, d.failure_code) for d in deliveries] == [
+                ('failed', 'http_302')
+            ]
+
     def test_should_expire_without_a_later_request_when_no_retry_fits(
         self,
         inngest_fixture: 'InngestFixture',

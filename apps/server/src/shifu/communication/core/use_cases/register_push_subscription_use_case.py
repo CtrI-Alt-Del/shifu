@@ -2,6 +2,7 @@ from datetime import datetime
 
 from shifu.communication.core.domain.entities import PushSubscription
 from shifu.communication.core.domain.errors import InvalidPushSubscriptionError
+from shifu.communication.core.domain.structures import TrustedPushEndpoint
 from shifu.communication.core.interfaces import CommunicationDatabase
 from shifu.shared.core.interfaces import IdentifierProvider
 
@@ -26,6 +27,7 @@ class RegisterPushSubscriptionUseCase:
         auth_secret: str,
         now: datetime,
     ) -> None:
+        TrustedPushEndpoint.create(endpoint)
         with self._database.transaction() as repositories:
             subscription = repositories.push_subscriptions.find_by_endpoint(endpoint)
             if subscription is None:

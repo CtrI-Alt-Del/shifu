@@ -18,7 +18,7 @@ class TestRegisterPushSubscriptionUseCase:
     ACCOUNT_ID = '01JACCOUNT000000000000000001'
     OTHER_ACCOUNT_ID = '01JACCOUNT000000000000000002'
     SUBSCRIPTION_ID = '01JSUBSCRIPTION00000000000001'
-    ENDPOINT = 'https://push.example.test/send/abc'
+    ENDPOINT = 'https://fcm.googleapis.com/fcm/send/abc'
     P256DH_KEY = 'p256dh-key'
     AUTH_VALUE = 'auth-value'
     NEW_AUTH_VALUE = 'new-auth-value'
@@ -91,10 +91,10 @@ class TestRegisterPushSubscriptionUseCase:
         'endpoint',
         [
             'not-a-url',
-            'ftp://push.example.test/send/abc',
+            'ftp://fcm.googleapis.com/fcm/send/abc',
             'https://',
-            'https://push.example.test/' + 'a' * 2048,
-            'https://push.example.test/send with spaces',
+            'https://fcm.googleapis.com/' + 'a' * 2048,
+            'https://fcm.googleapis.com/send with spaces',
             '',
         ],
     )
@@ -110,6 +110,80 @@ class TestRegisterPushSubscriptionUseCase:
                 now=self.now,
             )
 
+        self.repositories.push_subscriptions.try_add.assert_not_called()
+        self.repositories.push_subscriptions.update.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'endpoint',
+        [
+            'https://fcm.googleapis.com/fcm/send/abc',
+            'https://fcm.googleapis.com:443/fcm/send/abc',
+            'https://updates.push.services.mozilla.com/wpush/v2/abc',
+            'https://web.push.apple.com/abc',
+            'https://db5p.notify.windows.com/w/?token=abc',
+        ],
+        ids=['fcm', 'fcm-explicit-port', 'mozilla', 'apple', 'windows'],
+    )
+    def test_should_accept_an_endpoint_of_each_trusted_push_service(
+        self, endpoint: str
+    ) -> None:
+        self.subject.execute(
+            self.ACCOUNT_ID,
+            endpoint=endpoint,
+            p256dh_key=self.P256DH_KEY,
+            auth_secret=self.AUTH_VALUE,
+            now=self.now,
+        )
+
+        added = self.repositories.push_subscriptions.try_add.call_args.args[0]
+        assert added.endpoint == endpoint
+
+    @pytest.mark.parametrize(
+        'endpoint',
+        [
+            'https://push.example.test/send/abc',
+            'https://fcm.googleapis.com.example.test/send/abc',
+            'https://x.fcm.googleapis.com/send/abc',
+            'https://push.apple.com/send/abc',
+            'https://user:secret@fcm.googleapis.com/send/abc',
+            'https://fcm.googleapis.com:8443/send/abc',
+            'https://127.0.0.1/send/abc',
+            'https://evil.example\\.push.apple.com/send/abc',
+            'https://fcm.googleapis.com./send/abc',
+            'https://fcm%2Egoogleapis.com/send/abc',
+            'https://FCM.googleapis.com/send/abc',
+            'https://evil.example#.push.apple.com/send/abc',
+            'https://evil.example?.push.apple.com/send/abc',
+        ],
+        ids=[
+            'unknown-host',
+            'lookalike-suffix',
+            'subdomain-of-an-exact-host',
+            'apex-of-a-suffix-domain',
+            'credentials',
+            'other-port',
+            'ip-literal',
+            'backslash',
+            'trailing-dot',
+            'percent-encoded-host',
+            'upper-case-host',
+            'fragment-hides-the-host',
+            'query-hides-the-host',
+        ],
+    )
+    def test_should_reject_an_endpoint_outside_the_trusted_push_services_without_writing(
+        self, endpoint: str
+    ) -> None:
+        with pytest.raises(InvalidPushSubscriptionError):
+            self.subject.execute(
+                self.ACCOUNT_ID,
+                endpoint=endpoint,
+                p256dh_key=self.P256DH_KEY,
+                auth_secret=self.AUTH_VALUE,
+                now=self.now,
+            )
+
+        self.database.transaction.assert_not_called()
         self.repositories.push_subscriptions.try_add.assert_not_called()
         self.repositories.push_subscriptions.update.assert_not_called()
 

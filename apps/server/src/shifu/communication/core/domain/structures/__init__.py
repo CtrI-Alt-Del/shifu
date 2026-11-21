@@ -19,3 +19,4 @@ from .streak_reminder_message import (
 from .streak_reminder_request import (
     StreakReminderRequest as StreakReminderRequest,
 )
+from .trusted_push_endpoint import TrustedPushEndpoint as TrustedPushEndpoint

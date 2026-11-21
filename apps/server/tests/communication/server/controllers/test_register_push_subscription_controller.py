@@ -16,7 +16,7 @@ from tests.fixtures.redis_fixture import RedisFixture
 ACCOUNT_ID = '01SHF00000000000000ACCOUNT'
 OTHER_ACCOUNT_ID = '01SHF00000000000000OTHERA'
 PATH = '/communication/push-subscriptions'
-ENDPOINT = 'https://push.example.test/send/browser-one'
+ENDPOINT = 'https://fcm.googleapis.com/fcm/send/browser-one'
 FIRST_KEYS = {'p256dh': 'first-p256dh-key', 'auth': 'first-auth-value'}
 SECOND_KEYS = {'p256dh': 'second-p256dh-key', 'auth': 'second-auth-value'}
 FIRST_USER = {'Authorization': 'Bearer test-access-token'}
@@ -150,8 +150,8 @@ class TestRegisterPushSubscriptionController:
     @pytest.mark.parametrize(
         'payload',
         [
-            _body(endpoint='http://push.example.test/send/browser-one'),
-            _body(endpoint='https://push.example.test/' + 'a' * 2048),
+            _body(endpoint='http://fcm.googleapis.com/fcm/send/browser-one'),
+            _body(endpoint='https://fcm.googleapis.com/' + 'a' * 2048),
             _body(endpoint='not-a-url'),
             _body(keys={'p256dh': '', 'auth': 'first-auth-value'}),
             _body(keys={'p256dh': 'first-p256dh-key', 'auth': ''}),
@@ -186,6 +186,84 @@ class TestRegisterPushSubscriptionController:
             'message': 'Os dados enviados são inválidos.',
         }
         with database.transaction() as repositories:
+            assert (
+                repositories.push_subscriptions.find_many_by_account_id(ACCOUNT_ID)
+                == ()
+            )
+
+    @pytest.mark.parametrize(
+        'endpoint',
+        [
+            'https://fcm.googleapis.com/fcm/send/abc',
+            'https://fcm.googleapis.com:443/fcm/send/abc',
+            'https://updates.push.services.mozilla.com/wpush/v2/abc',
+            'https://web.push.apple.com/abc',
+            'https://db5p.notify.windows.com/w/?token=abc',
+        ],
+        ids=['fcm', 'fcm-explicit-port', 'mozilla', 'apple', 'windows'],
+    )
+    def test_should_accept_an_endpoint_of_each_trusted_push_service(
+        self,
+        client: TestClient,
+        database: SqlalchemyCommunicationDatabase,
+        endpoint: str,
+    ) -> None:
+        response = client.put(PATH, json=_body(endpoint=endpoint), headers=FIRST_USER)
+
+        assert response.status_code == 204
+        with database.transaction() as repositories:
+            assert (
+                repositories.push_subscriptions.find_by_endpoint(endpoint) is not None
+            )
+
+    @pytest.mark.parametrize(
+        'endpoint',
+        [
+            'https://push.example.test/send/abc',
+            'https://fcm.googleapis.com.example.test/send/abc',
+            'https://x.fcm.googleapis.com/send/abc',
+            'https://push.apple.com/send/abc',
+            'https://user:secret@fcm.googleapis.com/send/abc',
+            'https://fcm.googleapis.com:8443/send/abc',
+            'https://127.0.0.1/send/abc',
+            'https://evil.example\\.push.apple.com/send/abc',
+            'https://fcm.googleapis.com./send/abc',
+            'https://fcm%2Egoogleapis.com/send/abc',
+            'https://FCM.googleapis.com/send/abc',
+            'https://evil.example#.push.apple.com/send/abc',
+            'https://evil.example?.push.apple.com/send/abc',
+        ],
+        ids=[
+            'unknown-host',
+            'lookalike-suffix',
+            'subdomain-of-an-exact-host',
+            'apex-of-a-suffix-domain',
+            'credentials',
+            'other-port',
+            'ip-literal',
+            'backslash',
+            'trailing-dot',
+            'percent-encoded-host',
+            'upper-case-host',
+            'fragment-hides-the-host',
+            'query-hides-the-host',
+        ],
+    )
+    def test_should_return_422_for_an_endpoint_outside_the_trusted_push_services(
+        self,
+        client: TestClient,
+        database: SqlalchemyCommunicationDatabase,
+        endpoint: str,
+    ) -> None:
+        response = client.put(PATH, json=_body(endpoint=endpoint), headers=FIRST_USER)
+
+        assert response.status_code == 422
+        assert response.json() == {
+            'code': 'validation_error',
+            'message': 'Não foi possível registrar este navegador para lembretes.',
+        }
+        with database.transaction() as repositories:
+            assert repositories.push_subscriptions.find_by_endpoint(endpoint) is None
             assert (
                 repositories.push_subscriptions.find_many_by_account_id(ACCOUNT_ID)
                 == ()
