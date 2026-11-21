@@ -16,7 +16,7 @@ last_updated_at: 2026-11-21
 | Visual checks | VM-05 passed (EV-17); VM-03, VM-04 Blocked: no Penpot, assumption accepted by the user |
 | Independent review | Spec Reviewer completed. Implementation Reviewer completed: PASS, 2 medium and 5 low findings, all resolved or recorded (ACH-05..ACH-11). Visual Reviewer not run: it requires Penpot exports, which do not exist for this delivery |
 | Blockers | VM-03, VM-04 (no Penpot) |
-| Candidate | `feat/shifu-119` on `origin/main` 2e322dc0 plus the uncommitted diff below; Spec revision 2 |
+| Candidate | `feat/shifu-119` at d34bf5b3 (commits eab707d5, b8be2593, 1b9df13d and the merge of `origin/main` 7f83855a), published as PR #59; Spec revision 2 |
 
 Penpot gate deviation: `implement-spec` stops UI work while Penpot is unreachable.
 The user stated that no Penpot exists for this delivery and accepted the Spec's
@@ -76,6 +76,8 @@ development database was never used.
 | EV-17 | VM-05 / Visual / CA-14, CA-15 | Passed | Same run | Computed token colors in light on Perfil; control border composited over `--muted` computed from the same resolved tokens; captures `apps/web/.playwright-cli/screenshots/shifu-119-profile-{desktop-dark,desktop-light,mobile-system-light,mobile-dark}.png` | Contrast on light `--card`: foreground 16.96, muted 5.59, secondary 8.92, selo-text 6.35, jade-text 6.62, latão-text 7.59; on-selo on selo-fill 4.68; `--control-border` over light `--muted` 3.82 (dark 3.00); fills equal to dark values. Toast: no toast was rendered in the journey; the Toaster receiving the active theme is proved by EV-06 (root-layout component test), not by a captured toast. Captures show tokens applied to the tab bar, fields, primary button, cards, header and bottom navigation; no invisible border or hover surface found. The streak-reminder card error in captures is due to push not being configured in the disposable environment |
 | EV-18 | VM-03, VM-04 / Visual | Blocked | — | — | No Penpot file or MCP; the user accepted the visual assumption |
 | EV-19 | Review corrections / Automated | Passed | Candidate after ACH-05..ACH-09 corrections | `npx tsc --noEmit` (apps/web); `vitest run` on `mentor-action-card`, `skill-action-card`, `account-profile-page` (7 files, 91 passed); `biome check` on 52 changed web paths (0 diagnostics) | Re-runs the checks invalidated by the corrections |
+| EV-21 | Post-merge recheck / Automated | Passed | d34bf5b3 after merging `origin/main` 7f83855a (PR #58, no shared surface with this delivery, no migration) | `npx tsc --noEmit` (web); `uv run poe check:types`; `uv run alembic heads`; `node scripts/check-test-integrity.mjs` | Types clean; single head `14fadc960949`; 480 test files checked. Other evidence retained: the merge touched no file of this delivery |
+| EV-22 | Pre-existing flaky browser test / Automated | Passed locally | d34bf5b3, disposable services | `pnpm exec playwright test tests/learning/goal-detail-page.test.ts -g "pans the canvas" --repeat-each 3` | 3/3 passed. The same test failed on CI for this PR and earlier for `feat/shifu-124` (run 44934741213) before this delivery existed; classified as pre-existing flakiness (ACH-12) |
 | EV-20 | CI-10 and affected consumer / Automated (browser, mocked transport) | Passed | Same candidate, task ports | `pnpm exec playwright test tests/shared/app-layout.test.ts tests/identity/account-profile-page.test.ts` | 47 passed in 1.1 min. `app-layout.test.ts` is a direct consumer of the changed `AccountProfile` body (ACH-05). EV-16 is retained: its journey did not exercise the field-error color or the Mentor card changed afterwards |
 
 # Findings
@@ -92,6 +94,7 @@ development database was never used.
 | ACH-08 | Implementation Reviewer: appearance field error used `text-muted-foreground` instead of the Design Contract's `text-selo-text` | Low | EV-19, EV-20 | Resolved: help text switches to `text-selo-text` while an error is shown |
 | ACH-09 | Implementation Reviewer: `<output>` in `mentor-action-card` wrapped `<p>` (invalid phrasing content) | Low | EV-19 | Resolved: children are `<span class="block">` |
 | ACH-10 | Implementation Reviewer: the BFF fallback to `appearance: 'system'` when Identity is unavailable has no direct test | Low | — | Recorded: CI-08 proves the layout fallback; provider tests are forbidden by the Rules, and the existing outage suite asserts the menu, not the theme. No change |
+| ACH-12 | CI run 44957823779, job 137009739973 (Web integration tests): `tests/learning/goal-detail-page.test.ts:82` expected the restored graph transform `translate(2.97938px, …)` and received `translate(52.9794px, …)` | Low | EV-22 | Pre-existing flaky test outside the diff (same failure on `feat/shifu-124` run 44934741213; passes 3/3 locally). Not fixed in this delivery |
 | ACH-11 | Implementation Reviewer: consumer updates outside the Spec tree and the journey script location | Low | — | Resolved: paths listed in Handoff; scripts moved to `apps/web/.playwright-cli/logs/` |
 
 # Lessons Learned
@@ -106,13 +109,13 @@ development database was never used.
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-119` at 2e322dc0 plus the uncommitted diff |
+| Candidate | `feat/shifu-119` published as PR #59 |
 | Completed | All CA implemented; EV-01..EV-17 passed |
 | Unfinished | VM-03, VM-04 Blocked (no Penpot); Evaluation cannot become `ready` while they are Blocked |
-| Uncommitted work | Everything in the Spec tree; consumer updates outside it: `identity/core/use_cases/{confirm_account_use_case,sign_in_use_case}.py`, `tests/core/identity/use_cases/test_sign_in_use_case.py`, `tests/identity/core/use_cases/test_sign_in_with_pending_context_use_case.py`, `account-profile-page/tests/*`, `app-layout/tests/app-layout.test.tsx`, `account-menu/tests/account-menu.test.tsx`, `mentor-action-card/{index.tsx,tests/*}`, `skill-action-card/{use-skill-action-card.ts,tests/*}`, `apps/web/tests/shared/app-layout.test.ts`; feature artifacts. All owned by this task. Ignored local artifacts: `apps/web/.playwright-cli/{logs,screenshots}`, `apps/server/dist`, `apps/web/dist`, `node_modules` |
+| Uncommitted work | None. Delivery paths are committed; consumer updates outside the Spec tree are listed in ACH-11 and the commits. Ignored local artifacts: `apps/web/.playwright-cli/{logs,screenshots}`, `apps/server/dist`, `apps/web/dist`, `node_modules` |
 | Active processes | None. Task API (7877), web (7100) and containers `shifu-119-pg`, `shifu-119-redis` were stopped; ports confirmed free |
 | Blockers | VM-03, VM-04 (no Penpot) |
-| Next action | User decision on publication (commit/PR). VM-03/VM-04 stay Blocked unless a Penpot reference appears |
+| Next action | Follow CI on the PR head; VM-03/VM-04 stay Blocked unless a Penpot reference appears |
 
 # Delivery
 
@@ -122,9 +125,13 @@ development database was never used.
 | RP-07 | RF-01, RF-02, RF-04, RF-07 | EV-01, EV-02, EV-08, EV-16 | implemented for the appearance slice |
 | RP-10 | RF-05, RF-10 | EV-06, EV-07, EV-16, EV-17, EV-20 | implemented for the touched screens; Penpot comparison Blocked |
 
+| PR | Current head SHA | Review state |
+| --- | --- | --- |
+| https://github.com/CtrI-Alt-Del/shifu/pull/59 | the docs commit that follows d34bf5b3 | No review yet |
+
 | Field | Result |
 | --- | --- |
-| Publication | Not requested |
+| Publication | Published: https://github.com/CtrI-Alt-Del/shifu/pull/59 (base `main`). Not complete: VM-03/VM-04 Blocked |
 | Source verification | PRD Identity 83001345 v6, retrieved 2026-11-21 |
 | Documentation Alignment | No external write; no repository authority changed |
 | Revision History | Revision 2: verification boundary for CA-11 and CA-07 wording |
