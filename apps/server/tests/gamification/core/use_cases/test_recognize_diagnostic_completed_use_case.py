@@ -40,7 +40,7 @@ class TestRecognizeDiagnosticCompletedUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
-        self.repositories.profiles.find_by_account_id.return_value = (
+        self.repositories.profiles.find_by_account_id_for_update.return_value = (
             GamificationProfileFaker.fake(account_id=ACCOUNT_ID)
         )
         self.repositories.rewarded_milestones.try_add.return_value = True
@@ -88,6 +88,12 @@ class TestRecognizeDiagnosticCompletedUseCase:
             now=NOW,
         )
 
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
+
     def test_should_pass_the_fact_date_as_occurred_at_not_the_processing_time(
         self,
     ) -> None:
@@ -126,7 +132,7 @@ class TestRecognizeDiagnosticCompletedUseCase:
         self.grant_xp_use_case.apply_within_transaction.assert_not_called()
 
     def test_should_no_op_when_profile_is_missing(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self.subject.execute(
             ACCOUNT_ID, SKILL_ID, SKILL_EXPERIENCE_ID, occurred_at=NOW, now=NOW

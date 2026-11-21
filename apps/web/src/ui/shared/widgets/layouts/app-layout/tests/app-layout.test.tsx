@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
+import type { StreakReminderInviteProps } from '@/ui/gamification/widgets/components/streak-reminder-invite'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { useAiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator'
 import type { IconProps } from '@/ui/shared/widgets/components/icon'
@@ -51,6 +52,12 @@ vi.mock('@/ui/intelligence/widgets/components/mentor-fab', () => ({
     mentorFabMock(props)
     return <button type='button'>Mentor FAB</button>
   },
+}))
+
+vi.mock('@/ui/gamification/widgets/components/streak-reminder-invite', () => ({
+  StreakReminderInvite: ({ accountEmail }: StreakReminderInviteProps) => (
+    <div data-account-email={accountEmail} data-testid='streak-reminder-invite' />
+  ),
 }))
 
 vi.mock(
@@ -164,6 +171,35 @@ describe('AppLayout', () => {
       'ana@example.com',
     )
     expect(screen.getByRole('button', { name: 'Mentor FAB' })).toBeVisible()
+  })
+
+  it('mounts the streak reminder invite for the authenticated account', () => {
+    render(
+      <AppLayout
+        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        accountMenu={<button type='button'>Conta</button>}
+      >
+        <p>Protected content</p>
+      </AppLayout>,
+    )
+
+    expect(screen.getByTestId('streak-reminder-invite')).toHaveAttribute(
+      'data-account-email',
+      'ana@example.com',
+    )
+  })
+
+  it.each([
+    ['no account', undefined],
+    ['an account without an e-mail', { displayName: 'Ana', email: '' }],
+  ])('does not mount the streak reminder invite with %s', (_case, account) => {
+    render(
+      <AppLayout account={account} accountMenu={<button type='button'>Conta</button>}>
+        <p>Public content</p>
+      </AppLayout>,
+    )
+
+    expect(screen.queryByTestId('streak-reminder-invite')).not.toBeInTheDocument()
   })
 
   it('renders the open mobile navigation and delegates destination selection', () => {

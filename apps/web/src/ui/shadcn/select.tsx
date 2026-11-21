@@ -10,9 +10,12 @@ export type SelectProps = {
   onValueChange: (value: string | null) => void
   disabled?: boolean
   required?: boolean
+  readOnly?: boolean
+  portalContainer?: HTMLElement | null
   'aria-label'?: string
   'aria-labelledby'?: string
   'aria-describedby'?: string
+  'aria-busy'?: boolean
   'aria-invalid'?: boolean
 }
 
@@ -23,6 +26,8 @@ export const Select = ({
   name,
   disabled,
   required,
+  readOnly,
+  portalContainer,
   placeholder = 'Selecione uma opção',
   className = '',
   ...props
@@ -33,6 +38,7 @@ export const Select = ({
     name={name}
     disabled={disabled}
     required={required}
+    readOnly={readOnly}
     items={options}
   >
     <SelectPrimitive.Trigger
@@ -42,7 +48,7 @@ export const Select = ({
       <SelectPrimitive.Value placeholder={placeholder} />
       <SelectPrimitive.Icon aria-hidden='true'>⌄</SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={portalContainer}>
       <SelectPrimitive.Positioner
         className='z-50'
         sideOffset={4}

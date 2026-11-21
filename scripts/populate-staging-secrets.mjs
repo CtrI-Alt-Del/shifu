@@ -3,14 +3,15 @@
 // shifu-staging/server), and turn on Redis AUTH. See iac/README.md, step 4.
 //
 // Run it once, from a machine with the `shifu` AWS profile and the AWS CLI. It asks
-// for the Inngest and Resend values, generates the rest, and removes its temporary
+// for the Inngest, Resend and web push contact values, generates the rest (including
+// the web push VAPID key pair), and removes its temporary
 // files when it ends. No value is printed.
 //
 // It refuses to run when a secret already has a value, because new random values
 // would replace BETTER_AUTH_SECRET, which must stay stable once Better Auth has used
 // it. Pass --force only when you mean to replace every value.
 import { execFileSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
+import { generateKeyPairSync, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -88,6 +89,19 @@ async function askRequired(prompter, question, options) {
   return answer
 }
 
+// A VAPID key pair for browser push: the private key is the raw 32-byte scalar and
+// the public key is the uncompressed P-256 point, both as URL-safe base64.
+function generateVapidKeys() {
+  const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+  const { d, x, y } = privateKey.export({ format: 'jwk' })
+  const publicPoint = Buffer.concat([
+    Buffer.from([4]),
+    Buffer.from(x, 'base64url'),
+    Buffer.from(y, 'base64url'),
+  ])
+  return { privateKey: d, publicKey: publicPoint.toString('base64url') }
+}
+
 function encode(value) {
   return encodeURIComponent(value).replace(
     /[!'()*]/g,
@@ -145,6 +159,13 @@ async function main() {
   })
   const resendApiKey = await askRequired(prompter, 'Resend API key: ', { hidden: true })
   const resendFrom = await askRequired(prompter, 'Resend sender address: ')
+  const webPushSubject = await askRequired(
+    prompter,
+    'Web push contact (a mailto: or https: URI): ',
+  )
+  if (!/^(mailto:|https:)/.test(webPushSubject)) {
+    fail('The web push contact must start with mailto: or https:.')
+  }
   prompter.close()
 
   const generated = {
@@ -159,6 +180,8 @@ async function main() {
       .replace(/\+/g, '-')
       .replace(/\//g, '_'),
   }
+
+  const vapid = generateVapidKeys()
 
   const dbInstance = awsJson([
     'rds',
@@ -231,6 +254,9 @@ async function main() {
     SHIFU_RESEND_FROM: resendFrom,
     SHIFU_BFF_SHARED_SECRET: generated.bffSecret,
     SHIFU_COMMUNICATION_ENCRYPTION_KEYS: generated.communicationKey,
+    SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY: vapid.privateKey,
+    SHIFU_WEB_PUSH_VAPID_PUBLIC_KEY: vapid.publicKey,
+    SHIFU_WEB_PUSH_SUBJECT: webPushSubject,
     DIAGNOSTIC_REVISION_HMAC_KEY: generated.hmacKey,
   }
 

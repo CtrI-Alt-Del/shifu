@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthError } from '@/core/errors/auth-error'
 import { ROUTES } from '@/constants/routes'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
-import { AccountProfilePage } from '..'
+import { AccountProfilePage, type AccountProfilePageProps } from '..'
 import { useAccountProfilePage } from '../use-account-profile-page'
 vi.mock('../use-account-profile-page', () => ({ useAccountProfilePage: vi.fn() }))
 vi.mock('@/ui/shared/contexts/auth-context/use-auth-context', () => ({
@@ -40,10 +40,10 @@ function createResult(
     ...overrides,
   }
 }
-function renderPage() {
+function renderPage(props: Partial<AccountProfilePageProps> = {}) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <AccountProfilePage accountEmail='m@example.com' />
+      <AccountProfilePage accountEmail='m@example.com' {...props} />
     </QueryClientProvider>,
   )
 }
@@ -108,5 +108,33 @@ describe('AccountProfilePage', () => {
     expect(screen.getByLabelText('Nome de exibição')).toHaveValue('Maria')
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(refetchAccountProfileMock).toHaveBeenCalledOnce()
+  })
+  it('renders the reminders slot between the profile form and the privacy card', () => {
+    renderPage({
+      remindersCard: <section aria-label='Lembretes'>Slot de lembretes</section>,
+    })
+    const form = screen.getByLabelText('Nome de exibição')
+    const slot = screen.getByRole('region', { name: 'Lembretes' })
+    const privacy = screen.getByRole('region', { name: 'Seus dados e privacidade' })
+    expect(
+      form.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      slot.compareDocumentPosition(privacy) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+  it('renders no reminders slot when none is passed', () => {
+    renderPage()
+    expect(screen.queryByRole('region', { name: 'Lembretes' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Seus dados e privacidade' })).toBeVisible()
+  })
+  it('keeps the reminders slot out of the loading and error branches', () => {
+    useAccountProfilePageMock.mockReturnValue(
+      createResult({ isLoadingAccountProfile: true, accountProfile: null }),
+    )
+    renderPage({
+      remindersCard: <section aria-label='Lembretes'>Slot de lembretes</section>,
+    })
+    expect(screen.queryByRole('region', { name: 'Lembretes' })).not.toBeInTheDocument()
   })
 })

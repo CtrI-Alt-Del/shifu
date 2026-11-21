@@ -7,3 +7,6 @@ from .calendar_day_state import CalendarDayState as CalendarDayState
 from .milestone_kind import MilestoneKind as MilestoneKind
 from .practice_kind import PracticeKind as PracticeKind
 from .xp_source import XpSource as XpSource
+from .streak_reminder_invite_status import (
+    StreakReminderInviteStatus as StreakReminderInviteStatus,
+)

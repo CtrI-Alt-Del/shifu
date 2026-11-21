@@ -9,8 +9,11 @@ from sqlalchemy import Engine
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from shifu.communication.core.interfaces import PushNotificationProvider
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
+from shifu.communication.providers.push import PywebpushPushNotificationProvider
+from shifu.communication.rest.router import CommunicationRouter
 from shifu.composition import (
     MentorContextWithGamificationProvider,
     PasswordRecoveryWorkflow,
@@ -39,6 +42,7 @@ from shifu.gamification.messaging.inngest import GamificationInngestMessaging
 from shifu.gamification.providers.gamification_mentor_facts_provider import (
     GamificationMentorFactsProvider,
 )
+from shifu.gamification.core.domain.events import StreakReminderRequestedEvent
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.core.domain.events import AccountDeletedEvent
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
@@ -48,6 +52,9 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 )
 from shifu.identity.providers.identity_account_time_zone_provider import (
     IdentityAccountTimeZoneProvider,
+)
+from shifu.identity.providers.identity_active_account_provider import (
+    IdentityActiveAccountProvider,
 )
 from shifu.identity.providers.identity_mentor_access_provider import (
     IdentityMentorAccessProvider,
@@ -215,10 +222,26 @@ class PrivateMentorNoStoreMiddleware:
 
 class FastAPIApp:
     @staticmethod
+    def _build_push_notification_provider() -> PushNotificationProvider | None:
+        if (
+            ENVIRONMENT.web_push_vapid_private_key is None
+            or ENVIRONMENT.web_push_vapid_public_key is None
+            or ENVIRONMENT.web_push_subject is None
+        ):
+            return None
+        return PywebpushPushNotificationProvider(
+            vapid_private_key=ENVIRONMENT.web_push_vapid_private_key,
+            vapid_public_key=ENVIRONMENT.web_push_vapid_public_key,
+            subject=ENVIRONMENT.web_push_subject,
+            timeout_seconds=ENVIRONMENT.web_push_timeout_seconds,
+        )
+
+    @staticmethod
     def _register_routers(app: FastAPI) -> None:
         router = APIRouter()
         router.include_router(SharedRouter.register())
         router.include_router(IdentityRouter.register())
+        router.include_router(CommunicationRouter.register())
         router.include_router(CurriculumRouter.register())
         router.include_router(LearningRouter.register())
         router.include_router(GamificationRouter.register())
@@ -234,6 +257,7 @@ class FastAPIApp:
         mentor_goal_destinations_provider: MentorGoalDestinationsProvider | None = None,
         mentor_route_provider: MentorRouteProvider | None = None,
         mentor_telemetry_provider: MentorTelemetryProvider | None = None,
+        push_notification_provider: PushNotificationProvider | None = None,
         telemetry_provider: TelemetryProvider | None = None,
     ) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
@@ -249,6 +273,9 @@ class FastAPIApp:
         configure_telemetry_logging(
             telemetry_provider,
             log_level=ENVIRONMENT.server_log_level,
+        )
+        push_notification_provider = (
+            push_notification_provider or FastAPIApp._build_push_notification_provider()
         )
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
@@ -298,6 +325,7 @@ class FastAPIApp:
         curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
             curriculum_database
         )
+        active_account_provider = IdentityActiveAccountProvider(identity_database)
         mentor_catalog_provider = CurriculumMentorCatalogProvider(curriculum_database)
         mentor_access_provider = mentor_access_provider or IdentityMentorAccessProvider(
             identity_database
@@ -494,6 +522,11 @@ class FastAPIApp:
                     secret_envelope_provider=secret_envelope_provider,
                     message_renderer_provider=message_renderer_provider,
                     email_delivery_provider=email_delivery_provider,
+                    push_notification_provider=push_notification_provider,
+                    streak_reminder_requested_event_name=(
+                        StreakReminderRequestedEvent.EVENT_NAME
+                    ),
+                    account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                     telemetry_provider=telemetry,
                 ),
                 lambda inngest, telemetry: LearningInngestMessaging.register_jobs(
@@ -511,6 +544,7 @@ class FastAPIApp:
                     gamification_database=gamification_database,
                     curriculum_content_provider=curriculum_content_provider,
                     clock_provider=clock_provider,
+                    active_account_provider=active_account_provider,
                     telemetry_provider=telemetry,
                 ),
             ],
@@ -536,6 +570,7 @@ class FastAPIApp:
         app.state.communication_message_renderer_provider = message_renderer_provider
         app.state.communication_secret_envelope_provider = secret_envelope_provider
         app.state.email_delivery_provider = email_delivery_provider
+        app.state.push_notification_provider = push_notification_provider
         app.state.authentication_provider = authentication_provider
         app.state.identifier_provider = id_provider
         app.state.learning_database = learning_registry.database

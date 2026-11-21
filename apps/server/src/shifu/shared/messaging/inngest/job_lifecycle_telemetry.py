@@ -35,6 +35,14 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'gamification-recognize-competency-mastered': 'gamification.recognize_competency_mastered',
     'gamification-purge-profile-on-account-deleted': 'gamification.purge_profile_on_account_deleted',
     'gamification-create-profile-on-account-activated': 'gamification.create_profile_on_account_activated',
+    'gamification-fan-out-due-streak-reminders': (
+        'gamification.fan_out_due_streak_reminders'
+    ),
+    'gamification-request-streak-reminder': 'gamification.request_streak_reminder',
+    'communication-deliver-streak-reminder': 'communication.deliver_streak_reminder',
+    'communication-purge-push-data-on-account-deleted': (
+        'communication.purge_push_data_on_account_deleted'
+    ),
     'communication-cancel': 'communication.cancel_communication',
     'communication-deliver': 'communication.deliver_communication',
     'learning-evaluate-choice-activity': 'learning.evaluate_choice_activity',
