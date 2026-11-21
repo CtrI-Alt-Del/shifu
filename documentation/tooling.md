@@ -256,6 +256,12 @@ test file is not for a use case, controller, job or API handler on the server, o
 hook, widget, page, layout or API handler on the web. `--list` prints the allowed
 files with their kind. Run it after adding, moving or deleting test files.
 
+One server file is allowed as an eval harness boundary:
+`tests/intelligence/ai/test_eval_case_retry.py`. It checks the retry, wait and
+error-reporting behavior of the real-model eval runner in `apps/server/evals`,
+which has no use case, controller or job. Any other eval test needs its own
+documented entry.
+
 ## Running the applications
 
 Set each application port in its ignored app-local `.env.local` file:
