@@ -19,6 +19,8 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     FillBlanksAnswer,
     FillBlanksPlacement,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
@@ -58,6 +60,13 @@ class PlacementRequest(BaseModel):
     word_key: str = Field(min_length=1, max_length=128)
 
 
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -72,6 +81,7 @@ class AnswerRequest(BaseModel):
             'react_fastify',
             'fill_blanks',
             'translation',
+            'pair_matching',
         ]
         | None
     ) = None
@@ -79,6 +89,7 @@ class AnswerRequest(BaseModel):
     files: tuple[SubmittedFileRequest, ...] | None = None
     placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
@@ -88,6 +99,7 @@ class AnswerRequest(BaseModel):
             self.files,
             self.selected_option_keys,
             self.placements,
+            self.pairs,
         )
         return self
 
@@ -196,6 +208,17 @@ class SubmitChoiceActivityController:
                             text=answer.text or '',
                         )
                         if answer.kind == 'translation'
+                        else PairMatchingAnswer(
+                            question_key=answer.question_key,
+                            pairs=tuple(
+                                PairMatchingSelection(
+                                    word_key=item.word_key,
+                                    translation_key=item.translation_key,
+                                )
+                                for item in (answer.pairs or ())
+                            ),
+                        )
+                        if answer.kind == 'pair_matching'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

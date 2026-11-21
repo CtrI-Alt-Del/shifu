@@ -6,6 +6,7 @@ import type {
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 
+import { pairMatchingItemText } from '@/core/learning/pair-matching-item-text'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import './question-feedback.css'
@@ -22,10 +23,11 @@ export const QuestionFeedback = ({
   frozenAnswer,
   question,
 }: QuestionFeedbackProps) => {
-  const { feedbackElementRef, fillBlanksOutcome } = useQuestionFeedback({
-    feedback,
-    question,
-  })
+  const { feedbackElementRef, fillBlanksOutcome, pairMatchingOutcome } =
+    useQuestionFeedback({
+      feedback,
+      question,
+    })
   const scoreClassName =
     Number(feedback.score ?? 0) >= 80 ? 'text-success' : 'text-selo-text'
 
@@ -60,6 +62,16 @@ export const QuestionFeedback = ({
           </p>
         </>
       )}
+      {pairMatchingOutcome ? (
+        <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
+          <Icon aria-hidden='true' name={pairMatchingOutcome.iconName} size={16} />
+          <span>{pairMatchingOutcome.label}</span>
+          <span aria-hidden='true' className='text-muted-foreground'>
+            ·
+          </span>
+          <span className='text-muted-foreground'>{pairMatchingOutcome.countText}</span>
+        </p>
+      ) : null}
       {fillBlanksOutcome ? (
         <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
           <Icon aria-hidden='true' name={fillBlanksOutcome.iconName} size={16} />
@@ -136,6 +148,18 @@ export const QuestionFeedback = ({
             </div>
           ))}
         </details>
+      ) : frozenAnswer?.kind === 'pair_matching' && question.kind === 'pair_matching' ? (
+        <div>
+          <h3 className='text-sm font-semibold text-foreground'>Pares enviados</h3>
+          <ul aria-label='Pares enviados' className='mt-2 space-y-1 text-sm'>
+            {(feedback.submittedPairs ?? frozenAnswer.pairs).map((pair) => (
+              <li key={pair.wordKey}>
+                {pairMatchingItemText(question.words, pair.wordKey)} —{' '}
+                {pairMatchingItemText(question.translations, pair.translationKey)}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : frozenAnswer?.kind === 'translation' ? (
         <details>
           <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>

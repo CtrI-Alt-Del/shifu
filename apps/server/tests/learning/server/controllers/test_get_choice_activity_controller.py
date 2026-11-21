@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
+import re
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -23,6 +24,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
+    PairMatchingQuestion,
     ChoiceOption,
     CodeEvaluationCase,
     CodeQuestion,
@@ -48,6 +50,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
+    SEED_ACTIVITY_PAIR_MATCHING_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
@@ -67,6 +70,9 @@ from tests.fixtures.react_activity_fixture import (
 )
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
+)
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
 )
 from tests.learning.rest.controllers.translation_controller_fixture import (
     TranslationControllerFixture,
@@ -734,6 +740,81 @@ class TestGetChoiceActivityController:
         assert TranslationControllerFixture.REFERENCE_TRANSLATION not in str(body)
         assert 'Private comment' not in str(body)
         assert 'is_correct' not in str(body)
+
+    def test_returns_persisted_pair_matching_items_without_the_answer_key(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = PairMatchingControllerFixture.activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'pair_matching',
+        ]
+        pairs = body['questions'][2]
+        assert pairs == {
+            'key': 'q3',
+            'kind': 'pair_matching',
+            'prompt': PairMatchingControllerFixture.PROMPT,
+            'source_language': 'en',
+            'target_language': 'pt-BR',
+            'words': [
+                {'key': 'word-0', 'text': 'dog'},
+                {'key': 'word-1', 'text': 'house'},
+                {'key': 'word-2', 'text': 'water'},
+            ],
+            'translations': [
+                {'key': 'translation-1', 'text': 'casa'},
+                {'key': 'translation-2', 'text': 'agua'},
+                {'key': 'translation-0', 'text': 'cachorro'},
+            ],
+        }
+        assert 'correct_pairs' not in str(body)
+        assert PairMatchingControllerFixture.FULL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.PARTIAL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.INCORRECT_EXPLANATION not in str(body)
+
+    def test_seeded_pair_matching_item_keys_do_not_reveal_the_pairing(self) -> None:
+        seed = build_development_seed()
+        activity = next(
+            item
+            for item in seed.activities
+            if item.id == SEED_ACTIVITY_PAIR_MATCHING_ID
+        )
+        questions = [
+            question
+            for question in activity.questions
+            if isinstance(question, PairMatchingQuestion)
+        ]
+
+        assert questions
+        for question in questions:
+            expected = {
+                pair.word_key: pair.translation_key for pair in question.correct_pairs
+            }
+            words = sorted(item.key for item in question.words)
+            translations = sorted(item.key for item in question.translations)
+            # Neither the key text nor the key order may line up with the key.
+            assert [expected[word] for word in words] != translations
+            assert all(
+                re.fullmatch(r'[wt]-[0-9a-f]{8}', item.key)
+                for item in (*question.words, *question.translations)
+            )
 
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
         seed = build_development_seed()

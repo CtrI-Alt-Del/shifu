@@ -25,6 +25,8 @@ export const TranslationQuestion = (props: TranslationQuestionProps) => {
     error,
     elapsedSeconds,
     languageAvailability,
+    sourceLanguageLabel,
+    targetLanguageLabel,
     pendingTranscript,
     handleChangeText,
     handleStartDictation,
@@ -67,11 +69,11 @@ export const TranslationQuestion = (props: TranslationQuestionProps) => {
         <dl className='grid grid-cols-1 gap-3 text-sm sm:grid-cols-2'>
           <div>
             <dt className='font-medium text-muted-foreground'>Idioma de origem</dt>
-            <dd className='text-foreground'>{question.sourceLanguage}</dd>
+            <dd className='text-foreground'>{sourceLanguageLabel}</dd>
           </div>
           <div>
             <dt className='font-medium text-muted-foreground'>Idioma de destino</dt>
-            <dd className='text-foreground'>{question.targetLanguage}</dd>
+            <dd className='text-foreground'>{targetLanguageLabel}</dd>
           </div>
         </dl>
         <div className='rounded-md border border-border bg-muted p-4'>

@@ -51,6 +51,28 @@ describe('useTranslationQuestion', () => {
     vi.clearAllMocks()
   })
 
+  it.each([
+    ['en-US', 'pt-BR', 'Inglês (Estados Unidos)', 'Português (Brasil)'],
+    ['Português', 'Inglês', 'Português', 'Inglês'],
+  ])(
+    'shows the languages %s and %s as pt-BR labels, keeping authored names as they are',
+    (sourceLanguage, targetLanguage, sourceLabel, targetLabel) => {
+      useSpeechRecognitionMock.mockReturnValue(speechRecognitionPorts())
+      const { result } = renderHook(() =>
+        useTranslationQuestion({
+          onChange: vi.fn(),
+          question: { ...QUESTION, sourceLanguage, targetLanguage },
+          questionNumber: 1,
+          totalQuestions: 1,
+          value: '',
+        }),
+      )
+
+      expect(result.current.sourceLanguageLabel).toBe(sourceLabel)
+      expect(result.current.targetLanguageLabel).toBe(targetLabel)
+    },
+  )
+
   it('reports typed text directly through onChange', () => {
     const onChangeMock = vi.fn()
     useSpeechRecognitionMock.mockReturnValue(speechRecognitionPorts())

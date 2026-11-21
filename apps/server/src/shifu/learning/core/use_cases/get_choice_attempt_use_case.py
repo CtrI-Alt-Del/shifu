@@ -21,6 +21,10 @@ from shifu.learning.core.domain.structures import (
     FillBlanksEvaluationResult,
     FillBlanksExpectedBlank,
     FillBlanksResultDetail,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
+    PairMatchingResultDetail,
+    PairMatchingSelection,
     TranslationAnswer,
     TranslationResultDetail,
     TranslationRubricResult,
@@ -39,6 +43,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -49,6 +54,7 @@ type ResultDetail = (
     | CodeResultDetail
     | FillBlanksResultDetail
     | TranslationResultDetail
+    | PairMatchingResultDetail
 )
 
 
@@ -178,6 +184,16 @@ class GetChoiceAttemptUseCase:
         )
 
     @staticmethod
+    def _is_fully_correct(result: object) -> bool:
+        if isinstance(result, ChoiceEvaluationResult | FillBlanksEvaluationResult):
+            return result.is_correct
+
+        return (
+            isinstance(result, PairMatchingEvaluationResult)
+            and result.outcome == 'full'
+        )
+
+    @staticmethod
     def _released_question_keys(
         current_attempt: ActivityAttempt,
         attempts: list[ActivityAttempt],
@@ -196,8 +212,7 @@ class GetChoiceAttemptUseCase:
         released: set[str] = {
             item.question_key
             for item in current_evaluation.parts
-            if isinstance(item, ChoiceEvaluationResult | FillBlanksEvaluationResult)
-            and item.is_correct
+            if GetChoiceAttemptUseCase._is_fully_correct(item)
         }
         for later_attempt in attempts:
             if (
@@ -217,8 +232,7 @@ class GetChoiceAttemptUseCase:
             released.update(
                 item.question_key
                 for item in later_evaluation.parts
-                if isinstance(item, ChoiceEvaluationResult | FillBlanksEvaluationResult)
-                and item.is_correct
+                if GetChoiceAttemptUseCase._is_fully_correct(item)
             )
         return frozenset(released)
 
@@ -237,6 +251,9 @@ class GetChoiceAttemptUseCase:
         code_results = GetChoiceAttemptUseCase._parts_of(evaluation, CodeRubricResult)
         translation_results = GetChoiceAttemptUseCase._parts_of(
             evaluation, TranslationRubricResult
+        )
+        pair_results = GetChoiceAttemptUseCase._parts_of(
+            evaluation, PairMatchingEvaluationResult
         )
         fill_blanks_details = GetChoiceAttemptUseCase._fill_blanks_details(
             snapshot.questions, answers, evaluation, disclosed_keys
@@ -264,6 +281,10 @@ class GetChoiceAttemptUseCase:
             elif isinstance(question, CurriculumTranslationQuestionSnapshot):
                 detail = GetChoiceAttemptUseCase._translation_result_detail(
                     question, answer, translation_results.get(question.key)
+                )
+            elif isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+                detail = GetChoiceAttemptUseCase._pair_result_detail(
+                    question, answer, pair_results.get(question.key), disclosed_keys
                 )
             else:
                 detail = GetChoiceAttemptUseCase._choice_result_detail(
@@ -412,6 +433,39 @@ class GetChoiceAttemptUseCase:
             score=result.score,
             criterion_results=result.criterion_results,
             concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _pair_result_detail(
+        question: CurriculumPairMatchingQuestionSnapshot,
+        answer: object | None,
+        result: PairMatchingEvaluationResult | None,
+        disclosed_keys: frozenset[str],
+    ) -> PairMatchingResultDetail | None:
+        if not isinstance(answer, PairMatchingAnswer) or result is None:
+            return None
+
+        return PairMatchingResultDetail(
+            question_key=question.key,
+            kind='pair_matching',
+            prompt=question.prompt,
+            submitted_pairs=answer.pairs,
+            score=result.score,
+            correct_pair_count=result.correct_pair_count,
+            total_pair_count=result.total_pair_count,
+            outcome=result.outcome,
+            explanation=result.explanation,
+            disclosed_correct_pairs=(
+                tuple(
+                    PairMatchingSelection(
+                        word_key=pair.word_key,
+                        translation_key=pair.translation_key,
+                    )
+                    for pair in question.correct_pairs
+                )
+                if question.key in disclosed_keys
+                else ()
+            ),
         )
 
     @staticmethod
