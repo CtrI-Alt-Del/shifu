@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
+    OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     FillBlanksAnswer,
@@ -79,6 +80,7 @@ class AnswerRequest(BaseModel):
             'react',
             'html_css_js',
             'react_fastify',
+            'ordering',
             'fill_blanks',
             'translation',
             'pair_matching',
@@ -87,6 +89,7 @@ class AnswerRequest(BaseModel):
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    ordered_step_keys: tuple[str, ...] | None = None
     placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
     pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
@@ -98,6 +101,7 @@ class AnswerRequest(BaseModel):
             self.text,
             self.files,
             self.selected_option_keys,
+            self.ordered_step_keys,
             self.placements,
             self.pairs,
         )
@@ -108,6 +112,7 @@ class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
     submission_key: UUID
+    passage_key: UUID | None = None
     answers: tuple[AnswerRequest, ...]
     activity_revision: str | None = None
 
@@ -183,7 +188,12 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        FillBlanksAnswer(
+                        OrderingAnswerSubmission(
+                            question_key=answer.question_key,
+                            ordered_step_keys=answer.ordered_step_keys or (),
+                        )
+                        if answer.kind == 'ordering'
+                        else FillBlanksAnswer(
                             question_key=answer.question_key,
                             placements=tuple(
                                 FillBlanksPlacement(
@@ -228,6 +238,9 @@ class SubmitChoiceActivityController:
                     request.activity_revision,
                     str(diagnostic_run_id) if diagnostic_run_id is not None else None,
                     user.time_zone,
+                    str(request.passage_key)
+                    if request.passage_key is not None
+                    else None,
                 ),
                 from_attributes=True,
             )

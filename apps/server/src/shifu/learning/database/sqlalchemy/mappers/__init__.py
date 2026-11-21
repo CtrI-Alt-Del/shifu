@@ -16,4 +16,5 @@ from .goal_mapper import GoalMapper as GoalMapper
 from .mentor_action_receipt_mapper import (
     MentorActionReceiptMapper as MentorActionReceiptMapper,
 )
+from .ordering_passage_mapper import OrderingPassageMapper as OrderingPassageMapper
 from .skill_experience_mapper import SkillExperienceMapper as SkillExperienceMapper

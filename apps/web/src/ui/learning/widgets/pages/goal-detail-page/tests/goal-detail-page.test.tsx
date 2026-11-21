@@ -196,7 +196,7 @@ describe('GoalDetailPage', () => {
     expect(screen.getAllByText(detail.title)).toHaveLength(2)
   })
 
-  it('renders the controlled tab state and delegates retry from the rendered control', () => {
+  it('keeps the graph accessible without a worker and delegates retry from the rendered control', async () => {
     const handleRetry = vi.fn()
     useGoalDetailPageMock.mockReturnValue(
       makeController({ detail, state: 'success', view: 'graph' }),
@@ -210,6 +210,11 @@ describe('GoalDetailPage', () => {
       'data-state',
       'inactive',
     )
+    expect(
+      await screen.findByText(
+        'O layout do grafo foi ajustado para manter as Habilidades acessíveis.',
+      ),
+    ).toBeVisible()
 
     useGoalDetailPageMock.mockReturnValue(makeController({ state: 'error', handleRetry }))
     rerender(<GoalDetailPage goalId={goalId} />)

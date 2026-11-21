@@ -262,13 +262,11 @@ class TestAnswerPlanningQuestionsAiQuota:
     def test_should_not_create_quota_rows_when_the_answers_are_invalid(self) -> None:
         before = count_state(self.fixture.postgres.engine)
 
-        response = self.client.post(
-            self.path,
-            json={
-                'batch_id': 'batch-1',
-                'answers': [{'question_id': 'q9', 'option_ids': []}],
-            },
-        )
+        payload: dict[str, object] = {
+            'batch_id': 'batch-1',
+            'answers': [{'question_id': 'q9', 'option_ids': []}],
+        }
+        response = self.client.post(self.path, json=payload)
 
         assert response.status_code != 202
         assert count_state(self.fixture.postgres.engine) == before

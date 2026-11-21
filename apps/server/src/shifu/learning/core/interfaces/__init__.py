@@ -24,6 +24,9 @@ from .learning_database import (
 from .mentor_action_receipts_repository import (
     MentorActionReceiptsRepository as MentorActionReceiptsRepository,
 )
+from .ordering_passages_repository import (
+    OrderingPassagesRepository as OrderingPassagesRepository,
+)
 from .skill_experiences_repository import (
     SkillExperiencesRepository as SkillExperiencesRepository,
 )

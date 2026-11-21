@@ -62,6 +62,23 @@ class CodeQuestionResultResponse(BaseModel):
     concept_observations: tuple[ConceptObservationResponse, ...]
 
 
+class OrderingStepResultResponse(BaseModel):
+    key: str
+    text: str
+
+
+class OrderingQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['ordering']
+    prompt: str
+    steps: tuple[OrderingStepResultResponse, ...]
+    submitted_step_keys: tuple[str, ...]
+    score: Decimal
+    is_correct: bool
+    explanation: str
+    accepted_orders: tuple[tuple[str, ...], ...] = ()
+
+
 class FillBlanksSegmentResponse(BaseModel):
     text: str | None
     blank_key: str | None
@@ -142,6 +159,7 @@ class Response(BaseModel):
     questions: tuple[
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
+        | OrderingQuestionResultResponse
         | FillBlanksQuestionResultResponse
         | TranslationQuestionResultResponse
         | PairMatchingQuestionResultResponse,

@@ -17,6 +17,9 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeResultDetail,
     CodeRubricResult,
+    OrderingAnswer,
+    OrderingResultDetail,
+    OrderingStepDetail,
     FillBlanksAnswer,
     FillBlanksEvaluationResult,
     FillBlanksExpectedBlank,
@@ -36,12 +39,13 @@ from shifu.learning.core.use_cases.get_choice_activity_use_case import (
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
-    CurriculumChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -50,7 +54,8 @@ from shifu.shared.core.domain.structures import (
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
 type ResultDetail = (
-    ChoiceResultDetail
+    OrderingResultDetail
+    | ChoiceResultDetail
     | CodeResultDetail
     | FillBlanksResultDetail
     | TranslationResultDetail
@@ -286,6 +291,15 @@ class GetChoiceAttemptUseCase:
                 detail = GetChoiceAttemptUseCase._pair_result_detail(
                     question, answer, pair_results.get(question.key), disclosed_keys
                 )
+            elif isinstance(question, CurriculumOrderingQuestionSnapshot):
+                ordering_result = results.get(question.key)
+                detail = (
+                    GetChoiceAttemptUseCase._ordering_result_detail(
+                        question, answer, ordering_result, disclosed_keys
+                    )
+                    if ordering_result is not None
+                    else None
+                )
             else:
                 detail = GetChoiceAttemptUseCase._choice_result_detail(
                     question, answer, results.get(question.key), disclosed_keys
@@ -397,11 +411,8 @@ class GetChoiceAttemptUseCase:
 
     @staticmethod
     def _code_result_detail(
-        question: CurriculumJavascriptStdinQuestionSnapshot
-        | CurriculumReactQuestionSnapshot
-        | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot,
-        answer: object | None,
+        question: object,
+        answer: object,
         result: CodeRubricResult | None,
         parts: tuple[
             CurriculumChoicePartSnapshot
@@ -410,16 +421,23 @@ class GetChoiceAttemptUseCase:
             ...,
         ],
     ) -> CodeResultDetail | None:
-        if not isinstance(answer, CodeAnswer) or result is None:
+        if (
+            not isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                ),
+            )
+            or not isinstance(answer, CodeAnswer)
+            or result is None
+        ):
             return None
-
-        part = next(
-            (item for item in parts if item.question_key == question.key),
-            None,
-        )
+        part = next((item for item in parts if item.question_key == question.key), None)
         if not isinstance(part, CurriculumCodeRubricPartSnapshot):
             return None
-
         project = {item.path: item.content for item in question.initial_files}
         project.update({item.path: item.content for item in answer.files})
         return CodeResultDetail(
@@ -433,6 +451,34 @@ class GetChoiceAttemptUseCase:
             score=result.score,
             criterion_results=result.criterion_results,
             concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _ordering_result_detail(
+        question: object,
+        answer: object,
+        result: ChoiceEvaluationResult,
+        disclosed_keys: frozenset[str],
+    ) -> OrderingResultDetail | None:
+        if not isinstance(
+            question, CurriculumOrderingQuestionSnapshot
+        ) or not isinstance(answer, OrderingAnswer):
+            return None
+        return OrderingResultDetail(
+            question_key=question.key,
+            kind='ordering',
+            prompt=question.prompt,
+            steps=tuple(
+                OrderingStepDetail(key=step.key, text=step.text)
+                for step in question.steps
+            ),
+            submitted_step_keys=answer.ordered_step_keys,
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
+            accepted_orders=(
+                question.accepted_orders if question.key in disclosed_keys else ()
+            ),
         )
 
     @staticmethod

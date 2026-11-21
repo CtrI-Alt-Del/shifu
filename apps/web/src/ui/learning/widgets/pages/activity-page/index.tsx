@@ -13,6 +13,7 @@ import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
 import { HtmlCssJsQuestion } from './html-css-js-question'
 import { ReactFastifyQuestion } from './react-fastify-question'
+import { OrderingQuestion } from './ordering-question'
 import { PairMatchingQuestion } from './pair-matching-question'
 import { TranslationQuestion } from './translation-question'
 import { QuestionFeedback } from './question-feedback'
@@ -29,6 +30,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
     currentQuestionNumber,
     handleContinue,
     handleToggleOption,
+    handleOrderingOrderChange,
+    currentOrderingOrder,
+    isOrderingVerified,
     hasSubmissionError,
     handleRetryLoad,
     handleReturnToSkill,
@@ -230,8 +234,11 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const isHtmlCssJsQuestion = currentQuestion.kind === 'html_css_js'
   const isCodeQuestion =
     currentQuestion.kind === 'javascript_stdin' || isReactQuestion || isHtmlCssJsQuestion
+  const avoidMobileMentorOverlap =
+    currentQuestion.kind === 'ordering' && Boolean(feedback)
   const isDiagnosticChoice = activity.isDiagnostic && !isCodeQuestion
   const choiceQuestion =
+    currentQuestion.kind !== 'ordering' &&
     currentQuestion.kind !== 'javascript_stdin' &&
     currentQuestion.kind !== 'react' &&
     currentQuestion.kind !== 'html_css_js' &&
@@ -255,6 +262,28 @@ export const ActivityPage = (props: ActivityPageProps) => {
         question={currentQuestion}
         questionNumber={currentQuestionNumber}
         selectedOptionKeys={selectedOptionKeys}
+        totalQuestions={totalQuestions}
+      />
+    ) : null
+  const orderingQuestion =
+    currentQuestion.kind === 'ordering' ? (
+      <OrderingQuestion
+        activityTitle={activity.title}
+        disabled={
+          !activity.canSubmit ||
+          isSubmitting ||
+          isQuestionReadOnly ||
+          Boolean(feedback) ||
+          frozenAnswer !== null ||
+          isAssessing
+        }
+        isVerified={isOrderingVerified}
+        isCorrect={feedback?.isCorrect}
+        key={currentQuestion.key}
+        onOrderChange={handleOrderingOrderChange}
+        orderedStepKeys={currentOrderingOrder}
+        question={currentQuestion}
+        questionNumber={currentQuestionNumber}
         totalQuestions={totalQuestions}
       />
     ) : null
@@ -459,7 +488,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
             {choiceQuestion}
           </section>
         ) : (
-          choiceQuestion
+          (orderingQuestion ?? choiceQuestion)
         )}
       </motion.div>
       {isMixedActivity && !activity.isDiagnostic && feedback ? (
@@ -553,44 +582,69 @@ export const ActivityPage = (props: ActivityPageProps) => {
               activity.isDiagnostic ||
               feedback ||
               frozenAnswer ? (
-              <Button
-                className='mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
-                disabled={!canContinue}
-                onClick={handleContinue}
-                type='button'
+              <div
+                className={
+                  avoidMobileMentorOverlap
+                    ? 'mt-6 flex items-center gap-4 sm:block'
+                    : undefined
+                }
               >
-                {isAssessing
-                  ? 'Avaliando questão…'
-                  : isSubmitting
-                    ? 'Enviando respostas…'
-                    : hasSubmissionError
-                      ? 'Tentar enviar novamente'
-                      : activity.isDiagnostic
-                        ? isLastQuestion
-                          ? isLastDiagnosticActivity
-                            ? 'Enviar diagnóstico'
-                            : isNextCompetency
-                              ? 'Próxima competência'
-                              : 'Próxima questão'
-                          : 'Próxima questão'
-                        : !isMixedActivity
+                <Button
+                  className={
+                    avoidMobileMentorOverlap
+                      ? 'mt-0 min-w-0 w-full flex-1 bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
+                      : 'mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
+                  }
+                  disabled={!canContinue}
+                  onClick={handleContinue}
+                  type='button'
+                >
+                  {isAssessing
+                    ? 'Avaliando questão…'
+                    : isSubmitting
+                      ? 'Enviando respostas…'
+                      : hasSubmissionError
+                        ? 'Tentar enviar novamente'
+                        : activity.isDiagnostic
                           ? isLastQuestion
-                            ? isReactQuestion || isHtmlCssJsQuestion
-                              ? 'Enviar atividade'
-                              : 'Enviar respostas'
+                            ? isLastDiagnosticActivity
+                              ? 'Enviar diagnóstico'
+                              : isNextCompetency
+                                ? 'Próxima competência'
+                                : 'Próxima questão'
                             : 'Próxima questão'
-                          : !feedback
-                            ? frozenAnswer
-                              ? 'Tentar avaliação novamente'
-                              : 'Avaliar resposta'
-                            : feedback.status === 'inconclusive'
-                              ? 'Reavaliar resposta'
-                              : isLastQuestion
+                          : currentQuestion.kind === 'ordering'
+                            ? !feedback
+                              ? frozenAnswer
+                                ? 'Tentar avaliação novamente'
+                                : 'Verificar'
+                              : feedback.status === 'inconclusive'
+                                ? 'Reverificar'
+                                : isLastQuestion
+                                  ? 'Enviar atividade'
+                                  : 'Próxima questão'
+                            : !isMixedActivity
+                              ? isLastQuestion
                                 ? isReactQuestion || isHtmlCssJsQuestion
                                   ? 'Enviar atividade'
                                   : 'Enviar respostas'
-                                : 'Próxima questão'}
-              </Button>
+                                : 'Próxima questão'
+                              : !feedback
+                                ? frozenAnswer
+                                  ? 'Tentar avaliação novamente'
+                                  : 'Avaliar resposta'
+                                : feedback.status === 'inconclusive'
+                                  ? 'Reavaliar resposta'
+                                  : isLastQuestion
+                                    ? isReactQuestion || isHtmlCssJsQuestion
+                                      ? 'Enviar atividade'
+                                      : 'Enviar respostas'
+                                    : 'Próxima questão'}
+                </Button>
+                {avoidMobileMentorOverlap ? (
+                  <span aria-hidden='true' className='h-14 w-14 shrink-0 sm:hidden' />
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}

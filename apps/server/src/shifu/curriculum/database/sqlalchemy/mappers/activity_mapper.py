@@ -16,6 +16,7 @@ from shifu.curriculum.core.domain.structures import (
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     MultipleSelectionQuestion,
+    OrderingQuestion,
     PairMatchingQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
@@ -28,6 +29,7 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 _KIND_QUESTION_TYPES = {
+    'ordering': OrderingQuestion,
     'fill_blanks': FillBlanksQuestion,
     'javascript_stdin': JavascriptStdinQuestion,
     'react_fastify': ReactFastifyQuestion,
@@ -76,6 +78,7 @@ class ActivityMapper:
         | ReactQuestion
         | HtmlCssJsQuestion
         | ReactFastifyQuestion
+        | OrderingQuestion
         | FillBlanksQuestion
         | TranslationQuestion
         | PairMatchingQuestion
@@ -83,7 +86,7 @@ class ActivityMapper:
         question_type = _KIND_QUESTION_TYPES.get(str(data.get('kind')))
         if question_type is not None:
             return cast(
-                'FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion',
+                'OrderingQuestion | FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion',
                 Serialization.deserialize_value(data, question_type),
             )
 
@@ -140,6 +143,7 @@ class ActivityMapper:
             | ReactQuestion
             | HtmlCssJsQuestion
             | ReactFastifyQuestion
+            | OrderingQuestion
             | FillBlanksQuestion
             | TranslationQuestion
             | PairMatchingQuestion,

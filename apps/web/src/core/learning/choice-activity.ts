@@ -19,6 +19,26 @@ export type ChoiceQuestion = {
   options: readonly ChoiceOption[]
 }
 
+export type OrderingQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  initialOrderedStepKeys: readonly string[]
+  verified: null | {
+    orderedStepKeys: readonly string[]
+    score: number
+    isCorrect: boolean
+    explanation: string
+  }
+}
+
+export type OrderingAnswer = {
+  kind: 'ordering'
+  questionKey: string
+  orderedStepKeys: readonly string[]
+}
+
 export type CodeQuestion = {
   key: string
   kind: 'javascript_stdin'
@@ -150,6 +170,7 @@ export type ActivityQuestion =
   | ReactQuestion
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
+  | OrderingQuestion
   | FillBlanksQuestion
   | TranslationQuestion
   | PairMatchingQuestion
@@ -164,6 +185,7 @@ export type ChoiceActivityDetail = {
   latestAttemptId: string | null
   unresolvedAttemptId: string | null
   isDiagnostic?: boolean
+  orderingPassageKey?: string | null
 }
 
 export type ChoiceAnswer = {
@@ -211,6 +233,7 @@ export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
 export type ActivityAnswer =
   | ChoiceAnswer
   | CodeAnswer
+  | OrderingAnswer
   | FillBlanksAnswer
   | TranslationAnswer
   | PairMatchingAnswer
@@ -240,6 +263,7 @@ export type PreliminaryQuestionResult = {
 export type ChoiceSubmission = {
   submissionKey: string
   activityRevision?: string
+  passageKey?: string
   answers: readonly ActivityAnswer[]
 }
 
@@ -258,6 +282,18 @@ export type ChoiceResultQuestion = {
   isCorrect: boolean
   explanation: string
   correctOptionKeys?: readonly string[]
+}
+
+export type OrderingResultQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  submittedStepKeys: readonly string[]
+  score: number
+  isCorrect: boolean
+  explanation: string
+  acceptedOrders?: readonly (readonly string[])[]
 }
 
 export type CodeResultQuestion = {
@@ -332,6 +368,7 @@ export type PairMatchingResultQuestion = {
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
+  | OrderingResultQuestion
   | FillBlanksResultQuestion
   | TranslationResultQuestion
   | PairMatchingResultQuestion

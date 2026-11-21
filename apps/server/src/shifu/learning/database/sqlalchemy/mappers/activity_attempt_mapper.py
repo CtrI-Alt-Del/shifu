@@ -9,6 +9,7 @@ from shifu.learning.core.domain.structures import (
     FillBlanksAnswer,
     FillBlanksPlacement,
     MultipleSelectionAnswer,
+    OrderingAnswer,
     SingleChoiceAnswer,
     PairMatchingAnswer,
     PairMatchingSelection,
@@ -25,6 +26,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -36,7 +38,7 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 class ActivityAttemptMapper:
     @staticmethod
     def to_domain(model: ActivityAttemptModel) -> ActivityAttempt:
-        grading_snapshot = ActivityAttemptMapper._deserialize_snapshot(
+        grading_snapshot = ActivityAttemptMapper.snapshot_to_domain(
             model.grading_snapshot
         )
         return ActivityAttempt(
@@ -57,7 +59,7 @@ class ActivityAttemptMapper:
         )
 
     @staticmethod
-    def _deserialize_snapshot(
+    def snapshot_to_domain(
         value: object | None,
     ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if value is None:
@@ -86,6 +88,7 @@ class ActivityAttemptMapper:
                     'react',
                     'html_css_js',
                     'react_fastify',
+                    'ordering',
                     'fill_blanks',
                     'translation',
                     'pair_matching',
@@ -104,6 +107,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'html_css_js'
                     else CurriculumReactFastifyQuestionSnapshot
                     if question.get('kind') == 'react_fastify'
+                    else CurriculumOrderingQuestionSnapshot
+                    if question.get('kind') == 'ordering'
                     else CurriculumFillBlanksQuestionSnapshot
                     if question.get('kind') == 'fill_blanks'
                     else CurriculumTranslationQuestionSnapshot
@@ -138,7 +143,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -180,6 +185,7 @@ class ActivityAttemptMapper:
         for item in serialized:
             question_key = cast('str', item['question_key'])
             question = questions.get(question_key)
+            kind = question.kind if question is not None else None
             if item.get('kind') == 'fill_blanks':
                 answers.append(ActivityAttemptMapper._fill_blanks_answer(item))
                 continue
@@ -200,14 +206,14 @@ class ActivityAttemptMapper:
                 )
                 continue
 
-            if question is not None and question.kind == 'single_choice':
+            if kind == 'single_choice':
                 answers.append(
                     SingleChoiceAnswer(
                         question_key=question_key,
                         selected_option_key=cast('str', item['selected_option_key']),
                     )
                 )
-            elif question is not None and question.kind == 'multiple_selection':
+            elif kind == 'multiple_selection':
                 answers.append(
                     MultipleSelectionAnswer(
                         question_key=question_key,
@@ -216,45 +222,50 @@ class ActivityAttemptMapper:
                         ),
                     )
                 )
-            elif 'source_code' in item:
+            elif kind == 'ordering':
                 answers.append(
-                    CodeAnswer(
+                    OrderingAnswer(
                         question_key=question_key,
-                        source_code=cast('str', item['source_code']),
-                        kind=cast('str | None', item.get('kind')),
-                    )
-                )
-            elif 'selected_option_key' in item:
-                answers.append(
-                    SingleChoiceAnswer(
-                        question_key=question_key,
-                        selected_option_key=cast('str', item['selected_option_key']),
-                    )
-                )
-            elif 'pairs' in item:
-                serialized_pairs = cast('list[dict[str, str]]', item['pairs'])
-                answers.append(
-                    PairMatchingAnswer(
-                        question_key=question_key,
-                        pairs=tuple(
-                            PairMatchingSelection(
-                                word_key=pair['word_key'],
-                                translation_key=pair['translation_key'],
-                            )
-                            for pair in serialized_pairs
+                        ordered_step_keys=tuple(
+                            cast('list[str]', item['ordered_step_keys'])
                         ),
                     )
                 )
-            elif 'text' in item:
-                answers.append(
-                    TranslationAnswer(
-                        question_key=question_key,
-                        text=cast('str', item['text']),
-                    )
-                )
             else:
-                raise TypeError('Stored activity answer does not match its snapshot.')
+                answers.append(ActivityAttemptMapper._legacy_answer(item, question_key))
         return tuple(answers)
+
+    @staticmethod
+    def _legacy_answer(item: dict[str, object], question_key: str) -> ActivityAnswer:
+        if 'source_code' in item:
+            return CodeAnswer(
+                question_key=question_key,
+                source_code=cast('str', item['source_code']),
+                kind=cast('str | None', item.get('kind')),
+            )
+        if 'selected_option_key' in item:
+            return SingleChoiceAnswer(
+                question_key=question_key,
+                selected_option_key=cast('str', item['selected_option_key']),
+            )
+        if 'pairs' in item:
+            serialized_pairs = cast('list[dict[str, str]]', item['pairs'])
+            return PairMatchingAnswer(
+                question_key=question_key,
+                pairs=tuple(
+                    PairMatchingSelection(
+                        word_key=pair['word_key'],
+                        translation_key=pair['translation_key'],
+                    )
+                    for pair in serialized_pairs
+                ),
+            )
+        if 'text' in item:
+            return TranslationAnswer(
+                question_key=question_key,
+                text=cast('str', item['text']),
+            )
+        raise TypeError('Stored activity answer does not match its snapshot.')
 
     @staticmethod
     def _fill_blanks_answer(item: dict[str, object]) -> FillBlanksAnswer:

@@ -40,6 +40,23 @@ const config = defineConfig(({ mode }) => {
 
   return {
     resolve: { tsconfigPaths: true },
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: 'vendor',
+                test: /node_modules[\\/]/,
+                minSize: 20_000,
+                maxSize: 400_000,
+                entriesAware: true,
+              },
+            ],
+          },
+        },
+      },
+    },
     server: {
       port: Number(env.SHIFU_WEB_APP_PORT) || 7000,
       headers: webContainerIsolationHeaders,
@@ -50,7 +67,7 @@ const config = defineConfig(({ mode }) => {
       webContainerIsolationPlugin,
       ...(process.env.CI ? [] : [devtools()]),
       tailwindcss(),
-      tanstackStart(),
+      tanstackStart({ router: { routeFileIgnorePattern: '\\.test\\.' } }),
       viteReact(),
     ],
   }

@@ -51,7 +51,7 @@ function makeHookValue(
     actions: [],
     picker: null,
     swap: null,
-    resultRef: createRef<HTMLDivElement>(),
+    resultRef: createRef<HTMLOutputElement>(),
     titleRef: createRef<HTMLHeadingElement>(),
     handleSelectGoal: handleSelectGoalMock,
     ...overrides,

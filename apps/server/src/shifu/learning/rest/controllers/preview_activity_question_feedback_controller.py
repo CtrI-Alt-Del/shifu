@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
+    OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     FillBlanksAnswer,
@@ -28,6 +29,7 @@ from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
     TranslationRubricAssessorProvider,
 )
 from shifu.shared.pipes import AuthenticationPipe
@@ -63,6 +65,7 @@ class AnswerRequest(BaseModel):
         'react',
         'html_css_js',
         'react_fastify',
+        'ordering',
         'fill_blanks',
         'translation',
         'pair_matching',
@@ -70,6 +73,7 @@ class AnswerRequest(BaseModel):
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    ordered_step_keys: tuple[str, ...] | None = None
     placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
     pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
@@ -81,6 +85,7 @@ class AnswerRequest(BaseModel):
             self.text,
             self.files,
             self.selected_option_keys,
+            self.ordered_step_keys,
             self.placements,
             self.pairs,
         )
@@ -90,6 +95,7 @@ class AnswerRequest(BaseModel):
 class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     activity_revision: str = Field(min_length=1, max_length=128)
+    passage_key: str | None = Field(default=None, min_length=1, max_length=36)
     answer: AnswerRequest
 
 
@@ -166,6 +172,9 @@ class PreviewActivityQuestionFeedbackController:
                 CodeRubricAssessorProvider,
                 Depends(LearningPipe.get_code_rubric_assessor_provider),
             ],
+            identifiers: Annotated[
+                IdentifierProvider, Depends(LearningPipe.get_identifier_provider)
+            ],
             translation_assessor: Annotated[
                 TranslationRubricAssessorProvider,
                 Depends(LearningPipe.get_translation_rubric_assessor_provider),
@@ -175,8 +184,13 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind == 'fill_blanks':
-                answer: PreviewAnswer = FillBlanksAnswer(
+            if payload.kind == 'ordering':
+                answer: PreviewAnswer = OrderingAnswerSubmission(
+                    question_key=payload.question_key,
+                    ordered_step_keys=payload.ordered_step_keys or (),
+                )
+            elif payload.kind == 'fill_blanks':
+                answer = FillBlanksAnswer(
                     question_key=payload.question_key,
                     placements=tuple(
                         FillBlanksPlacement(
@@ -221,7 +235,12 @@ class PreviewActivityQuestionFeedbackController:
                     selected_option_keys=payload.selected_option_keys or (),
                 )
             result: PreliminaryQuestionResult = PreviewActivityQuestionFeedbackUseCase(
-                database, provider, assessor, translation_assessor, max_assessment_bytes
+                database,
+                provider,
+                assessor,
+                max_code_assessment_input_bytes=max_assessment_bytes,
+                identifier_provider=identifiers,
+                translation_rubric_assessor_provider=translation_assessor,
             ).execute(
                 user.account_id,
                 goal_id,
@@ -231,5 +250,6 @@ class PreviewActivityQuestionFeedbackController:
                 question_key,
                 request.activity_revision,
                 answer,
+                request.passage_key,
             )
             return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)
