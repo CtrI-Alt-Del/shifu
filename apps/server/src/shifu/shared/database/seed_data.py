@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -389,6 +390,12 @@ def _translation_seed_activity() -> Activity:
     )
 
 
+def _opaque_pair_key(question_key: str, role: str, text: str) -> str:
+    """Item keys are derived from the text, so they never reveal the pairing."""
+    digest = sha256(f'{question_key}:{role}:{text}'.encode()).hexdigest()
+    return f'{role}-{digest[:8]}'
+
+
 def _pair_matching_seed_question(
     key: str,
     prompt: str,
@@ -397,12 +404,12 @@ def _pair_matching_seed_question(
     explanations: tuple[str, str, str],
 ) -> PairMatchingQuestion:
     words = tuple(
-        PairMatchingItem(key=f'{key}-word-{index}', text=word)
-        for index, (word, _) in enumerate(pairs)
+        PairMatchingItem(key=_opaque_pair_key(key, 'w', word), text=word)
+        for word, _ in pairs
     )
     translations = tuple(
-        PairMatchingItem(key=f'{key}-translation-{index}', text=translation)
-        for index, (_, translation) in enumerate(pairs)
+        PairMatchingItem(key=_opaque_pair_key(key, 't', translation), text=translation)
+        for _, translation in pairs
     )
     return PairMatchingQuestion(
         key=key,

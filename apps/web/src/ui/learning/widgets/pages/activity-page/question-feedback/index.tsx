@@ -143,12 +143,12 @@ export const QuestionFeedback = ({
           <ul aria-label='Pares enviados' className='mt-2 space-y-1 text-sm'>
             {(feedback.submittedPairs ?? frozenAnswer.pairs).map((pair) => (
               <li key={pair.wordKey}>
-                {question.words.find((word) => word.key === pair.wordKey)?.text} —{' '}
-                {
-                  question.translations.find(
-                    (translation) => translation.key === pair.translationKey,
-                  )?.text
-                }
+                {question.words.find((word) => word.key === pair.wordKey)?.text ??
+                  pair.wordKey}{' '}
+                —{' '}
+                {question.translations.find(
+                  (translation) => translation.key === pair.translationKey,
+                )?.text ?? pair.translationKey}
               </li>
             ))}
           </ul>

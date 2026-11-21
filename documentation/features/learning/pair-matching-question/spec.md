@@ -1,7 +1,7 @@
 ---
 title: Learning Activity word-translation pair matching questions
 status: ready
-revision: 2
+revision: 3
 source:
   type: issue
   ref: "https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-124"
@@ -408,6 +408,13 @@ type PairMatchingAnswer = {
 `totalPairCount` and `outcome`. `PairMatchingResultDetail` mirrors the server
 detail with optional `disclosedCorrectPairs`.
 
+### Content and request guarantees added after review
+
+- **Opaque item keys.** Item keys travel to the browser, so Curriculum authors must use opaque keys that carry no index or order of the pairing. The seed derives them from a hash of the item text. The Curriculum and Shared snapshots reject an answer key whose pairing matches the display order, but they cannot validate free-text keys, so this stays an authoring rule. A seed test fails if the seeded keys sort into the pairing.
+- **Snapshot validation.** `CurriculumPairMatchingQuestionSnapshot` enforces the same invariants as the Curriculum question: 2 to 8 pairs, unique keys and texts per set, an answer key that covers every item once, and no identity-aligned display order.
+- **Answer order.** Submission stores the pairs sorted by word key, so a replay with the same pairs in another order returns the same attempt.
+- **Known limitation.** Preview returns the correct-pair count, as RP-18 requires, so a client that repeats preview with different answers can infer the key. Product rules keep the count visible, and the Spec adds no rate limit. The protection that matters is that the key itself never leaves the server before release.
+
 ### New concepts
 
 **`PairMatchingQuestion`** (Curriculum) is a matching exercise. Example: words
@@ -765,3 +772,4 @@ shows a gap. Failures are fixed and only the affected selections rerun.
 | --- | --- | --- | --- |
 | 1 | 2026-11-19 | Initial contract | SHIFU-124 reconciled against Learning PRD v33 and Curriculum PRD v19. Decisions: Q1 = B accepted visual assumption with Blocked visual checks, Q2 = A browser-only verified state, Q3 = A no per-pair marks, Q4 = A three-outcome Concept criteria, Q5 = A curricular display order with identity rejection |
 | 2 | 2026-11-19 | Clarified two guarantees found while implementing: an absent Concept score gives an inconclusive observation, as the choice format does, not no observation; invalid pair content returns 400 `validation_error` and only an invalid request shape returns 422. The preview response omits the pair fields for non-pair questions | Implementation of SHIFU-124 against the existing choice-format semantics and the shared error boundary; no product behavior changed |
+| 3 | 2026-11-20 | Recorded the review-driven guarantees: opaque item keys, full snapshot validation, pairs stored sorted by word key, and the preview count as a known limitation | Independent implementation review of the SHIFU-124 candidate; no product behavior changed |

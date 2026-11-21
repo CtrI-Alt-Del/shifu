@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -37,6 +39,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
     questionNumber,
     totalQuestions,
   } = props
+  const wordButtonRefs = useRef(new Map<string, HTMLButtonElement>())
   const questionLabelId = `pair-matching-question-${question.key}`
   const orderedPairs = [...pairs].sort(
     (first, second) => pairNumber(first.wordKey) - pairNumber(second.wordKey),
@@ -91,9 +94,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                     aria-label={
                       isPaired
                         ? `${word.text}, par ${pairNumber(word.key)} com ${translationText(translationKey)}`
-                        : isSelected
-                          ? `${word.text}, selecionada`
-                          : word.text
+                        : word.text
                     }
                     aria-pressed={isSelected}
                     className='pair-matching-item'
@@ -101,16 +102,20 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                     data-selected={isSelected}
                     disabled={disabled}
                     onClick={() => handleSelectWord(word.key)}
+                    ref={(element) => {
+                      if (element) wordButtonRefs.current.set(word.key, element)
+                      else wordButtonRefs.current.delete(word.key)
+                    }}
                     type='button'
                   >
                     <span>{word.text}</span>
                     {isPaired ? (
-                      <span className='pair-matching-badge'>
+                      <span aria-hidden='true' className='pair-matching-badge'>
                         <Icon className='size-4' name='check' />
                         Par {pairNumber(word.key)}
                       </span>
                     ) : isSelected ? (
-                      <span className='pair-matching-badge'>
+                      <span aria-hidden='true' className='pair-matching-badge'>
                         <Icon className='size-4' name='circle-dashed' />
                         Selecionada
                       </span>
@@ -143,7 +148,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                   >
                     <span>{translation.text}</span>
                     {isPaired ? (
-                      <span className='pair-matching-badge'>
+                      <span aria-hidden='true' className='pair-matching-badge'>
                         <Icon className='size-4' name='check' />
                         Par {pairNumber(wordKey)}
                       </span>
@@ -182,7 +187,11 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                 ) : (
                   <Button
                     aria-label={`Remover par ${pairNumber(pair.wordKey)}: ${wordText(pair.wordKey)} e ${translationText(pair.translationKey)}`}
-                    onClick={() => handleRemovePair(pair.wordKey)}
+                    onClick={() => {
+                      handleRemovePair(pair.wordKey)
+                      // The button unmounts with its pair; keep keyboard focus nearby.
+                      wordButtonRefs.current.get(pair.wordKey)?.focus()
+                    }}
                     type='button'
                     variant='ghost'
                   >

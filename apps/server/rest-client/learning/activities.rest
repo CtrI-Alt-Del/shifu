@@ -73,7 +73,8 @@ Content-Type: application/json
 }
 
 # A `pair_matching` question in the GET response lists `words` and
-# `translations` in display order. It never carries the answer key.
+# `translations` in display order. It never carries the answer key, and its item
+# keys are opaque: copy them from the GET response.
 
 ### POST preliminary feedback — pair matching question, no attempt
 # Every word and every translation appears exactly once. The response returns the
@@ -90,9 +91,9 @@ Content-Type: application/json
     "kind": "pair_matching",
     "question_key": "{{pairQuestionKey}}",
     "pairs": [
-      { "word_key": "word-0", "translation_key": "translation-0" },
-      { "word_key": "word-1", "translation_key": "translation-1" },
-      { "word_key": "word-2", "translation_key": "translation-2" }
+      { "word_key": "w-3f9a21c4", "translation_key": "t-e2480b6d" },
+      { "word_key": "w-b07d5e18", "translation_key": "t-91c7d3fa" },
+      { "word_key": "w-5c1e9a73", "translation_key": "t-0a6b4e25" }
     ]
   }
 }
@@ -109,9 +110,9 @@ Content-Type: application/json
     { "kind": "single_choice", "question_key": "question-one", "selected_option_keys": ["a"] },
     { "kind": "single_choice", "question_key": "question-two", "selected_option_keys": ["a"] },
     { "kind": "pair_matching", "question_key": "{{pairQuestionKey}}", "pairs": [
-      { "word_key": "word-0", "translation_key": "translation-1" },
-      { "word_key": "word-1", "translation_key": "translation-0" },
-      { "word_key": "word-2", "translation_key": "translation-2" }
+      { "word_key": "w-3f9a21c4", "translation_key": "t-91c7d3fa" },
+      { "word_key": "w-b07d5e18", "translation_key": "t-e2480b6d" },
+      { "word_key": "w-5c1e9a73", "translation_key": "t-0a6b4e25" }
     ] }
   ]
 }

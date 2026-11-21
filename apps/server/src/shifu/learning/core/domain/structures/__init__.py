@@ -146,7 +146,7 @@ from .pair_matching_answer import PairMatchingAnswer as PairMatchingAnswer
 from .pair_matching_evaluation_result import (
     PairMatchingEvaluationResult as PairMatchingEvaluationResult,
 )
-from .pair_matching_question_detail import (
+from .pair_matching_item_detail import (
     PairMatchingItemDetail as PairMatchingItemDetail,
 )
 from .pair_matching_question_detail import (

@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
+import re
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -23,6 +24,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
+    PairMatchingQuestion,
     ChoiceOption,
     CodeEvaluationCase,
     CodeQuestion,
@@ -48,6 +50,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
+    SEED_ACTIVITY_PAIR_MATCHING_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
@@ -784,6 +787,33 @@ class TestGetChoiceActivityController:
         assert PairMatchingControllerFixture.FULL_EXPLANATION not in str(body)
         assert PairMatchingControllerFixture.PARTIAL_EXPLANATION not in str(body)
         assert PairMatchingControllerFixture.INCORRECT_EXPLANATION not in str(body)
+
+    def test_seeded_pair_matching_item_keys_do_not_reveal_the_pairing(self) -> None:
+        seed = build_development_seed()
+        activity = next(
+            item
+            for item in seed.activities
+            if item.id == SEED_ACTIVITY_PAIR_MATCHING_ID
+        )
+        questions = [
+            question
+            for question in activity.questions
+            if isinstance(question, PairMatchingQuestion)
+        ]
+
+        assert questions
+        for question in questions:
+            expected = {
+                pair.word_key: pair.translation_key for pair in question.correct_pairs
+            }
+            words = sorted(item.key for item in question.words)
+            translations = sorted(item.key for item in question.translations)
+            # Neither the key text nor the key order may line up with the key.
+            assert [expected[word] for word in words] != translations
+            assert all(
+                re.fullmatch(r'[wt]-[0-9a-f]{8}', item.key)
+                for item in (*question.words, *question.translations)
+            )
 
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
         seed = build_development_seed()

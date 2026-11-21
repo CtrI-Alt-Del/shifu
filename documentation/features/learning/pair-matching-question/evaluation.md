@@ -11,12 +11,12 @@ last_updated_at: 2026-11-20
 | --- | --- |
 | Implementation | Complete for server and web code. Open: seed applied nowhere, no browser journey run |
 | Automated checks | 10/10 passed; CI-10 has two Blocked gates (metrics tooling, Node version) |
-| Type / lint / complexity | Server types 0 errors, Ruff 0 errors including C90 complexity, format clean (EV-10). Web types 0 errors, Biome clean on the feature paths (EV-11). Quantitative complexity metrics: Blocked, no tool configured. Web architecture gate (`depcruise`): Blocked, Node 25.2.1 unsupported |
-| Manual checks | 0/1. VM-01 not run: the API and web were not running and the journey needs the new seed Activity in a database; applying the seed to the shared database is not authorized |
+| Type / lint / complexity | Server types 0 errors, Ruff 0 errors including C90 complexity, format clean (EV-10). Web types 0 errors, Biome clean on the feature paths (EV-11). Quantitative complexity metrics: Blocked, no tool configured. Web architecture gate (`depcruise`): Passed on Node 24.20.0 (EV-13) |
+| Manual checks | 0/1. VM-01 Blocked: the journey needs a signed-in session (JWT from the web's Better Auth) whose account owns the seeded Learning data. There is no saved login state, and the seed belongs to a fixed seed account in the shared development database, which this task may not seed or reset. An isolated auth and application database with that identity was not built |
 | Visual checks | 0/2. Blocked: the Penpot boards do not exist and the Penpot MCP was not connected (Q1 = B) |
-| Independent review | Pending. The Implementation Reviewer was not launched in this session. The independent Spec review was waived by the user's order to implement |
-| Blockers | VM-01: shared database seeding not authorized. VM-02, VM-03: Penpot boards missing. Web architecture gate: unsupported Node version |
-| Candidate | Branch `feat/shifu-124` from `feat/shifu-122` at `def50ee1`; all work uncommitted |
+| Independent review | Current. One Implementation Reviewer pass found 1 blocking, 4 medium and 4 low findings (ACH-07 to ACH-15); all but ACH-13 were corrected and rechecked. The independent Spec review was waived by the user's order to implement |
+| Blockers | VM-01: no authenticated identity for an isolated database. VM-02, VM-03: Penpot boards missing |
+| Candidate | Branch `feat/shifu-124` from `def50ee1`; three commits plus the review corrections, merged with `origin/main` before the PR |
 
 # Progress
 
@@ -57,8 +57,8 @@ Candidate for all rows: `feat/shifu-124` working tree, 2026-11-19. Server comman
 | EV-10 | CI-10 / Server types, lint, format, architecture / all | Passed | Working tree | `uv run poe check:types`; `uv run ruff check --no-fix src tests`; `uv run ruff format --check src tests`; `uv run poe check:architecture` | 0 errors and 0 warnings; Ruff passes including C90 after extracting helpers; 1602 files formatted; tach validated. Regression on the final candidate: `uv run pytest tests/curriculum tests/learning tests/shared` gave 921 passed. The 39 warnings are third-party deprecations that existed before this change |
 | EV-11 | CI-10 / Web types and lint | Passed | Working tree | `pnpm check:types`; `pnpm exec biome check src/core/learning src/rest/services src/ui/learning` | 0 type errors; Biome clean on the feature paths. The repository-wide `pnpm check:lint` reports 11 existing warnings only in Intelligence files that this change does not touch |
 | EV-12 | CI-10 / Complexity metrics | Blocked | n/a | n/a | No quantitative complexity tool is configured. Configured complexity lint passed (EV-10, EV-11) and does not replace it |
-| EV-13 | CI-10 / Web architecture | Blocked | Node 25.2.1 | `pnpm check:architecture` | `depcruise` rejects Node 25. Needs Node 22, 24 or 26+ |
-| EV-14 | VM-01 / Manual / CA-03 to CA-07, CA-15 | Pending | n/a | n/a | Not run. See Current State |
+| EV-13 | CI-10 / Web architecture | Passed | Node 24.20.0 | `PATH=~/.nvm/versions/node/v24.20.0/bin:$PATH pnpm check:architecture` from `apps/web` | No dependency violations (725 modules, 2878 dependencies). Node 25.2.1 is rejected by `depcruise`, so the default Node cannot run this gate |
+| EV-14 | VM-01 / Manual / CA-03 to CA-07, CA-15 | Blocked | n/a | n/a | Not run. See Current State. The same behaviors are proven at the real-app, real-PostgreSQL and jsdom boundaries by EV-02, EV-03, EV-05, EV-08 and EV-09, which do not replace the required real-browser journey |
 | EV-15 | VM-02 / Visual / CA-03, CA-04, CA-06, CA-15, CA-16 | Blocked | n/a | n/a | The Penpot boards do not exist and the MCP was not connected |
 | EV-16 | VM-03 / Visual / CA-13, CA-16 | Blocked | n/a | n/a | Same as EV-15 |
 
@@ -72,13 +72,24 @@ Earlier failed attempts, kept: an unfixed first run of the preview controller te
 | ACH-02 | The preview response would have carried an empty `submitted_pairs` for choice questions, breaking an exact-shape test | Medium | CI-03 / EV-03 | Resolved: the pair fields are optional and absent for other kinds |
 | ACH-03 | Spec said an absent Concept score gives no observation, but the choice format records an inconclusive observation | Low | CA-12 / EV-06 | Resolved: Spec revision 2 aligns to choice semantics and tests assert it |
 | ACH-04 | The seed Activity exists in source only. It was not applied or exercised | Low | VM-01 | Open |
-| ACH-05 | No independent code review was run | Medium | all | Open |
+| ACH-05 | No independent code review was run | Medium | all | Resolved on 2026-11-20: reviewed, see ACH-07 to ACH-15 |
 | ACH-06 | The workflow-file and review-attempt pair cases were missing | Low | CI-06 | Resolved on 2026-11-20 (EV-06) |
+| ACH-07 | Seed Activity item keys followed the pairing index, so the answer key leaked through GET, preview and result responses (blocking, CA-03, CA-16) | High | CI-02 | Resolved: seed keys are hashes of the item text; a seed test asserts the keys do not sort into the pairing; Spec revision 3 states the authoring rule |
+| ACH-08 | The widget test ran the real hook, against the widget-testing rule | Medium | CI-08 | Resolved: the component test now mocks the hook; hook behavior stays in its own test |
+| ACH-09 | No page-level test of the pair route branch, and none for the feedback component | Medium | CA-04 to CA-07, CA-15 | Resolved: three page tests and a feedback test file added |
+| ACH-10 | The Shared snapshot checked less than the Curriculum rules and had no test | Medium | CA-02 | Resolved: the snapshot enforces the full invariants; seven invalid-snapshot cases are tested |
+| ACH-11 | Removing a pair dropped keyboard focus | Medium | CA-15 | Resolved: focus moves to the word button; a component test asserts it |
+| ACH-12 | Two structures shared one file | Low | Rules | Resolved: `PairMatchingItemDetail` has its own file |
+| ACH-13 | The preview count is an oracle for the key | Low | CA-06 | Accepted: RP-18 requires the count; recorded as a known limitation in the Spec |
+| ACH-14 | A replay with the same pairs in another order returned 409 | Low | CA-09 | Resolved: submission sorts pairs by word key; a test covers the reordered replay |
+| ACH-15 | Duplicate state announcement and an `undefined` text fallback | Low | CA-15 | Resolved: badges are decorative for assistive technology and lookups fall back to the key |
+| ACH-16 | No test mixed a pair question with a code question | Medium | CA-11 | Resolved: a use-case test scores pair plus code with code decisions only |
 
 # Lessons Learned
 
 | Lesson | Supporting finding / evidence | Documentation action or disposition |
 | --- | --- | --- |
+| Item keys that follow the order of the pairing leak the answer key even when the key field is private; derive opaque keys | ACH-07 | Spec revision 3 records the authoring rule; a seed test enforces it |
 | Test files in this repository end with module-level helper functions. Appending methods at the end of a file can attach them to the wrong scope, so insert before the first module-level function | The first preview controller pair tests were not collected | No change warranted |
 | A response model that excludes only `None` values makes new default-empty fields visible to unrelated question kinds | ACH-02 | No change warranted |
 
@@ -88,11 +99,11 @@ Earlier failed attempts, kept: an unfixed first run of the preview controller te
 | --- | --- |
 | Candidate | `feat/shifu-124` from `feat/shifu-122` at `def50ee1`, nothing committed |
 | Completed | All server and web code; CA-01, CA-02, CA-06, CA-08, CA-09, CA-10, CA-12 verified; the other criteria verified at the automated boundary |
-| Unfinished | VM-01 manual journey, VM-02 and VM-03 visual checks, independent Implementation Reviewer, web architecture gate on a supported Node |
+| Unfinished | VM-01 manual journey, VM-02 and VM-03 visual checks, independent Implementation Reviewer |
 | Uncommitted work | All feature files under `apps/server`, `apps/web` and this directory. The Spec is at revision 2 |
 | Active processes | None. All background test runs ended |
-| Blockers | Shared database seeding is not authorized; Penpot boards missing; Node version for `depcruise` |
-| Next action | Run VM-01 against an isolated database seeded with `SEED_ACTIVITY_PAIR_MATCHING_ID`, launch the Implementation Reviewer, then rerun `pnpm check:architecture` on a supported Node |
+| Blockers | No authenticated identity for an isolated database; Penpot boards missing |
+| Next action | Run VM-01 against an isolated database seeded with `SEED_ACTIVITY_PAIR_MATCHING_ID`, launch the Implementation Reviewer, then refresh this record |
 
 # Delivery
 

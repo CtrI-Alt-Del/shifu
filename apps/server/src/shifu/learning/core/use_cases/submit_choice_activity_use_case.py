@@ -369,7 +369,10 @@ class SubmitChoiceActivityUseCase:
                 PairMatchingScoring.validate(question, answer)
                 normalized.append(
                     PairMatchingAnswer(
-                        question_key=answer.question_key, pairs=answer.pairs
+                        question_key=answer.question_key,
+                        pairs=tuple(
+                            sorted(answer.pairs, key=lambda pair: pair.word_key)
+                        ),
                     )
                 )
                 continue

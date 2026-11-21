@@ -2215,3 +2215,74 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.competency_progresses.update.assert_not_called()
         self.repositories.concept_observations.add_many.assert_not_called()
         assert self.progress.current_progress == Decimal(0)
+
+    def test_should_score_a_pair_question_mixed_with_a_code_question(self) -> None:
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                pair_matching_question('q2'),
+                base.questions[2],
+            ),
+            parts=(
+                base.parts[0],
+                CurriculumChoicePartSnapshot(
+                    question_key='q2', weight_percentage=Decimal(30)
+                ),
+                base.parts[2],
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='pair-code-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                PairMatchingAnswer(
+                    question_key='q2',
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=f'word-{index}',
+                            translation_key=f'translation-{index}',
+                        )
+                        for index in range(3)
+                    ),
+                ),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='submitted'),),
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='pair-code-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        decisions = CodeRubricDecisions(
+            criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+            concept_levels=(),
+        )
+
+        self.subject.execute(
+            self.attempt.id,
+            'run-1',
+            code_decisions=(
+                CodeQuestionAssessmentDecisions(question_key='q3', decisions=decisions),
+            ),
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        pair_result = self.evaluation.parts[1]
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.outcome == 'full'
+        # 30% choice + 30% pairs + 40% of the code rubric's 75.
+        assert self.evaluation.score == Decimal(90)

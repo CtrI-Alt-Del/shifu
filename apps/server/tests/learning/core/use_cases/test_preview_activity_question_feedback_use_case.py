@@ -1,6 +1,7 @@
 from dataclasses import fields, replace
 from decimal import Decimal
 from itertools import permutations
+from typing import Any
 from unittest.mock import create_autospec
 
 import httpx
@@ -60,6 +61,10 @@ from shifu.shared.core.domain.structures import (
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.shared.core.domain.structures import (
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
+)
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
@@ -1276,3 +1281,74 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             self._execute_pair(self._pair_answer(0, 1, 2), revision='old-revision')
 
         self.repositories.activity_attempts.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'case',
+        (
+            'too-few-pairs',
+            'too-many-pairs',
+            'repeated-word-key',
+            'repeated-translation-text',
+            'key-skips-a-word',
+            'key-uses-unknown-translation',
+            'key-order-aligned-with-display',
+        ),
+    )
+    def test_should_reject_an_invalid_pair_matching_snapshot(self, case: str) -> None:
+        question = pair_matching_question('qp', size=3)
+        words, translations, pairs = (
+            question.words,
+            question.translations,
+            question.correct_pairs,
+        )
+        changes: dict[str, dict[str, Any]] = {
+            'too-few-pairs': {
+                'words': words[:1],
+                'translations': translations[:1],
+                'correct_pairs': pairs[:1],
+            },
+            'too-many-pairs': {
+                'words': tuple(
+                    CurriculumPairMatchingItemSnapshot(key=f'w{i}', text=f'w{i}')
+                    for i in range(9)
+                ),
+                'translations': tuple(
+                    CurriculumPairMatchingItemSnapshot(key=f't{i}', text=f't{i}')
+                    for i in range(9)
+                ),
+                'correct_pairs': tuple(
+                    CurriculumPairMatchingPairSnapshot(
+                        word_key=f'w{i}', translation_key=f't{(i + 1) % 9}'
+                    )
+                    for i in range(9)
+                ),
+            },
+            'repeated-word-key': {
+                'words': (words[0], replace(words[1], key=words[0].key), words[2])
+            },
+            'repeated-translation-text': {
+                'translations': (
+                    translations[0],
+                    replace(translations[1], text=translations[0].text),
+                    translations[2],
+                )
+            },
+            'key-skips-a-word': {
+                'correct_pairs': (pairs[0], pairs[0], pairs[2]),
+            },
+            'key-uses-unknown-translation': {
+                'correct_pairs': (
+                    pairs[0],
+                    pairs[1],
+                    CurriculumPairMatchingPairSnapshot(
+                        word_key=pairs[2].word_key, translation_key='missing'
+                    ),
+                ),
+            },
+            'key-order-aligned-with-display': {
+                'translations': tuple(sorted(translations, key=lambda item: item.key)),
+            },
+        }
+
+        with pytest.raises(ValidationError):
+            replace(question, **changes[case])

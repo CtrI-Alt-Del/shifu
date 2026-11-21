@@ -15,6 +15,7 @@ import { CodeQuestion } from '../code-question'
 import { HtmlCssJsQuestion } from '../html-css-js-question'
 import type { ActivityPageController } from '../use-activity-page'
 import { useActivityPage } from '../use-activity-page'
+import { PairMatchingQuestion } from '../pair-matching-question'
 import { createReactDraftStoreMock } from './react-draft-store-mock'
 import type { CodeEditorProps } from '@/ui/learning/widgets/components/code-editor'
 
@@ -22,6 +23,9 @@ vi.mock('../use-activity-page', () => ({
   useActivityPage: vi.fn(),
 }))
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
+vi.mock('../pair-matching-question', () => ({
+  PairMatchingQuestion: vi.fn(() => <div data-testid='pair-matching-question' />),
+}))
 vi.mock('../html-css-js-question', () => ({
   HtmlCssJsQuestion: vi.fn(() => <div data-testid='html-css-js-question' />),
 }))
@@ -792,5 +796,80 @@ describe('ActivityPage', () => {
     fireEvent.click(screen.getByText('Arquivos avaliados'))
     expect(screen.getByText('frozen response')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeDisabled()
+  })
+
+  describe('pair matching question', () => {
+    const PAIR_QUESTION = {
+      key: 'pairs-1',
+      kind: 'pair_matching',
+      prompt: 'Associe as palavras.',
+      sourceLanguage: 'en',
+      targetLanguage: 'pt-BR',
+      words: [{ key: 'w0', text: 'dog' }],
+      translations: [{ key: 't0', text: 'cachorro' }],
+    } satisfies NonNullable<ActivityPageController['currentQuestion']>
+    const PAIRS = [{ wordKey: 'w0', translationKey: 't0' }]
+
+    it('renders the pair widget with the formed pairs and the change handler', () => {
+      const handlePairMatchingAnswerChange = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          handlePairMatchingAnswerChange,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByTestId('pair-matching-question')).toBeVisible()
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: false,
+        onChange: handlePairMatchingAnswerChange,
+        pairs: PAIRS,
+        question: PAIR_QUESTION,
+      })
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeEnabled()
+    })
+
+    it('locks the widget and offers the next step after verification', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: { status: 'conclusive', score: 100, outcome: 'full' },
+          frozenAnswer: { kind: 'pair_matching', questionKey: 'pairs-1', pairs: PAIRS },
+          isLastQuestion: false,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: true,
+      })
+      expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeEnabled()
+    })
+
+    it('disables Evaluate while the pairs are incomplete', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          canContinue: false,
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          isMixedActivity: true,
+          pairMatchingPairs: [],
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+    })
   })
 })

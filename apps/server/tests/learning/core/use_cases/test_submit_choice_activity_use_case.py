@@ -1755,3 +1755,22 @@ class TestSubmitPairMatchingActivity:
             self._submit(self._pairs(0, 1, 2))
 
         self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_replay_when_the_same_pairs_arrive_in_another_order(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+        reordered = PairMatchingAnswer(
+            question_key='q3', pairs=tuple(reversed(self._pairs(1, 0, 2).pairs))
+        )
+
+        outcome = self._submit(reordered)
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()
