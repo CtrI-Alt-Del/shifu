@@ -2,7 +2,7 @@
 title: Questões de ordenação de etapas — evaluation
 status: in_progress
 spec: ./spec.md
-last_updated_at: 2026-11-19
+last_updated_at: 2026-11-21
 ---
 
 # Current State
@@ -82,6 +82,8 @@ last_updated_at: 2026-11-19
 | EV-38 | Integrated adapters and runtime / Automated + Visual | Passed with inherited warning | Same merge candidate | Four real PostgreSQL controller modules: 94 passed, one PytestCollectionWarning from the main-inherited imported domain class TestCasesEvaluationPart. Final affected preview/submit subset `-k 'ordering or translation'`: 7 passed after corrections. Inngest module: 2 direct passed; initial real cases skipped because user port 7777 was occupied; rerun registered cases with SHIFU_INNGEST_FASTAPI_PORT=17777: 2 passed. | Migration to 61de5a9b2c84 applied on disposable PostgreSQL, all test-owned containers cleaned by fixtures. Chrome route run against isolated Vite17000: 25 passed, first route timed out during cold compilation; its isolated rerun passed. Initial run against inactive IPv4 port7000 failed with connection refused. No test-fixture weakening. Fresh initial/correct/incorrect desktop1440/mobile390 captures dated 19/11 18:56 were independently reviewed and passed runtime appearance; Penpot remains waived. |
 | EV-39 | Integrated static checks/build and source confirmation / Automated | Partial | Same candidate, 2026-11-19 | Installed manifest tools used because Corepack pnpm bootstrap has DNS failure. Full Web TypeScript and Biome passed, Server Ruff/format passed, both architecture commands passed. Web Vite production build passed. | Full basedpyright has one unchanged Intelligence test error at tests/intelligence/server/controllers/test_answer_planning_questions_controller.py:267. First offline Server build selected broken global setuptools; rerun with `uv --cache-dir <TEMP>/shifu-129-uv-cache build --offline --no-build-isolation --python .venv/Scripts/python.exe` passed and produced both sdist and wheel. Root workspace metadata warning persists. Confluence pages reread metadata confirm Learning 83066881 v33 and Curriculum 83034113 v19, parent 82804737, unchanged since prior full reads. No Jira/Confluence write. PR #55 is open at https://github.com/CtrI-Alt-Del/shifu/pull/55, initial implementation head b151e2ac69fd1749846cc7ec0c09edef0e1c4925; checks are being watched with gh. |
 
+| EV-40 | Main update and CI corrections / Automated | Partial | 2026-11-21, merge of origin/main 7f83855a | Preserved ordering, translation, fill-blanks and pair matching across contracts, mapping, preview, submission, evaluation and Web. Domain104/provider2 passed. Use-case selection407: initial fixture failures corrected; affected250 cases passed again, remaining157 unchanged. Full Server basedpyright: zero errors/warnings; controllers/test payload/migration scoped types also pass. Web full types/Biome pass; graph47 and content172 tests pass. | Fixed ELK constructor failures reaching fallback and stale test mocks. Intelligence test payload was still unchanged on latest main; latest user requirement for green CI authorized the minimal dict[str,object] annotation. Generated merge migration46a3cef1cbec unifying reminder4316ce01866a and ordering61de5a9b2c84; alembic heads shows one head. Real HTTP43 cases could not set up because Docker engine named pipe was missing; no local DB migration applied. Old mobile graph reset browser case could not be validated locally because cold browser setup timed out before interaction; no speculative reset change. User will follow the new CI manually and explicitly asked not to wait for completion. Publication is not claimed green or complete. |
+
 # Findings
 
 | ACH | Problem / evidence / affected CA | Severity | Affected checks | Status / correction / verification |
@@ -114,7 +116,7 @@ last_updated_at: 2026-11-19
 | --- | --- |
 | Candidate | Branch `codex/shifu-129-ordering-questions`; integrates main `5c80da79` preserving translation and ordering. |
 | Completed | Ordering implementation, private passage persistence, evaluation/result and accessible UI. User accepted the interaction. Temporary Skill removed from seed and local database. Initial diagnostic read correction retained. Both formats preserved through the merge and independently reviewed. Current focused, HTTP, browser, job and static evidence is EV-37–39. |
-| Unfinished | Current published-head CI and PR readback are pending. Full Server types retain an unrelated Intelligence test error. Inherited pytest collection and root uv metadata warnings remain. Prior XP REST-transport cases remain outside scope and were excluded by their exact name. |
+| Unfinished | The user will monitor new-head CI manually. No CI-success claim is made. Full Server types retain an unrelated Intelligence test error. Inherited pytest collection and root uv metadata warnings remain. Prior XP REST-transport cases remain outside scope and were excluded by their exact name. |
 | Uncommitted work | Merge b151e2ac is committed and pushed. Only this publication evidence update is pending. No user work was reset or stashed. Runtime screenshots, credentials, storage and build artifacts stay ignored. |
 | Active processes | Task-owned Vite on port17000 was stopped after browser validation. All task-owned pytest/build sessions finished; fixture-owned Testcontainers were cleaned. Shared user services remain running. |
 | Next action | Inspect current-head checks and reviews on PR #55 and commit the resulting publication evidence. No seed rerun is needed. |
@@ -127,7 +129,7 @@ last_updated_at: 2026-11-19
 
 | Field | Result |
 | --- | --- |
-| Publication | PR #55: https://github.com/CtrI-Alt-Del/shifu/pull/55, base main, head codex/shifu-129-ordering-questions. Initial published implementation SHA b151e2ac69fd1749846cc7ec0c09edef0e1c4925 is mergeable. No reviews or review conversations existed at initial readback; CI is pending. No merge or deployment requested/performed. |
+| Publication | PR #55: https://github.com/CtrI-Alt-Del/shifu/pull/55, base main, head codex/shifu-129-ordering-questions. Initial published implementation SHA b151e2ac69fd1749846cc7ec0c09edef0e1c4925 was mergeable; current update integrates main7f83855a and CI fixes. No reviews or review conversations existed at initial readback; CI is pending. No merge or deployment requested/performed. |
 | Source verification | Learning 83066881 v33 and Curriculum 83034113 v19 confirmed again through Atlassian on 2026-11-19, parent 82804737. Prior complete page reads remain valid because versions are unchanged. No external source mutation. |
 | Documentation Alignment | Spec revision1 unchanged; design account-retention rule, diagnosis and current Evaluation included. |
 | Limitations | No known issue in the reviewed integration scope. Local full Server type check has an unrelated error; inherited pytest collection and root uv metadata warnings remain. Full acceptance does not imply a warning-free repository. |

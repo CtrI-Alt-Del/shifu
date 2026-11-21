@@ -5,8 +5,6 @@ import type {
   ActivityAnswer,
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
-import { Icon } from '@/ui/shared/widgets/components/icon'
-
 import { pairMatchingItemText } from '@/core/learning/pair-matching-item-text'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 

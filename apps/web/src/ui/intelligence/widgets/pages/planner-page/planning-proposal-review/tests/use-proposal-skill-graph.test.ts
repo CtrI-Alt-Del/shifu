@@ -14,12 +14,16 @@ import {
 } from '../proposal-skill-graph/use-proposal-skill-graph'
 
 const mocks = vi.hoisted(() => ({
+  construct: vi.fn(),
   layout: vi.fn(),
   terminateWorker: vi.fn(),
 }))
 
 vi.mock('elkjs/lib/elk-api.js', () => ({
   default: class {
+    constructor() {
+      mocks.construct()
+    }
     layout = mocks.layout
     terminateWorker = mocks.terminateWorker
   },
@@ -41,6 +45,7 @@ describe('useProposalSkillGraph', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.construct.mockReset()
     mocks.layout.mockResolvedValue({
       children: [
         { id: PROPOSAL_ROOT_ID, x: 200, y: 0 },
@@ -150,6 +155,24 @@ describe('useProposalSkillGraph', () => {
     expect(third.position.x).toBe(0)
     expect(third.position.y).toBeGreaterThan(first.position.y)
     expect(mocks.layout).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the Skills accessible when the layout worker cannot be constructed', async () => {
+    mocks.construct.mockImplementationOnce(() => {
+      throw new ReferenceError('Worker is not defined')
+    })
+    const { result, unmount } = renderHook(() =>
+      useProposalSkillGraph('Título', skills, relations),
+    )
+
+    await waitFor(() => expect(result.current.isLayoutError).toBe(true))
+    expect(result.current.nodes.map((node) => node.id)).toEqual([
+      PROPOSAL_ROOT_ID,
+      ...skills.map((skill) => skill.skillId),
+    ])
+    expect(mocks.layout).not.toHaveBeenCalled()
+    unmount()
+    expect(mocks.terminateWorker).not.toHaveBeenCalled()
   })
 
   it('clamps the zoom between the configured bounds and forwards it to the flow', async () => {
