@@ -17,8 +17,10 @@ from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from psycopg.errors import DeadlockDetected
 import pytest
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session as SqlalchemySession
 from testcontainers.core.container import DockerContainer
@@ -28,6 +30,13 @@ from testcontainers.community.redis import RedisContainer
 
 # Native NLP imports and model initialization may exceed 30s during test startup.
 _APPLICATION_STARTUP_TIMEOUT: int = 90
+
+# Several jobs subscribe to the same event, so one may still be writing when a test
+# ends. TRUNCATE then waits on a lock held by that job's transaction and Postgres
+# can pick TRUNCATE as the deadlock victim. The job transaction is short, so a
+# bounded retry lets it finish.
+_TRUNCATE_ATTEMPTS: int = 5
+_TRUNCATE_RETRY_DELAY_SECONDS: float = 0.5
 
 
 @dataclass
@@ -544,6 +553,21 @@ def _port_is_open(host: str, port: int) -> bool:
 
 
 def _clear_application_tables(engine: Engine) -> None:
+    for attempt in range(1, _TRUNCATE_ATTEMPTS + 1):
+        try:
+            _truncate_application_tables(engine)
+        except OperationalError as error:
+            if (
+                not isinstance(error.orig, DeadlockDetected)
+                or attempt == _TRUNCATE_ATTEMPTS
+            ):
+                raise
+            time.sleep(_TRUNCATE_RETRY_DELAY_SECONDS * attempt)
+        else:
+            return
+
+
+def _truncate_application_tables(engine: Engine) -> None:
     with engine.begin() as connection:
         table_names = connection.execute(
             text(

@@ -41,6 +41,9 @@ locals {
     "SHIFU_BFF_SHARED_SECRET",
     "SHIFU_COMMUNICATION_ENCRYPTION_KEYS",
     "DIAGNOSTIC_REVISION_HMAC_KEY",
+    "SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY",
+    "SHIFU_WEB_PUSH_VAPID_PUBLIC_KEY",
+    "SHIFU_WEB_PUSH_SUBJECT",
   ]
 
   # Shared monthly AI quota. Non-secret values, equal for every account.

@@ -53,6 +53,8 @@ class TestPurgeProfileOnAccountDeletedJob:
                     GamificationProfileFaker.fake(
                         account_id=account_id,
                         total_xp=100,
+                        reminder_hour=7,
+                        reminder_invite_answered_at=NOW,
                         created_at=NOW,
                         updated_at=NOW,
                     )
@@ -127,6 +129,64 @@ class TestPurgeProfileOnAccountDeletedJob:
             lambda session: _all_purged(session, account_id)
         )
 
+    def test_should_remove_the_reminder_hour_and_invite_flag_and_replay_as_a_noop(
+        self,
+        inngest_fixture: 'InngestFixture',
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        account_id = ids.generate()
+        other_account_id = ids.generate()
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            database = SqlalchemyGamificationDatabase(engine, id_provider=ids)
+            with database.transaction() as repositories:
+                for owner, hour in ((account_id, 7), (other_account_id, 21)):
+                    repositories.profiles.add(
+                        GamificationProfileFaker.fake(
+                            account_id=owner,
+                            reminder_hour=hour,
+                            reminder_invite_answered_at=NOW,
+                            created_at=NOW,
+                            updated_at=NOW,
+                        )
+                    )
+        finally:
+            engine.dispose()
+        with inngest_fixture.inspection_session() as session:
+            stored = _reminder_state(session, account_id)
+        assert stored == (7, NOW)
+
+        deleted_at = NOW.isoformat().replace('+00:00', 'Z')
+        event = AccountDeletedEvent(
+            payload=AccountDeletedPayload(
+                account_id=account_id,
+                deleted_at=deleted_at,
+            )
+        )
+        payload: dict[str, object] = {
+            'account_id': event.payload.account_id,
+            'deleted_at': event.payload.deleted_at,
+        }
+        inngest_fixture.publish(event.name, payload, event_id=ids.generate())
+        inngest_fixture.wait_for_database(
+            lambda session: _count(session, GamificationProfileModel, account_id) == 0
+        )
+
+        with inngest_fixture.inspection_session() as session:
+            assert _reminder_state(session, account_id) is None
+            assert _reminder_state(session, other_account_id) == (21, NOW)
+
+        replay_event_id = ids.generate()
+        inngest_fixture.publish(event.name, payload, event_id=replay_event_id)
+        inngest_fixture.wait_for_log(
+            f'"event":"job.completed","event_id":"{replay_event_id}"',
+            timeout=90,
+        )
+
+        with inngest_fixture.inspection_session() as session:
+            assert _reminder_state(session, account_id) is None
+            assert _reminder_state(session, other_account_id) == (21, NOW)
+
 
 def _all_purged(session: 'Session', account_id: str) -> bool:
     return (
@@ -159,3 +219,16 @@ def _count(
         )
         or 0
     )
+
+
+def _reminder_state(
+    session: 'Session', account_id: str
+) -> tuple[int, datetime | None] | None:
+    profile = session.scalar(
+        select(GamificationProfileModel).where(
+            GamificationProfileModel.account_id == account_id
+        )
+    )
+    if profile is None:
+        return None
+    return profile.reminder_hour, profile.reminder_invite_answered_at

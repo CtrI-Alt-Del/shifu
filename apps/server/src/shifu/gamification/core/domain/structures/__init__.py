@@ -15,3 +15,9 @@ from .streak_overview import StreakOverview as StreakOverview
 from .xp_history import XpHistory as XpHistory
 from .xp_history_entry import XpHistoryEntry as XpHistoryEntry
 from .xp_origin import XpOrigin as XpOrigin
+from .streak_reminder_fan_out_page import (
+    StreakReminderFanOutPage as StreakReminderFanOutPage,
+)
+from .streak_reminder_settings import (
+    StreakReminderSettings as StreakReminderSettings,
+)

@@ -1,0 +1,76 @@
+{
+  "table": "shifu-dynamodb-lab-83b2c3605a",
+  "metric": "AWS/DynamoDB ConsumedWriteCapacityUnits",
+  "statistic": "Sum",
+  "period_seconds": 60,
+  "query_start_utc": "2026-11-20T19:31:00Z",
+  "query_end_utc": "2026-11-20T19:36:00Z",
+  "simulation_start_utc": "2026-11-20T19:32:17.490784+00:00",
+  "simulation_end_utc": "2026-11-20T19:34:27.546611+00:00",
+  "cloudwatch_wait_seconds": 0,
+  "table_simulation_window_sum": 60.0,
+  "gsi_simulation_window_sum": 60.0,
+  "expected_table_units": 60.0,
+  "expected_gsi_units": 60.0,
+  "metrics_reconciled_with_put_item": true,
+  "table_datapoints": [
+    {
+      "Timestamp": "2026-11-20T16:31:00-03:00",
+      "Sum": 20.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:32:00-03:00",
+      "Sum": 20.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:33:00-03:00",
+      "Sum": 27.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:34:00-03:00",
+      "Sum": 13.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:35:00-03:00",
+      "Sum": 0.0,
+      "Unit": "Count"
+    }
+  ],
+  "gsi_datapoints": [
+    {
+      "Timestamp": "2026-11-20T16:31:00-03:00",
+      "Sum": 20.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:32:00-03:00",
+      "Sum": 20.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:33:00-03:00",
+      "Sum": 27.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:34:00-03:00",
+      "Sum": 13.0,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-11-20T16:35:00-03:00",
+      "Sum": 0.0,
+      "Unit": "Count"
+    }
+  ],
+  "interpretation": "Metrics are confirmed only after the final minute bucket settles and both sums match PutItem consumed capacity; missing or mismatched data remains pending.",
+  "responsible": "Gabriel da Silva",
+  "profile": "shifu-lab",
+  "region": "us-east-2",
+  "collected_at_utc": "2026-11-20T19:39:25.036081+00:00",
+  "status": "completed"
+}

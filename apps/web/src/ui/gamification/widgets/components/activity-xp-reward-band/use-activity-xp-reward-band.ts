@@ -1,3 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+
+import { STREAK_REMINDER_QUERY_KEY } from '@/ui/gamification/constants/streak-reminder-query-keys'
+
 import {
   MAX_POLL_ATTEMPTS,
   useActivityXpRewardQuery,
@@ -13,11 +18,32 @@ export function useActivityXpRewardBand(
   activityId: string,
   attemptId: string,
 ): ActivityXpRewardBandState {
+  const queryClient = useQueryClient()
   const { reward, rewardError, isLoadingReward, pollAttempts } = useActivityXpRewardQuery(
     activityId,
     attemptId,
   )
+  const state = resolveState({ reward, rewardError, isLoadingReward, pollAttempts })
+  const previousStatusRef = useRef<ActivityXpRewardBandState['status'] | null>(null)
 
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current
+    previousStatusRef.current = state.status
+    // The first practice day may have just been recognized, so the reminder invite
+    // state is read again once the reward leaves pending.
+    if (previousStatus === 'pending' && state.status !== 'pending')
+      void queryClient.invalidateQueries({ queryKey: STREAK_REMINDER_QUERY_KEY })
+  }, [state.status, queryClient])
+
+  return state
+}
+
+function resolveState({
+  reward,
+  rewardError,
+  isLoadingReward,
+  pollAttempts,
+}: ReturnType<typeof useActivityXpRewardQuery>): ActivityXpRewardBandState {
   if (rewardError) return { status: 'unavailable' }
   if (isLoadingReward || !reward) return { status: 'pending' }
 

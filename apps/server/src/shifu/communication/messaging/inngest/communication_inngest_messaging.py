@@ -8,16 +8,22 @@ from shifu.communication.core.interfaces import (
     CommunicationDatabase,
     EmailDeliveryProvider,
     MessageRendererProvider,
+    PushNotificationProvider,
     SecretEnvelopeProvider,
 )
 from shifu.communication.core.use_cases import (
     CancelCommunicationUseCase,
+    DeleteAccountPushDataUseCase,
     DeliverCommunicationUseCase,
+    DeliverStreakReminderUseCase,
+    QueueStreakReminderUseCase,
 )
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest.jobs import (
     CancelCommunicationJob,
     DeliverCommunicationJob,
+    DeliverStreakReminderJob,
+    PurgePushDataOnAccountDeletedJob,
 )
 from shifu.communication.providers.email import (
     FernetSecretEnvelopeProvider,
@@ -45,6 +51,9 @@ class CommunicationInngestMessaging:
         secret_envelope_provider: SecretEnvelopeProvider | None = None,
         message_renderer_provider: MessageRendererProvider | None = None,
         email_delivery_provider: EmailDeliveryProvider | None = None,
+        push_notification_provider: PushNotificationProvider | None = None,
+        streak_reminder_requested_event_name: str,
+        account_deleted_event_name: str,
         telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         settings = EnvironmentSettings.from_environment()
@@ -79,6 +88,21 @@ class CommunicationInngestMessaging:
             communication_database=communication_database,
             clock_provider=clock_provider,
         )
+        queue_streak_reminder_use_case = QueueStreakReminderUseCase(
+            database=communication_database,
+            id_provider=id_provider,
+            clock_provider=clock_provider,
+        )
+        deliver_streak_reminder_use_case = DeliverStreakReminderUseCase(
+            database=communication_database,
+            id_provider=id_provider,
+            clock_provider=clock_provider,
+            push_notification_provider=push_notification_provider,
+        )
+        delete_account_push_data_use_case = DeleteAccountPushDataUseCase(
+            database=communication_database,
+            clock_provider=clock_provider,
+        )
         return [
             cast(
                 'Function[object]',
@@ -93,6 +117,27 @@ class CommunicationInngestMessaging:
                 CancelCommunicationJob.handle(
                     inngest,
                     cancellation_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                DeliverStreakReminderJob.handle(
+                    inngest,
+                    queue_streak_reminder_use_case,
+                    deliver_streak_reminder_use_case,
+                    streak_reminder_requested_event_name=(
+                        streak_reminder_requested_event_name
+                    ),
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgePushDataOnAccountDeletedJob.handle(
+                    inngest,
+                    delete_account_push_data_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
                     telemetry_provider=telemetry_provider,
                 ),
             ),

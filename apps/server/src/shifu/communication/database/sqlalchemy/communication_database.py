@@ -8,6 +8,10 @@ from shifu.communication.core.interfaces import CommunicationDatabaseRepositorie
 from shifu.communication.database.sqlalchemy.repositories import (
     SqlalchemyCommunicationsRepository,
     SqlalchemyDeliveryAttemptsRepository,
+    SqlalchemyPushDeliveriesRepository,
+    SqlalchemyPushSubscriptionsRepository,
+    SqlalchemyStreakReminderPreferencesRepository,
+    SqlalchemyStreakRemindersRepository,
 )
 from shifu.shared.core.interfaces import IdentifierProvider
 from shifu.shared.database.sqlalchemy.repositories import SqlalchemyEventsRepository
@@ -38,6 +42,12 @@ class SqlalchemyCommunicationDatabase:
             repositories = CommunicationDatabaseRepositories(
                 communications=SqlalchemyCommunicationsRepository(session),
                 delivery_attempts=SqlalchemyDeliveryAttemptsRepository(session),
+                push_subscriptions=SqlalchemyPushSubscriptionsRepository(session),
+                streak_reminder_preferences=(
+                    SqlalchemyStreakReminderPreferencesRepository(session)
+                ),
+                streak_reminders=SqlalchemyStreakRemindersRepository(session),
+                push_deliveries=SqlalchemyPushDeliveriesRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

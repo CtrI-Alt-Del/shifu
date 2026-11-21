@@ -214,6 +214,21 @@ The seed command executes `shifu.shared.database.seed` and is the only supported
 entrypoint for local seed composition. Its two operational composition modules are
 the explicit Tach exclusions in `check:architecture`; do not widen that exclusion.
 
+Browser push for the streak reminder needs `SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY`,
+`SHIFU_WEB_PUSH_VAPID_PUBLIC_KEY` and `SHIFU_WEB_PUSH_SUBJECT` in
+`apps/server/.env.local`. Leave them empty to turn push off locally; staging and
+production refuse to start without them. `apps/server/.env.example` documents the
+command that generates a key pair. The server refuses to start when the private key
+does not produce the public key, so always set both from the same generated pair.
+`SHIFU_WEB_PUSH_TIMEOUT_SECONDS` is optional.
+
+To demonstrate the reminder locally, run the API, Inngest and the web app, then run
+`uv run poe reminders:send-now <email>` from `apps/server`. It skips only the hour
+check, keeps every other rule, and refuses to run unless `SHIFU_SERVER_APP_MODE` is
+`local`. Before requesting, it clears the account's reminder for the current local
+day, whatever its status, so every run delivers again. The scheduled flow never
+clears reminders.
+
 `db:seed` is destructive for the application tables and is guarded to `local` mode.
 It checks that the database is at the current Alembic head before deleting any
 data; if it reports an older revision, run `db:upgrade` first. All `db:*` Poe
@@ -240,6 +255,12 @@ derived data, so it is created by the first message and removed by the next rese
 test file is not for a use case, controller, job or API handler on the server, or a
 hook, widget, page, layout or API handler on the web. `--list` prints the allowed
 files with their kind. Run it after adding, moving or deleting test files.
+
+One server file is allowed as an eval harness boundary:
+`tests/intelligence/ai/test_eval_case_retry.py`. It checks the retry, wait and
+error-reporting behavior of the real-model eval runner in `apps/server/evals`,
+which has no use case, controller or job. Any other eval test needs its own
+documented entry.
 
 ## Running the applications
 

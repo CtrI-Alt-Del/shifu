@@ -18,6 +18,9 @@ vi.mock('@/ui/shared/contexts/rest-context', () => ({
 vi.mock('@/ui/shared/contexts/auth-context', () => ({
   AuthContextProvider: ({ children }: { children: ReactNode }) => children,
 }))
+vi.mock('@/ui/shadcn/sonner', () => ({
+  Toaster: () => <div data-testid='toaster' />,
+}))
 vi.mock('@/ui/shared/widgets/layouts/app-layout', () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
     <div data-testid='app-layout'>{children}</div>
@@ -92,5 +95,24 @@ describe('RootLayout', () => {
     )
 
     expect(screen.queryByTestId('square-background')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['public', true],
+    ['protected', false],
+  ])('mounts the single toaster on %s routes', (_case, isPublic) => {
+    useRootLayoutMock.mockReturnValue({
+      mentorContextHint: null,
+      isHydrated: true,
+      isPublic,
+    })
+
+    render(
+      <RootLayout>
+        <p>Content</p>
+      </RootLayout>,
+    )
+
+    expect(screen.getAllByTestId('toaster')).toHaveLength(1)
   })
 })

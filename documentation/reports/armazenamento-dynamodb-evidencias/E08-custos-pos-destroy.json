@@ -1,0 +1,112 @@
+{
+  "evidence": "E08",
+  "collected_at_utc": "2026-11-20T19:42:51.2195703Z",
+  "responsible": "Gabriel da Silva",
+  "operator": "Codex, execução assistida",
+  "profile": "shifu-lab",
+  "account": "565725315792",
+  "query_date": "2026-11-20",
+  "note": "Cost Explorer daily estimate by AWS service; absence of a DynamoDB group is not zero cost.",
+  "result": {
+    "GroupDefinitions": [
+      {
+        "Type": "DIMENSION",
+        "Key": "SERVICE"
+      }
+    ],
+    "ResultsByTime": [
+      {
+        "TimePeriod": {
+          "Start": "2026-11-20",
+          "End": "2026-11-21"
+        },
+        "Total": {},
+        "Groups": [
+          {
+            "Keys": ["AWS Data Transfer"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "-0.0033662576",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["AWS Secrets Manager"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "-0.000000006",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon EC2 Container Registry (ECR)"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon ElastiCache"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon Elastic Container Service"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0.0033662485",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon Elastic Load Balancing"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon Relational Database Service"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0.0000000079",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["Amazon Virtual Private Cloud"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0",
+                "Unit": "USD"
+              }
+            }
+          },
+          {
+            "Keys": ["AmazonCloudWatch"],
+            "Metrics": {
+              "UnblendedCost": {
+                "Amount": "0",
+                "Unit": "USD"
+              }
+            }
+          }
+        ],
+        "Estimated": true
+      }
+    ],
+    "DimensionValueAttributes": []
+  }
+}
