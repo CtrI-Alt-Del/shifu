@@ -48,6 +48,7 @@ class SignInUseCase:
                     display_name=account.display_name,
                     email=account.email,
                     time_zone=account.time_zone,
+                    appearance=account.appearance,
                     status=account.status,
                     created_at=account.created_at,
                     confirmed_at=account.confirmed_at,

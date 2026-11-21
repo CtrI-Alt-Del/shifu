@@ -8,6 +8,8 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
+    AccountAppearance,
+    AccountStatus,
 )
 from tests.fixtures.account_security_fixture import AccountSecurityFixture
 
@@ -45,6 +47,52 @@ class TestGetCurrentSessionController:
         )
         assert response.status_code == 401
 
+    def test_should_return_the_entity_default_appearance(
+        self, account_security: AccountSecurityFixture
+    ) -> None:
+        fixture = account_security
+        response = fixture.client.get('/identity/session', headers=fixture.headers())
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            'account_id': fixture.account.id,
+            'display_name': fixture.account.display_name,
+            'time_zone': fixture.account.time_zone,
+            'appearance': 'system',
+        }
+
+    @pytest.mark.parametrize('appearance', list(AccountAppearance))
+    def test_should_return_the_stored_appearance(
+        self, account_security: AccountSecurityFixture, appearance: AccountAppearance
+    ) -> None:
+        fixture = account_security
+        fixture.account.appearance = appearance
+        with fixture.database.transaction() as repositories:
+            repositories.accounts.update(fixture.account)
+        response = fixture.client.get('/identity/session', headers=fixture.headers())
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            'account_id': fixture.account.id,
+            'display_name': fixture.account.display_name,
+            'time_zone': fixture.account.time_zone,
+            'appearance': appearance.value,
+        }
+
+    @pytest.mark.parametrize('kind', ['pending', 'deleted'])
+    def test_should_reject_inactive_accounts(
+        self, account_security: AccountSecurityFixture, kind: str
+    ) -> None:
+        fixture = account_security
+        if kind == 'deleted':
+            fixture.account.delete(datetime.now(UTC))
+        else:
+            fixture.account.status = AccountStatus.PENDING_CONFIRMATION
+            fixture.account.confirmed_at = None
+        with fixture.database.transaction() as repositories:
+            repositories.accounts.update(fixture.account)
+        response = fixture.client.get('/identity/session', headers=fixture.headers())
+        assert response.status_code == 401, response.text
+        assert 'appearance' not in response.text
+
     def test_should_accept_only_exact_retained_pair_and_revoke_it_on_recovery(
         self, account_security: AccountSecurityFixture
     ) -> None:
@@ -62,7 +110,12 @@ class TestGetCurrentSessionController:
         assert changed.status_code == 200, changed.text
         session = fixture.client.get('/identity/session', headers=headers_a)
         assert session.status_code == 200
-        assert set(session.json()) == {'account_id', 'display_name', 'time_zone'}
+        assert set(session.json()) == {
+            'account_id',
+            'display_name',
+            'time_zone',
+            'appearance',
+        }
         assert (
             fixture.client.get('/identity/session', headers=headers_b).status_code
             == 401

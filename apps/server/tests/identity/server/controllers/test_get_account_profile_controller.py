@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from shifu.identity.core.domain.enums import AccountStatus
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from tests.fixtures.account_security_fixture import AccountSecurityFixture
 
 
@@ -23,6 +23,7 @@ class TestGetAccountProfileController:
             'display_name': fixture.account.display_name,
             'email': fixture.account.email,
             'time_zone': None,
+            'appearance': 'system',
             'status': 'active',
             'created_at': fixture.account.created_at.isoformat().replace('+00:00', 'Z'),
             'confirmed_at': fixture.account.confirmed_at.isoformat().replace(
@@ -31,6 +32,20 @@ class TestGetAccountProfileController:
             if fixture.account.confirmed_at
             else None,
         }
+
+    @pytest.mark.parametrize('appearance', list(AccountAppearance))
+    def test_should_return_the_stored_appearance(
+        self, account_security: AccountSecurityFixture, appearance: AccountAppearance
+    ) -> None:
+        fixture = account_security
+        fixture.account.appearance = appearance
+        with fixture.database.transaction() as repositories:
+            repositories.accounts.update(fixture.account)
+        response = fixture.client.get(
+            '/identity/accounts/me', headers=fixture.headers()
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()['appearance'] == appearance.value
 
     @pytest.mark.parametrize(
         'kind',

@@ -4,6 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.identity.entities import AccountFaker
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.core.interfaces import (
     IdentityDatabase,
     IdentityDatabaseRepositories,
@@ -12,6 +13,7 @@ from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import ClockProvider
 from shifu.identity.core.domain.errors import (
+    InvalidAppearanceError,
     InvalidDisplayNameError,
     InvalidTimeZoneError,
 )
@@ -56,7 +58,9 @@ class TestUpdateAccountProfileUseCase:
         )
         result = self.subject.execute(
             self.user,
-            AccountProfileUpdate(display_name='  ' + name + '  ', time_zone='UTC'),
+            AccountProfileUpdate(
+                display_name='  ' + name + '  ', time_zone='UTC', appearance='system'
+            ),
         )
         assert result.display_name == name
         assert result.time_zone == 'UTC'
@@ -77,7 +81,10 @@ class TestUpdateAccountProfileUseCase:
     def test_should_reject_invalid_names_without_effects(self, name: str) -> None:
         with pytest.raises(InvalidDisplayNameError):
             self.subject.execute(
-                self.user, AccountProfileUpdate(display_name=name, time_zone='UTC')
+                self.user,
+                AccountProfileUpdate(
+                    display_name=name, time_zone='UTC', appearance='system'
+                ),
             )
         self.database.transaction.assert_not_called()
 
@@ -87,7 +94,10 @@ class TestUpdateAccountProfileUseCase:
     def test_should_reject_invalid_zone_without_effects(self, zone: str) -> None:
         with pytest.raises(InvalidTimeZoneError):
             self.subject.execute(
-                self.user, AccountProfileUpdate(display_name='Name', time_zone=zone)
+                self.user,
+                AccountProfileUpdate(
+                    display_name='Name', time_zone=zone, appearance='system'
+                ),
             )
         self.database.transaction.assert_not_called()
 
@@ -95,8 +105,59 @@ class TestUpdateAccountProfileUseCase:
         self.account.access_version = 5
         with pytest.raises(AuthorizationError):
             self.subject.execute(
-                self.user, AccountProfileUpdate(display_name='New', time_zone='UTC')
+                self.user,
+                AccountProfileUpdate(
+                    display_name='New', time_zone='UTC', appearance='light'
+                ),
             )
+        self.repositories.accounts.update.assert_not_called()
+        assert self.account.appearance is AccountAppearance.SYSTEM
+
+    @pytest.mark.parametrize(
+        'status', [AccountStatus.PENDING_CONFIRMATION, AccountStatus.DELETED]
+    )
+    def test_should_reject_inactive_accounts_without_changing_appearance(
+        self, status: AccountStatus
+    ) -> None:
+        self.account.status = status
+        with pytest.raises(AuthorizationError):
+            self.subject.execute(
+                self.user,
+                AccountProfileUpdate(
+                    display_name='New', time_zone='UTC', appearance='dark'
+                ),
+            )
+        self.repositories.accounts.update.assert_not_called()
+        assert self.account.appearance is AccountAppearance.SYSTEM
+
+    @pytest.mark.parametrize('appearance', list(AccountAppearance))
+    def test_should_assign_and_return_each_appearance(
+        self, appearance: AccountAppearance
+    ) -> None:
+        original = (self.account.email, self.account.status)
+        profile = self.subject.execute(
+            self.user,
+            AccountProfileUpdate(
+                display_name='Name', time_zone='UTC', appearance=appearance.value
+            ),
+        )
+        assert profile.appearance is appearance
+        assert self.account.appearance is appearance
+        assert (self.account.email, self.account.status) == original
+        self.repositories.accounts.update.assert_called_once_with(self.account)
+
+    @pytest.mark.parametrize('appearance', ['sepia', '', 'DARK', ' light'])
+    def test_should_reject_invalid_appearance_without_effects(
+        self, appearance: str
+    ) -> None:
+        with pytest.raises(InvalidAppearanceError):
+            self.subject.execute(
+                self.user,
+                AccountProfileUpdate(
+                    display_name='Name', time_zone='UTC', appearance=appearance
+                ),
+            )
+        self.database.transaction.assert_not_called()
         self.repositories.accounts.update.assert_not_called()
 
     @pytest.mark.parametrize(
@@ -104,7 +165,10 @@ class TestUpdateAccountProfileUseCase:
     )
     def test_should_accept_supported_iana_zones(self, zone: str) -> None:
         profile = self.subject.execute(
-            self.user, AccountProfileUpdate(display_name='Same name', time_zone=zone)
+            self.user,
+            AccountProfileUpdate(
+                display_name='Same name', time_zone=zone, appearance='system'
+            ),
         )
         assert profile.time_zone == zone
         self.repositories.accounts.find_by_id.assert_called_once_with(

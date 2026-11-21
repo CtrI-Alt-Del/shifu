@@ -20,6 +20,9 @@ from .account_deletion_not_allowed_error import (
     AccountDeletionNotAllowedError as AccountDeletionNotAllowedError,
 )
 from .account_not_active_error import AccountNotActiveError as AccountNotActiveError
+from .invalid_appearance_error import (
+    InvalidAppearanceError as InvalidAppearanceError,
+)
 from .email_already_in_use_error import EmailAlreadyInUseError as EmailAlreadyInUseError
 from .invalid_credentials_error import (
     InvalidCredentialsError as InvalidCredentialsError,

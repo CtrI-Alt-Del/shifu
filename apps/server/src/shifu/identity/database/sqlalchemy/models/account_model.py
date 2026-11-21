@@ -16,6 +16,10 @@ class AccountModel(Model):
             'retained_session_access_version > 0 AND retained_session_access_version < access_version)',
             name='ck_identity_accounts_retained_session',
         ),
+        CheckConstraint(
+            "appearance IN ('dark', 'light', 'system')",
+            name='ck_identity_accounts_appearance',
+        ),
         Index(
             'uq_identity_accounts_active_email',
             'email',
@@ -35,6 +39,9 @@ class AccountModel(Model):
         Integer, nullable=True
     )
     time_zone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    appearance: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default='system'
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
