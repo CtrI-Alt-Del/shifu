@@ -1,0 +1,35 @@
+SHIFU-126 — aplicação e remoção dos recursos do laboratório
+Data: 17/11/2026 — America/Sao_Paulo
+Responsável indicado na task: gabrielsoliveira1606
+Execução técnica assistida por Codex.
+Perfil AWS: shifu-lab; conta 565725315792; região us-east-2.
+Diretório Terraform: packages/iac.
+
+Primeira tentativa: `terraform apply` em us-east-1 recebeu negação explícita
+da política efetiva da organização para CreateBucket. A tela do projeto indicou
+us-east-2 como região disponível. O resultado dessa primeira tentativa não foi
+tratado como resultado final.
+
+Aplicação na região do projeto: plano de 8 to add, 0 to change, 0 to destroy;
+o apply concluiu com sucesso. O estado listou bucket, versionamento, criptografia,
+ownership controls, bloqueio público, política do objeto público, lifecycle e
+random_id. O bucket e os outputs estão registrados em E01.
+
+Primeira execução do encerramento, sem exportar AWS_PROFILE para o processo:
+falhou antes de qualquer exclusão com `InvalidClientTokenId` no STS. Repetida
+com o perfil e região corretos:
+
+$ AWS_PROFILE=shifu-lab; AWS_DEFAULT_REGION=us-east-2
+$ terraform destroy -input=false -auto-approve -no-color -var="aws_region=us-east-2"
+Plan: 0 to add, 0 to change, 8 to destroy.
+Destroy complete! Resources: 8 destroyed.
+
+Verificação posterior:
+$ aws s3api list-buckets --query "Buckets[?Name=='shifu-storage-lab-6dadc912'].Name" --output json
+[]
+$ terraform state list
+(sem recursos; saída vazia)
+
+Resultado: o bucket, objetos e configurações do laboratório foram removidos.
+Nenhum recurso existente fora do laboratório foi alvo. Nenhuma política IAM/SCP
+foi alterada. O estado Terraform não contém recursos após o destroy.

@@ -81,6 +81,11 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
+from shifu.curriculum.database.english_fill_blanks_seed import (
+    ENGLISH_COMPETENCY_ID,
+    ENGLISH_SKILL_ID,
+    build_english_fill_blanks_seed,
+)
 from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
 from shifu.gamification.core.domain.entities import (
@@ -188,6 +193,9 @@ SEED_ADAPTIVE_LAB_PRIORITY_ACTIVITY_IDS = tuple(
 )
 SEED_ADAPTIVE_LAB_GOAL_ID = '01SHF000000000000000000070'
 SEED_ADAPTIVE_LAB_EXPERIENCE_ID = '01SHF000000000000000000071'
+SEED_ENGLISH_GOAL_ID = '01SHFEN0000000000000000201'
+SEED_ENGLISH_EXPERIENCE_ID = '01SHFEN0000000000000000202'
+SEED_ENGLISH_PROGRESS_ID = '01SHFEN0000000000000000203'
 SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000072'
 SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID = '01SHF000000000000000000073'
 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID = '01SHF000000000000000000074'
@@ -2869,6 +2877,39 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         }
     )
 
+    # An English Skill whose Learning Activity exercises fill-blanks questions, with a
+    # learner already in learning so the format can be tried without a diagnostic.
+    english = build_english_fill_blanks_seed()
+    english_goal = Goal(
+        id=SEED_ENGLISH_GOAL_ID,
+        account_id=SEED_ACCOUNT_ID,
+        title='Inglês para o dia a dia',
+        description='Pratique o presente simples completando frases com um banco de palavras.',
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+    )
+    english_experience = SkillExperience(
+        id=SEED_ENGLISH_EXPERIENCE_ID,
+        goal_id=SEED_ENGLISH_GOAL_ID,
+        skill_id=ENGLISH_SKILL_ID,
+        inclusion_reason='Praticar lacunas com banco de palavras em inglês.',
+        status=SkillExperienceStatus.LEARNING,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        started_at=SEED_CREATED_AT,
+    )
+    english_progress = CompetencyProgress(
+        id=SEED_ENGLISH_PROGRESS_ID,
+        skill_experience_id=SEED_ENGLISH_EXPERIENCE_ID,
+        competency_id=ENGLISH_COMPETENCY_ID,
+        content_released=True,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
         account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
@@ -2881,7 +2922,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         accounts=(account,),
         account_action_tokens=(),
         skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
-        + roadmap.skills,
+        + roadmap.skills
+        + (english.skill,),
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
@@ -2895,14 +2937,16 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             if competency.id in ready_competency_ids
         )
         + logic_curriculum.competencies
-        + roadmap.competencies,
+        + roadmap.competencies
+        + (english.competency,),
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
         )
         + logic_curriculum.concepts
-        + roadmap.concepts,
+        + roadmap.concepts
+        + (english.concept,),
         materials=tuple(
             material
             for material in materials
@@ -2910,26 +2954,35 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             and material.skill_id != SEED_SKILL_LOGIC_ID
         )
         + logic_curriculum.materials
-        + roadmap.materials,
+        + roadmap.materials
+        + (english.material,),
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
         )
         + logic_curriculum.activities
-        + roadmap.activities,
+        + roadmap.activities
+        + english.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
         )
         + logic_curriculum.curriculum_sequences
-        + roadmap.curriculum_sequences,
-        goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
-        skill_experiences=tuple(
-            experience
-            for experience in skill_experiences
-            if experience.id in retained_experience_ids
+        + roadmap.curriculum_sequences
+        + (english.curriculum_sequence,),
+        goals=(
+            *(goal for goal in goals if goal.id in retained_goal_ids),
+            english_goal,
+        ),
+        skill_experiences=(
+            *(
+                experience
+                for experience in skill_experiences
+                if experience.id in retained_experience_ids
+            ),
+            english_experience,
         ),
         competency_progresses=tuple(
             progress
@@ -2950,7 +3003,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
-        ),
+        )
+        + (english_progress,),
         activity_attempts=tuple(
             attempt
             for attempt in activity_attempts

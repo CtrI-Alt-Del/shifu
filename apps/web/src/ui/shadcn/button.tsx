@@ -19,7 +19,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_CLASS_NAMES[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 ${VARIANT_CLASS_NAMES[variant]} ${className}`}
       ref={ref}
       {...props}
     />

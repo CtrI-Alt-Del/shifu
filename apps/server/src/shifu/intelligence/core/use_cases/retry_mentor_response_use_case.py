@@ -1,5 +1,6 @@
 from shifu.intelligence.core.domain.entities import MentorResponseAttempt
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorResponseStatus,
     MentorResponseEventKind,
 )
@@ -9,6 +10,7 @@ from shifu.intelligence.core.domain.errors import (
     MentorSubmissionConflictError,
 )
 from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
     MentorResponseSnapshot,
     MentorResponseEvent,
     MentorSubmission,
@@ -17,7 +19,11 @@ from shifu.intelligence.core.domain.events import (
     MentorResponseRequestedEvent,
     MentorResponseRequestedPayload,
 )
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+)
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from shifu.shared.core.interfaces import (
     ClockProvider,
     IdentifierProvider,
@@ -32,12 +38,17 @@ class RetryMentorResponseUseCase:
         identifier_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
     ) -> None:
         self.replayed: bool = False
         self._database: IntelligenceDatabase = database
         self._identifier_provider: IdentifierProvider = identifier_provider
         self._clock_provider: ClockProvider = clock_provider
         self._access_provider: MentorAccessProvider = access_provider
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
 
     def execute(
         self, account_id: str, session_id: str, attempt_id: str, submission_key: str
@@ -90,6 +101,13 @@ class RetryMentorResponseUseCase:
                     operation_key=attempt.operation_key,
                     created_at=now,
                     updated_at=now,
+                )
+                # Admission comes before any state: a refusal leaves no attempt or event.
+                self._ledger.admit(
+                    repositories,
+                    AiQuotaRequestKind.MENTOR_RESPONSE,
+                    retry.id,
+                    account_id,
                 )
                 repositories.mentor_response_events.discard_partial(attempt.id)
                 repositories.mentor_response_attempts.add(retry)

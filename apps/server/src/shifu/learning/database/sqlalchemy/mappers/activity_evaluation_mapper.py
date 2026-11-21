@@ -9,6 +9,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
     CodeEvaluationResult,
     CodeRubricResult,
+    FillBlanksEvaluationResult,
     EvaluationPartResult,
     PairMatchingEvaluationResult,
     QualitativeEvaluationResult,
@@ -26,7 +27,9 @@ class ActivityEvaluationMapper:
         serialized_parts = cast('list[dict[str, object]]', value)
         parts: list[EvaluationPartResult] = []
         for serialized_part in serialized_parts:
-            if 'is_correct' in serialized_part:
+            if serialized_part.get('kind') == 'fill_blanks':
+                part_type = FillBlanksEvaluationResult
+            elif 'is_correct' in serialized_part:
                 part_type = ChoiceEvaluationResult
             elif 'correct_pair_count' in serialized_part:
                 part_type = PairMatchingEvaluationResult

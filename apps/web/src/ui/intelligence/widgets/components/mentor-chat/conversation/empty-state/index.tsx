@@ -8,9 +8,9 @@ import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 // Runs its own entrance so it also greets each new conversation, not only the
 // first page load.
 export const EmptyState = ({ surface = 'page' }: { surface?: 'page' | 'fab' }) => (
-  <MotionEntrance className='mx-auto my-auto max-w-md px-5 py-12 text-center'>
+  <MotionEntrance className='mx-auto my-auto max-w-md px-5 py-2 text-center sm:py-12'>
     <MentorMascot
-      className={`mx-auto ${surface === 'fab' ? 'size-28' : 'size-40'}`}
+      className={`mx-auto ${surface === 'fab' ? 'size-28' : 'size-32 sm:size-40'}`}
       isAnimated
       fallback={
         <motion.span
@@ -25,7 +25,7 @@ export const EmptyState = ({ surface = 'page' }: { surface?: 'page' | 'fab' }) =
       }
     />
     <motion.h2
-      className={`font-serif font-normal ${surface === 'fab' ? 'mt-4 text-2xl' : 'mt-5 text-3xl'}`}
+      className={`font-serif font-normal ${surface === 'fab' ? 'mt-4 text-2xl' : 'mt-4 text-3xl sm:mt-5'}`}
       variants={ENTRANCE_RISE}
     >
       Como posso ajudar?

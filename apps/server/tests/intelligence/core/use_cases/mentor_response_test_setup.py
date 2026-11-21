@@ -30,9 +30,10 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     MentorAccessProvider,
 )
+from tests.intelligence.core.use_cases.ai_quota_test_setup import AiQuotaTestSetup
 
 
-class MentorResponseTestSetup:
+class MentorResponseTestSetup(AiQuotaTestSetup):
     database: Mock
     repositories: Mock
     clock: Mock
@@ -64,6 +65,7 @@ class MentorResponseTestSetup:
             ('events', EventsRepository),
         ]:
             setattr(self.repositories, name, create_autospec(port, instance=True))
+        self.prepare_quota(self.repositories)
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )

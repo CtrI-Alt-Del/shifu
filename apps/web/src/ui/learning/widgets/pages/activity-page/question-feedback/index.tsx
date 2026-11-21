@@ -26,14 +26,17 @@ export const QuestionFeedback = ({
   frozenAnswer,
   question,
 }: QuestionFeedbackProps) => {
-  const { feedbackElementRef } = useQuestionFeedback({ question })
+  const { feedbackElementRef, fillBlanksOutcome } = useQuestionFeedback({
+    feedback,
+    question,
+  })
   const scoreClassName =
     Number(feedback.score ?? 0) >= 80 ? 'text-success' : 'text-selo-text'
 
   return (
     <section
       aria-label='Resultado'
-      aria-live='polite'
+      aria-live={question.kind === 'fill_blanks' ? undefined : 'polite'}
       className='question-feedback-session scroll-mt-6 mt-6 space-y-4 rounded-lg border border-border bg-card p-4 shadow-card sm:p-5'
       ref={feedbackElementRef}
     >
@@ -69,6 +72,16 @@ export const QuestionFeedback = ({
             {feedback.correctPairCount ?? 0} de {feedback.totalPairCount ?? 0} pares
             corretos.
           </span>
+        </p>
+      ) : null}
+      {fillBlanksOutcome ? (
+        <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
+          <Icon aria-hidden='true' name={fillBlanksOutcome.iconName} size={16} />
+          <span>{fillBlanksOutcome.label}</span>
+          <span aria-hidden='true' className='text-muted-foreground'>
+            ·
+          </span>
+          <span className='text-muted-foreground'>{fillBlanksOutcome.countText}</span>
         </p>
       ) : null}
       {feedback.explanation ? (

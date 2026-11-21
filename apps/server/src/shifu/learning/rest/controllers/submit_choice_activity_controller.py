@@ -17,6 +17,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
     PairMatchingAnswer,
     PairMatchingSelection,
     TranslationAnswer,
@@ -51,6 +53,13 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
 class PairRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -70,6 +79,7 @@ class AnswerRequest(BaseModel):
             'react',
             'html_css_js',
             'react_fastify',
+            'fill_blanks',
             'translation',
             'pair_matching',
         ]
@@ -77,13 +87,19 @@ class AnswerRequest(BaseModel):
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
     pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
         validate_answer_request_shape(
-            self.kind, self.text, self.files, self.selected_option_keys, self.pairs
+            self.kind,
+            self.text,
+            self.files,
+            self.selected_option_keys,
+            self.placements,
+            self.pairs,
         )
         return self
 
@@ -167,7 +183,17 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        CodeAnswer(
+                        FillBlanksAnswer(
+                            question_key=answer.question_key,
+                            placements=tuple(
+                                FillBlanksPlacement(
+                                    blank_key=item.blank_key, word_key=item.word_key
+                                )
+                                for item in (answer.placements or ())
+                            ),
+                        )
+                        if answer.kind == 'fill_blanks'
+                        else CodeAnswer(
                             question_key=answer.question_key,
                             kind=answer.kind,
                             files=tuple(

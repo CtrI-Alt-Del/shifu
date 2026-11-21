@@ -1,5 +1,6 @@
 from datetime import timedelta
-from unittest.mock import create_autospec
+import logging
+from unittest.mock import Mock, create_autospec
 
 import pytest
 
@@ -9,7 +10,14 @@ from shifu.intelligence.core.domain.structures.planning_operation_result import 
     FAILED_MESSAGE,
     OPERATION_TIMEOUT_CODE,
 )
-from shifu.intelligence.core.interfaces import PlanningSessionsRepository
+from shifu.fakers.intelligence.entities import AiQuotaChargeFaker
+from shifu.intelligence.core.domain.entities import AiQuotaCharge
+from shifu.intelligence.core.domain.enums import AiQuotaRequestKind
+from shifu.intelligence.core.interfaces import (
+    IntelligenceDatabase,
+    IntelligenceDatabaseRepositories,
+    PlanningSessionsRepository,
+)
 from shifu.intelligence.core.use_cases import GetPlanningSessionUseCase
 from shifu.shared.core.interfaces import ClockProvider
 
@@ -18,9 +26,14 @@ from tests.fixtures.curriculum_planning_boundary_fixture import (
     boundary_expire,
     boundary_session,
 )
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    AiQuotaTestSetup,
+    QUOTA_MONTH,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NOW,
+    OPERATION_ID,
     OTHER_ACCOUNT_ID,
     PLANNING_ID,
     interviewing_session,
@@ -31,14 +44,29 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
 _TIMEOUT = timedelta(minutes=3)
 
 
-class TestGetPlanningSessionUseCase:
+class TestGetPlanningSessionUseCase(AiQuotaTestSetup):
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.sessions = create_autospec(PlanningSessionsRepository, instance=True)
         self.sessions.update.return_value = True
         self.clock = create_autospec(ClockProvider, instance=True)
         self.clock.now.return_value = NOW + timedelta(seconds=30)
-        self.use_case = GetPlanningSessionUseCase(self.sessions, self.clock, _TIMEOUT)
+        self.database = create_autospec(IntelligenceDatabase, instance=True)
+        self.repositories = create_autospec(
+            IntelligenceDatabaseRepositories, instance=True
+        )
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.prepare_quota(self.repositories, account_id=ACCOUNT_ID)
+        self.use_case = GetPlanningSessionUseCase(
+            self.sessions,
+            self.clock,
+            _TIMEOUT,
+            self.database,
+            self.quota_policy,
+            self.quota_calendar,
+        )
 
     def test_should_return_the_owner_planning_without_writing(self) -> None:
         session = started_session()
@@ -118,6 +146,118 @@ class TestGetPlanningSessionUseCase:
             self.sessions.update.reset_mock()
             assert self.use_case.execute(ACCOUNT_ID, PLANNING_ID) is result
             self.sessions.update.assert_not_called()
+
+    def _wire_charge(self) -> AiQuotaCharge:
+        charge = AiQuotaChargeFaker.fake(
+            request_kind=AiQuotaRequestKind.PLANNING_OPERATION,
+            request_id=OPERATION_ID,
+            account_id=ACCOUNT_ID,
+            month=QUOTA_MONTH,
+            charged_units=300,
+        )
+        self.quota_month.used_units = 500
+        self.quota_charges.find.return_value = charge
+        self.quota_charges.find_for_update.return_value = charge
+        return charge
+
+    def test_should_refund_the_operation_only_after_the_expiry_is_stored(self) -> None:
+        charge = self._wire_charge()
+        self.sessions.find_by_id.return_value = started_session()
+        self.clock.now.return_value = NOW + _TIMEOUT
+        effects = Mock()
+        effects.attach_mock(self.sessions.update, 'redis_write')
+        effects.attach_mock(self.quota_charges.find, 'find_charge')
+        effects.attach_mock(self.quota_months.lock_existing, 'lock_month')
+        effects.attach_mock(self.quota_charges.find_for_update, 'lock_charge')
+        effects.attach_mock(self.quota_months.update, 'update_month')
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result.status is PlanningSessionStatus.FAILED
+        assert [entry[0] for entry in effects.mock_calls] == [
+            'redis_write',
+            'find_charge',
+            'lock_month',
+            'lock_charge',
+            'update_month',
+        ]
+        self.quota_charges.find.assert_called_once_with(
+            AiQuotaRequestKind.PLANNING_OPERATION, OPERATION_ID
+        )
+        self.quota_months.lock_existing.assert_called_once_with(ACCOUNT_ID, QUOTA_MONTH)
+        assert charge.refunded is True
+        assert self.quota_month.used_units == 200
+
+    def test_should_refund_to_the_start_month_when_the_expiry_is_read_later(
+        self,
+    ) -> None:
+        self._wire_charge()
+        self.sessions.find_by_id.return_value = started_session()
+        self.clock.now.return_value = NOW + _TIMEOUT
+        self.quota_calendar.month_of.return_value = QUOTA_MONTH.replace(month=11)
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        self.quota_months.lock_existing.assert_called_once_with(ACCOUNT_ID, QUOTA_MONTH)
+        assert self.quota_month.used_units == 200
+
+    def test_should_not_refund_when_the_planning_is_still_inside_the_timeout(
+        self,
+    ) -> None:
+        charge = self._wire_charge()
+        self.sessions.find_by_id.return_value = started_session()
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        self.database.transaction.assert_not_called()
+        assert charge.refunded is False
+
+    def test_should_keep_the_charge_when_the_expiry_write_loses(self) -> None:
+        charge = self._wire_charge()
+        self.sessions.find_by_id.side_effect = [
+            started_session(),
+            interviewing_session(),
+        ]
+        self.sessions.update.return_value = False
+        self.clock.now.return_value = NOW + _TIMEOUT
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        self.database.transaction.assert_not_called()
+        assert charge.refunded is False
+        assert self.quota_month.used_units == 500
+
+    def test_should_refund_only_once_across_repeated_reads_of_an_expired_planning(
+        self,
+    ) -> None:
+        self._wire_charge()
+        self.sessions.find_by_id.return_value = started_session()
+        self.clock.now.return_value = NOW + _TIMEOUT
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert self.quota_month.used_units == 200
+        self.quota_months.update.assert_called_once()
+
+    def test_should_return_the_expired_planning_and_log_when_the_refund_fails(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        self._wire_charge()
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+        self.clock.now.return_value = NOW + _TIMEOUT
+        self.quota_months.lock_existing.side_effect = RuntimeError('database down')
+
+        with caplog.at_level(logging.WARNING):
+            result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result is session
+        assert result.status is PlanningSessionStatus.FAILED
+        warnings = [r for r in caplog.records if 'ai_quota_refund_failed' in r.message]
+        assert len(warnings) == 1
+        assert OPERATION_ID in warnings[0].message
+        assert 'database down' not in warnings[0].message
 
 
 class TestGetPlanningSessionMigratedTransitions:

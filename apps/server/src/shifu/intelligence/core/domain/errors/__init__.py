@@ -70,3 +70,6 @@ from .mentor_action_pending_error import (
 from .mentor_action_proposal_finalized_error import (
     MentorActionProposalFinalizedError as MentorActionProposalFinalizedError,
 )
+from .ai_quota_exhausted_error import (
+    AiQuotaExhaustedError as AiQuotaExhaustedError,
+)

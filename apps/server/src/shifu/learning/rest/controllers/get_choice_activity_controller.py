@@ -82,6 +82,25 @@ class CodeQuestionResponse(BaseModel):
     http_examples: tuple[HttpExampleResponse, ...] = ()
 
 
+class FillBlanksSegmentResponse(BaseModel):
+    text: str | None
+    blank_key: str | None
+
+
+class FillBlanksWordResponse(BaseModel):
+    key: str
+    word: str
+
+
+class FillBlanksQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['fill_blanks']
+    prompt: str
+    content_language: str
+    segments: tuple[FillBlanksSegmentResponse, ...]
+    bank: tuple[FillBlanksWordResponse, ...]
+
+
 class TranslationQuestionResponse(BaseModel):
     key: str
     kind: Literal['translation']
@@ -114,6 +133,7 @@ class Response(BaseModel):
     questions: tuple[
         ChoiceQuestionResponse
         | CodeQuestionResponse
+        | FillBlanksQuestionResponse
         | TranslationQuestionResponse
         | PairMatchingQuestionResponse,
         ...,

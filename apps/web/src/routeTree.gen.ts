@@ -25,6 +25,7 @@ import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-c
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
+import { Route as AccountAiUsageIndexRouteImport } from './routes/account/ai-usage/index'
 import { Route as AccountDeleteIndexRouteImport } from './routes/account/delete/index'
 import { Route as AccountProfileIndexRouteImport } from './routes/account/profile/index'
 import { Route as AccountSecurityIndexRouteImport } from './routes/account/security/index'
@@ -129,6 +130,11 @@ const ResetPasswordIndexRoute = ResetPasswordIndexRouteImport.update({
   id: '/reset-password/',
   path: '/reset-password/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AccountAiUsageIndexRoute = AccountAiUsageIndexRouteImport.update({
+  id: '/ai-usage/',
+  path: '/ai-usage/',
+  getParentRoute: () => AccountRouteRoute,
 } as any)
 const AccountDeleteIndexRoute = AccountDeleteIndexRouteImport.update({
   id: '/delete/',
@@ -298,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/ai-usage/': typeof AccountAiUsageIndexRoute
   '/account/delete/': typeof AccountDeleteIndexRoute
   '/account/profile/': typeof AccountProfileIndexRoute
   '/account/security/': typeof AccountSecurityIndexRoute
@@ -337,6 +344,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterIndexRoute
   '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/ai-usage': typeof AccountAiUsageIndexRoute
   '/account/delete': typeof AccountDeleteIndexRoute
   '/account/profile': typeof AccountProfileIndexRoute
   '/account/security': typeof AccountSecurityIndexRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/ai-usage/': typeof AccountAiUsageIndexRoute
   '/account/delete/': typeof AccountDeleteIndexRoute
   '/account/profile/': typeof AccountProfileIndexRoute
   '/account/security/': typeof AccountSecurityIndexRoute
@@ -421,6 +430,7 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/ai-usage/'
     | '/account/delete/'
     | '/account/profile/'
     | '/account/security/'
@@ -460,6 +470,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/api/auth/$'
+    | '/account/ai-usage'
     | '/account/delete'
     | '/account/profile'
     | '/account/security'
@@ -500,6 +511,7 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/ai-usage/'
     | '/account/delete/'
     | '/account/profile/'
     | '/account/security/'
@@ -667,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account/ai-usage/': {
+      id: '/account/ai-usage/'
+      path: '/ai-usage'
+      fullPath: '/account/ai-usage/'
+      preLoaderRoute: typeof AccountAiUsageIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
     '/account/delete/': {
       id: '/account/delete/'
       path: '/delete'
@@ -833,6 +852,7 @@ declare module '@tanstack/react-router' {
 
 interface AccountRouteRouteChildren {
   AccountIndexRoute: typeof AccountIndexRoute
+  AccountAiUsageIndexRoute: typeof AccountAiUsageIndexRoute
   AccountDeleteIndexRoute: typeof AccountDeleteIndexRoute
   AccountProfileIndexRoute: typeof AccountProfileIndexRoute
   AccountSecurityIndexRoute: typeof AccountSecurityIndexRoute
@@ -840,6 +860,7 @@ interface AccountRouteRouteChildren {
 
 const AccountRouteRouteChildren: AccountRouteRouteChildren = {
   AccountIndexRoute: AccountIndexRoute,
+  AccountAiUsageIndexRoute: AccountAiUsageIndexRoute,
   AccountDeleteIndexRoute: AccountDeleteIndexRoute,
   AccountProfileIndexRoute: AccountProfileIndexRoute,
   AccountSecurityIndexRoute: AccountSecurityIndexRoute,

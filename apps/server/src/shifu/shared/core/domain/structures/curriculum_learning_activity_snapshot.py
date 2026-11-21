@@ -7,6 +7,9 @@ from shifu.shared.core.domain.structures.structure import structure
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
 from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapshot
+from .curriculum_fill_blanks_question_snapshot import (
+    CurriculumFillBlanksQuestionSnapshot,
+)
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
@@ -40,6 +43,7 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumFillBlanksQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot
         | CurriculumPairMatchingQuestionSnapshot,
         ...,
@@ -86,41 +90,9 @@ class CurriculumLearningActivitySnapshot:
             raise ValidationError
         parts = {part.question_key: part for part in self.parts}
         for question in self.questions:
-            requires_code_rubric = isinstance(
-                question,
-                (
-                    CurriculumJavascriptStdinQuestionSnapshot,
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                ),
+            self._validate_question_part(
+                question, parts[question.key], self.activity_type
             )
-            if requires_code_rubric != isinstance(
-                parts[question.key], CurriculumCodeRubricPartSnapshot
-            ):
-                raise ValidationError
-            requires_translation_rubric = isinstance(
-                question, CurriculumTranslationQuestionSnapshot
-            )
-            if requires_translation_rubric != isinstance(
-                parts[question.key], CurriculumTranslationRubricPartSnapshot
-            ):
-                raise ValidationError
-            if isinstance(
-                question, CurriculumPairMatchingQuestionSnapshot
-            ) and not isinstance(parts[question.key], CurriculumChoicePartSnapshot):
-                raise ValidationError
-            if self.activity_type == 'diagnostic' and isinstance(
-                question,
-                (
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                    CurriculumTranslationQuestionSnapshot,
-                    CurriculumPairMatchingQuestionSnapshot,
-                ),
-            ):
-                raise ValidationError
         if any(
             isinstance(question, CurriculumTranslationQuestionSnapshot)
             for question in self.questions
@@ -135,5 +107,48 @@ class CurriculumLearningActivitySnapshot:
                 ),
             )
             for question in self.questions
+        ):
+            raise ValidationError
+
+    @staticmethod
+    def _validate_question_part(
+        question: object, part: object, activity_type: str
+    ) -> None:
+        requires_code_rubric = isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
+            ),
+        )
+        if requires_code_rubric != isinstance(part, CurriculumCodeRubricPartSnapshot):
+            raise ValidationError
+        if isinstance(
+            question,
+            (
+                CurriculumFillBlanksQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+            ),
+        ) and not isinstance(part, CurriculumChoicePartSnapshot):
+            raise ValidationError
+        requires_translation_rubric = isinstance(
+            question, CurriculumTranslationQuestionSnapshot
+        )
+        if requires_translation_rubric != isinstance(
+            part, CurriculumTranslationRubricPartSnapshot
+        ):
+            raise ValidationError
+        if activity_type == 'diagnostic' and isinstance(
+            question,
+            (
+                CurriculumFillBlanksQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
+                CurriculumTranslationQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+            ),
         ):
             raise ValidationError

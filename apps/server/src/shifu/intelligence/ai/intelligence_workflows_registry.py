@@ -39,6 +39,7 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorAttachmentUseCase,
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
+    PurgeAiQuotaForAccountUseCase,
     PurgeLearnerMemoriesForAccountUseCase,
     PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
@@ -46,6 +47,7 @@ from shifu.intelligence.core.use_cases import (
     RecordMentorActionOutcomeUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
+    RecordPlanningInferenceUsageUseCase,
     ReleaseMentorAttachmentClaimUseCase,
     ReleaseMentorResponseClaimUseCase,
     RenewMentorAttachmentClaimUseCase,
@@ -123,11 +125,13 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
     from shifu.intelligence.core.domain.structures import (
+        AiQuotaPolicy,
         MentorInferenceUsage,
         PlanningQuery,
         PlanningSkillRanking,
     )
     from shifu.intelligence.core.interfaces import (
+        AiQuotaCalendarProvider,
         GenerateMentorTitleProvider,
         IntelligenceDatabase,
         LearnerMemoryAnalyzerProvider,
@@ -280,6 +284,8 @@ class IntelligenceWorkflowsRegistry:
         mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
@@ -464,12 +470,18 @@ class IntelligenceWorkflowsRegistry:
         )
         release_response_claim = ReleaseMentorResponseClaimUseCase(self._database)
         fail_response = FailMentorResponseUseCase(
-            self._database, self._clock_provider, access_provider
+            self._database,
+            self._clock_provider,
+            access_provider,
+            quota_policy,
+            quota_calendar,
         )
         record_response_usage = RecordMentorInferenceUsageUseCase(
             self._database,
             self._clock_provider,
             access_provider,
+            quota_policy,
+            quota_calendar,
             self._telemetry,
         )
         record_response_progress = RecordMentorResponseProgressUseCase(
@@ -503,6 +515,7 @@ class IntelligenceWorkflowsRegistry:
         self._purge_mentor_action_proposals_use_case = (
             PurgeMentorActionProposalsForAccountUseCase(self._database)
         )
+        self._purge_ai_quota_use_case = PurgeAiQuotaForAccountUseCase(self._database)
         self._record_mentor_action_outcome_use_case = RecordMentorActionOutcomeUseCase(
             self._database, self._clock_provider
         )
@@ -577,10 +590,17 @@ class IntelligenceWorkflowsRegistry:
                 self._planning_sessions, access_provider
             ),
             complete_use_case=CompletePlanningOperationUseCase(
-                self._planning_sessions, self._clock_provider
+                self._planning_sessions,
+                self._clock_provider,
+                self._database,
+                quota_policy,
+                quota_calendar,
             ),
             progress_use_case=ReportPlanningProgressUseCase(
                 self._planning_sessions, self._clock_provider
+            ),
+            record_usage_use_case=RecordPlanningInferenceUsageUseCase(
+                self._database, quota_policy, quota_calendar, self._clock_provider
             ),
             classify_use_case=ClassifyPlanningIntentUseCase(
                 self._planning_intent_classifier
@@ -682,6 +702,10 @@ class IntelligenceWorkflowsRegistry:
     @property
     def purge_learner_memories_use_case(self) -> PurgeLearnerMemoriesForAccountUseCase:
         return self._purge_learner_memories_use_case
+
+    @property
+    def purge_ai_quota_use_case(self) -> PurgeAiQuotaForAccountUseCase:
+        return self._purge_ai_quota_use_case
 
     @property
     def purge_mentor_action_proposals_use_case(

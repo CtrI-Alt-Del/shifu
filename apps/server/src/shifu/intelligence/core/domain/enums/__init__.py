@@ -35,3 +35,5 @@ from .mentor_action_proposal_outcome import (
 from .mentor_action_proposal_rejection_reason import (
     MentorActionProposalRejectionReason as MentorActionProposalRejectionReason,
 )
+from .ai_quota_request_kind import AiQuotaRequestKind as AiQuotaRequestKind
+from .ai_quota_status import AiQuotaStatus as AiQuotaStatus

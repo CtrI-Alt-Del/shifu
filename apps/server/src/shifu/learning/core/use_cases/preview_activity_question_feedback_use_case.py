@@ -6,6 +6,7 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeCriterionResult,
     CodeConceptObservationResult,
+    FillBlanksAnswer,
     PairMatchingAnswer,
     PairMatchingSelection,
     TranslationAnswer,
@@ -13,6 +14,7 @@ from shifu.learning.core.domain.structures import (
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
 )
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
 from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
@@ -34,6 +36,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
@@ -56,11 +59,22 @@ class PreliminaryQuestionResult:
     criteria: tuple[CodeCriterionResult, ...] = ()
     concept_observations: tuple[CodeConceptObservationResult, ...] = ()
     submitted_files: tuple[CodeSubmittedFile, ...] = ()
+    correct_blank_count: int | None = None
+    blank_count: int | None = None
     submitted_text: str | None = None
     submitted_pairs: tuple[PairMatchingSelection, ...] | None = None
     correct_pair_count: int | None = None
     total_pair_count: int | None = None
     outcome: str | None = None
+
+
+type PreviewAnswer = (
+    ChoiceAnswerSubmission
+    | CodeAnswer
+    | FillBlanksAnswer
+    | TranslationAnswer
+    | PairMatchingAnswer
+)
 
 
 class PreviewActivityQuestionFeedbackUseCase:
@@ -89,10 +103,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission
-        | CodeAnswer
-        | TranslationAnswer
-        | PairMatchingAnswer,
+        answer: PreviewAnswer,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
@@ -113,43 +124,25 @@ class PreviewActivityQuestionFeedbackUseCase:
         if isinstance(
             question,
             (
+                CurriculumFillBlanksQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+            ),
+        ):
+            return self._execute_deterministic(question, answer)
+
+        if isinstance(
+            question,
+            (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
                 CurriculumHtmlCssJsQuestionSnapshot,
                 CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
-            if not isinstance(answer, CodeAnswer):
-                raise ValidationError
+            return self._execute_code(question, answer, snapshot.parts)
 
-            part = next(
-                (item for item in snapshot.parts if item.question_key == question_key),
-                None,
-            )
-            if not isinstance(part, CurriculumCodeRubricPartSnapshot):
-                raise ValidationError
-
-            request = self.build_code_assessment_input(
-                question, part, answer, self._max_code_assessment_input_bytes
-            )
-
-            decisions = self._code_rubric_assessor_provider.assess(request)
-            return self.code_result(
-                question,
-                part,
-                answer,
-                decisions,
-                self._max_code_assessment_input_bytes,
-            )
-
-        if isinstance(
-            question,
-            (
-                CurriculumTranslationQuestionSnapshot,
-                CurriculumPairMatchingQuestionSnapshot,
-            ),
-        ):
-            return self._execute_translation_or_pairs(question, answer, snapshot.parts)
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            return self._execute_translation(question, answer, snapshot.parts)
 
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
@@ -176,14 +169,28 @@ class PreviewActivityQuestionFeedbackUseCase:
             else question.incorrect_explanation,
         )
 
-    def _execute_translation_or_pairs(
-        self,
-        question: CurriculumTranslationQuestionSnapshot
+    @staticmethod
+    def _execute_deterministic(
+        question: CurriculumFillBlanksQuestionSnapshot
         | CurriculumPairMatchingQuestionSnapshot,
-        answer: ChoiceAnswerSubmission
-        | CodeAnswer
-        | TranslationAnswer
-        | PairMatchingAnswer,
+        answer: PreviewAnswer,
+    ) -> PreliminaryQuestionResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return PreviewActivityQuestionFeedbackUseCase.fill_blanks_result(
+                question, answer
+            )
+
+        return PreviewActivityQuestionFeedbackUseCase.pair_matching_result(
+            question, answer
+        )
+
+    def _execute_code(
+        self,
+        question: CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
+        answer: PreviewAnswer,
         parts: tuple[
             CurriculumChoicePartSnapshot
             | CurriculumCodeRubricPartSnapshot
@@ -191,21 +198,29 @@ class PreviewActivityQuestionFeedbackUseCase:
             ...,
         ],
     ) -> PreliminaryQuestionResult:
-        if isinstance(question, CurriculumTranslationQuestionSnapshot):
-            return self._execute_translation(question, answer, parts)
-
-        if not isinstance(answer, PairMatchingAnswer):
+        if not isinstance(answer, CodeAnswer):
             raise ValidationError
 
-        return self.pair_matching_result(question, answer)
+        part = next((item for item in parts if item.question_key == question.key), None)
+        if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+            raise ValidationError
+
+        request = self.build_code_assessment_input(
+            question, part, answer, self._max_code_assessment_input_bytes
+        )
+        decisions = self._code_rubric_assessor_provider.assess(request)
+        return self.code_result(
+            question,
+            part,
+            answer,
+            decisions,
+            self._max_code_assessment_input_bytes,
+        )
 
     def _execute_translation(
         self,
         question: CurriculumTranslationQuestionSnapshot,
-        answer: ChoiceAnswerSubmission
-        | CodeAnswer
-        | TranslationAnswer
-        | PairMatchingAnswer,
+        answer: PreviewAnswer,
         parts: tuple[
             CurriculumChoicePartSnapshot
             | CurriculumCodeRubricPartSnapshot
@@ -236,8 +251,11 @@ class PreviewActivityQuestionFeedbackUseCase:
     @staticmethod
     def pair_matching_result(
         question: CurriculumPairMatchingQuestionSnapshot,
-        answer: PairMatchingAnswer,
+        answer: PreviewAnswer,
     ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, PairMatchingAnswer):
+            raise ValidationError
+
         result = PairMatchingScoring.evaluate(question, answer)
         return PreliminaryQuestionResult(
             status='conclusive',
@@ -248,6 +266,24 @@ class PreviewActivityQuestionFeedbackUseCase:
             correct_pair_count=result.correct_pair_count,
             total_pair_count=result.total_pair_count,
             outcome=result.outcome,
+        )
+
+    @staticmethod
+    def fill_blanks_result(
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: PreviewAnswer,
+    ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, FillBlanksAnswer):
+            raise ValidationError
+
+        result = FillBlanksScoring.score(question, answer)
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
+            correct_blank_count=len(result.correct_blank_keys),
+            blank_count=result.blank_count,
         )
 
     @staticmethod

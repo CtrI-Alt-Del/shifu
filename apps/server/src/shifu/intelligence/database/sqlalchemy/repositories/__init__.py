@@ -34,3 +34,9 @@ from .mentor_sessions_repository import (
 from .planning_embeddings_repository import (
     SqlalchemyPlanningEmbeddingsRepository as SqlalchemyPlanningEmbeddingsRepository,
 )
+from .ai_quota_charges_repository import (
+    SqlalchemyAiQuotaChargesRepository as SqlalchemyAiQuotaChargesRepository,
+)
+from .ai_quota_months_repository import (
+    SqlalchemyAiQuotaMonthsRepository as SqlalchemyAiQuotaMonthsRepository,
+)

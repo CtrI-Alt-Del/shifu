@@ -17,6 +17,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
+    FillBlanksAnswer,
     PairMatchingAnswer,
     TranslationAnswer,
 )
@@ -28,12 +29,16 @@ from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
 )
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
 )
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
 from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.shared.core.domain.errors import (
     ConflictError,
@@ -48,6 +53,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -83,6 +89,7 @@ class SubmitChoiceActivityUseCase:
         answers: tuple[
             ChoiceAnswerSubmission
             | CodeAnswer
+            | FillBlanksAnswer
             | TranslationAnswer
             | PairMatchingAnswer,
             ...,
@@ -121,20 +128,9 @@ class SubmitChoiceActivityUseCase:
             self._curriculum_content_provider, 'get_learning_activity', None
         )
         snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-            isinstance(
-                item,
-                (
-                    CurriculumJavascriptStdinQuestionSnapshot,
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                    CurriculumTranslationQuestionSnapshot,
-                    CurriculumPairMatchingQuestionSnapshot,
-                ),
-            )
-            for item in snapshot.questions
-        ):
+        if not isinstance(
+            snapshot, CurriculumLearningActivitySnapshot
+        ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
             snapshot = self._curriculum_content_provider.get_choice_activity(
                 activity_id
             )
@@ -284,6 +280,7 @@ class SubmitChoiceActivityUseCase:
         answers: tuple[
             ChoiceAnswerSubmission
             | CodeAnswer
+            | FillBlanksAnswer
             | TranslationAnswer
             | PairMatchingAnswer,
             ...,
@@ -323,6 +320,7 @@ class SubmitChoiceActivityUseCase:
         answers: tuple[
             ChoiceAnswerSubmission
             | CodeAnswer
+            | FillBlanksAnswer
             | TranslationAnswer
             | PairMatchingAnswer,
             ...,
@@ -353,6 +351,12 @@ class SubmitChoiceActivityUseCase:
                 )
                 continue
 
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                if not isinstance(answer, FillBlanksAnswer):
+                    raise ValidationError
+
+                normalized.append(FillBlanksScoring.normalize(question, answer))
+                continue
             if isinstance(question, CurriculumTranslationQuestionSnapshot):
                 if not isinstance(answer, TranslationAnswer):
                     raise ValidationError

@@ -1,8 +1,14 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, Response as FastApiResponse
 from pydantic import BaseModel, ConfigDict, UUID4, Field, TypeAdapter
-from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
+    MentorResponseSnapshot,
+)
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+)
 from shifu.intelligence.core.use_cases import RetryMentorResponseUseCase
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -52,8 +58,22 @@ class RetryMentorResponseController:
                 MentorAccessProvider,
                 Depends(IntelligencePipe.get_mentor_access_provider),
             ],
+            quota_policy: Annotated[
+                AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
+            ],
+            quota_calendar: Annotated[
+                AiQuotaCalendarProvider,
+                Depends(IntelligencePipe.get_ai_quota_calendar_provider),
+            ],
         ) -> Response:
-            use_case = RetryMentorResponseUseCase(database, identifier, clock, access)
+            use_case = RetryMentorResponseUseCase(
+                database,
+                identifier,
+                clock,
+                access,
+                quota_policy,
+                quota_calendar,
+            )
             result = use_case.execute(
                 user.account_id, session_id, attempt_id, str(request.submission_key)
             )

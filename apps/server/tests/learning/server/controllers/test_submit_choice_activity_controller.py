@@ -33,6 +33,8 @@ from shifu.curriculum.core.domain.structures import (
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.core.domain.structures import (
     CodeAnswer,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
     PairMatchingAnswer,
     PairMatchingSelection,
     TranslationAnswer,
@@ -58,10 +60,15 @@ from shifu.shared.database.seed_data import (
     build_development_seed,
 )
 from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
+from tests.fixtures.fill_blanks_activity_fixture import (
+    CORRECT_PAIRS,
+    PARTIAL_PAIRS,
+    FillBlanksActivityFixture,
+)
+from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.learning.rest.controllers.pair_matching_controller_fixture import (
     PairMatchingControllerFixture,
 )
-from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.fixtures.react_activity_fixture import (
@@ -634,6 +641,191 @@ class TestSubmitChoiceActivityController:
 
         assert replay.status_code == 200
         assert replay.json()['attempt_id'] == attempt_id
+
+    def _fill_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    def _fill_submit(self, client: TestClient, body: dict[str, object]) -> 'Response':
+        return cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path() + '/attempts',
+                json=body,
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+    def test_fill_blanks_submission_persists_normalized_placements_and_replays(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._fill_revision(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+        reordered = tuple(reversed(CORRECT_PAIRS))
+        body = FillBlanksActivityFixture.submission(revision, *reordered)
+
+        created = self._fill_submit(client, body)
+
+        assert created.status_code == 201, created.json()
+        assert created.json()['status'] == 'pending'
+        attempt_id = cast('str', created.json()['attempt_id'])
+        attempts, evaluations, observations, events = (
+            FillBlanksActivityFixture.write_counts(postgres_database)
+        )
+        assert (
+            attempts - before[0],
+            evaluations - before[1],
+            observations - before[2],
+            events - before[3],
+        ) == (1, 1, 0, 1)
+        with SqlalchemyLearningDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert attempt is not None and attempt.grading_snapshot is not None
+        assert attempt.grading_snapshot.questions[0].kind == 'fill_blanks'
+        assert attempt.grading_snapshot.revision == revision
+        assert attempt.answers[0] == FillBlanksAnswer(
+            question_key='fill-1',
+            placements=tuple(
+                FillBlanksPlacement(blank_key=blank, word_key=word)
+                for blank, word in CORRECT_PAIRS
+            ),
+        )
+        assert evaluation is not None
+        assert evaluation.status.value == 'pending'
+
+        replay = self._fill_submit(client, body)
+        different = self._fill_submit(
+            client, FillBlanksActivityFixture.submission(revision, *PARTIAL_PAIRS)
+        )
+
+        assert replay.status_code == 200, replay.json()
+        assert replay.json()['attempt_id'] == attempt_id
+        assert different.status_code == 409, different.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == (
+            attempts,
+            evaluations,
+            observations,
+            events,
+        )
+
+    def test_fill_blanks_submission_accepts_a_complete_but_wrong_fill(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._fill_revision(client, postgres_database)
+
+        created = self._fill_submit(
+            client, FillBlanksActivityFixture.submission(revision, *PARTIAL_PAIRS)
+        )
+
+        assert created.status_code == 201, created.json()
+
+    @pytest.mark.parametrize(
+        ('pairs', 'expected_status'),
+        (
+            ((('b1', 'w1'), ('b2', 'w3')), 400),
+            ((('b1', 'w1'), ('b2', 'w1'), ('b3', 'w4')), 400),
+            ((('b1', 'w1'), ('b2', 'missing'), ('b3', 'w4')), 400),
+            ((('b1', 'w1'), ('b2', 'w3'), ('unknown', 'w4')), 400),
+            ((), 400),
+        ),
+        ids=(
+            'incomplete',
+            'repeated-occurrence',
+            'unknown-occurrence',
+            'unknown-blank',
+            'empty',
+        ),
+    )
+    def test_fill_blanks_submission_rejects_an_invalid_fill_without_persistence(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        pairs: tuple[tuple[str, str], ...],
+        expected_status: int,
+    ) -> None:
+        revision = self._fill_revision(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+
+        response = self._fill_submit(
+            client, FillBlanksActivityFixture.submission(revision, *pairs)
+        )
+
+        assert response.status_code == expected_status, response.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize(
+        'mutation',
+        ('placements-on-choice', 'fill-with-options', 'fill-without-placements'),
+    )
+    def test_fill_blanks_submission_rejects_malformed_answer_shapes(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        mutation: str,
+    ) -> None:
+        revision = self._fill_revision(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+        body = FillBlanksActivityFixture.submission(revision, *CORRECT_PAIRS)
+        answers = cast('list[dict[str, object]]', body['answers'])
+        if mutation == 'placements-on-choice':
+            answers[1]['placements'] = []
+        elif mutation == 'fill-with-options':
+            answers[0]['selected_option_keys'] = ['a']
+        else:
+            del answers[0]['placements']
+
+        response = self._fill_submit(client, body)
+
+        assert response.status_code == 422, response.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    def test_fill_blanks_submission_rejects_a_stale_revision_and_a_pending_evaluation(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._fill_revision(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+
+        stale = self._fill_submit(
+            client,
+            FillBlanksActivityFixture.submission('stale-revision', *CORRECT_PAIRS),
+        )
+        assert stale.status_code == 409, stale.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+        first = self._fill_submit(
+            client, FillBlanksActivityFixture.submission(revision, *CORRECT_PAIRS)
+        )
+        assert first.status_code == 201, first.json()
+        pending = FillBlanksActivityFixture.write_counts(postgres_database)
+        second = self._fill_submit(
+            client,
+            FillBlanksActivityFixture.submission(
+                revision,
+                *CORRECT_PAIRS,
+                submission_key='11111111-1111-4111-8111-111111111111',
+            ),
+        )
+
+        assert second.status_code == 409, second.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == pending
 
     def test_mixed_translation_submission_persists_the_saved_snapshot_and_text(
         self,

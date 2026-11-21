@@ -5,10 +5,12 @@ from fastapi import Response as FastApiResponse
 from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
     MentorContextHint,
     MentorResponseSnapshot,
 )
 from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
     GenerateMentorTitleProvider,
     IntelligenceDatabase,
 )
@@ -84,6 +86,13 @@ class CreateMentorSessionController:
                 GenerateMentorTitleProvider,
                 Depends(IntelligencePipe.get_generate_mentor_title_provider),
             ],
+            quota_policy: Annotated[
+                AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
+            ],
+            quota_calendar: Annotated[
+                AiQuotaCalendarProvider,
+                Depends(IntelligencePipe.get_ai_quota_calendar_provider),
+            ],
         ) -> Response:
             result = CreateMentorSessionUseCase(
                 database,
@@ -91,6 +100,8 @@ class CreateMentorSessionController:
                 clock_provider,
                 title_provider,
                 access_provider,
+                quota_policy,
+                quota_calendar,
             ).execute(
                 user.account_id,
                 str(request.submission_key),

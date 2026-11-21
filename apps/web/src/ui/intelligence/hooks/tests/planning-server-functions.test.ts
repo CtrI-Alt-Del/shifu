@@ -255,6 +255,21 @@ describe('Planner server functions', () => {
     expect(planningFailure(new Error('socket'))).toEqual({ kind: 'unavailable' })
   })
 
+  it('classifies only the quota refusal code of a 429 as quota-exhausted', () => {
+    expect(
+      planningFailure(new RestError('Cota esgotada.', 429, 'ai_quota_exhausted')),
+    ).toEqual({ kind: 'quota-exhausted' })
+    expect(planningFailure(new RestError('Muitas.', 429, 'rate_limited'))).toEqual({
+      kind: 'unavailable',
+    })
+    expect(planningFailure(new RestError('Muitas.', 429))).toEqual({
+      kind: 'unavailable',
+    })
+    expect(() => unwrapPlanningResult({ kind: 'quota-exhausted' })).toThrow(
+      'Sua cota mensal de IA acabou.',
+    )
+  })
+
   it('unwraps results and raises typed errors on the client', () => {
     expect(unwrapPlanningResult({ id: PLANNING_ID })).toEqual({ id: PLANNING_ID })
     expect(() => unwrapPlanningResult({ kind: 'conflict', message: 'ocupado' })).toThrow(

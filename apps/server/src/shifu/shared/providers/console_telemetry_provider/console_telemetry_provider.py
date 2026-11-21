@@ -110,6 +110,7 @@ class ConsoleTelemetryProvider(TelemetryProvider):
             'intelligence.purge_mentor_attachments_on_account_deleted',
             'intelligence.purge_mentor_summaries_on_account_deleted',
             'intelligence.purge_learner_memories_on_account_deleted',
+            'intelligence.purge_ai_quota_on_account_deleted',
             'intelligence.purge_mentor_action_proposals_on_account_deleted',
             'intelligence.record_mentor_action_outcome',
             'identity.record_communication_delivery_state',

@@ -6,6 +6,8 @@ export type RestartPlanningDialogProps = {
   isOpen: boolean
   initialIntent: string
   isSubmitting: boolean
+  /** A quota refusal closes the dialog; the blocked card explains it on the page. */
+  isAiQuotaBlocked: boolean
   errorMessage: string | null
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>
   onClose: () => void
@@ -19,6 +21,8 @@ export function useRestartPlanningDialog({
   isOpen,
   initialIntent,
   isSubmitting,
+  isAiQuotaBlocked,
+  onClose,
   onSubmit,
 }: RestartPlanningDialogProps) {
   const [intent, setIntent] = useState(initialIntent)
@@ -32,6 +36,10 @@ export function useRestartPlanningDialog({
       setValidationMessage(null)
     }
   }, [initialIntent, isOpen])
+
+  useEffect(() => {
+    if (isOpen && isAiQuotaBlocked) onClose()
+  }, [isAiQuotaBlocked, isOpen, onClose])
 
   function handleIntentChange(value: string) {
     setIntent(value)

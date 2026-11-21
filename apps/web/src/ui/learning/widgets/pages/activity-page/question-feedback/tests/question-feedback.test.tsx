@@ -46,7 +46,10 @@ function renderFeedback(feedback: PreliminaryQuestionResult) {
 
 describe('QuestionFeedback for pair matching', () => {
   beforeEach(() => {
-    useQuestionFeedbackMock.mockReturnValue({ feedbackElementRef: { current: null } })
+    useQuestionFeedbackMock.mockReturnValue({
+      feedbackElementRef: { current: null },
+      fillBlanksOutcome: null,
+    })
   })
 
   afterEach(cleanup)

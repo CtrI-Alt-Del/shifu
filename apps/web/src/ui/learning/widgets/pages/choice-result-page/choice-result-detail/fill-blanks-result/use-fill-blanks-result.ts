@@ -1,0 +1,64 @@
+import { fillBlanksSegmentKeys } from '@/core/learning/fill-blanks-segment-keys'
+import type { FillBlanksSegment } from '@/core/learning/choice-activity'
+import { useFillBlanksOutcome } from '@/ui/learning/hooks/use-fill-blanks-outcome'
+
+import type { FillBlanksResultProps } from '.'
+
+const SCORE_FORMATTER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
+
+export type FilledSegment = {
+  key: string
+  segment: FillBlanksSegment
+  blankNumber: number | null
+  word: string | null
+}
+
+export function useFillBlanksResult({ result }: FillBlanksResultProps) {
+  const outcome = useFillBlanksOutcome({
+    blankCount: result.blankCount,
+    correctBlankCount: result.correctBlankCount,
+    score: result.score,
+  })
+  const wordByKey = new Map(result.bank.map((word) => [word.key, word.word]))
+  const placedWordByBlank = new Map(
+    result.placements.map((placement) => [
+      placement.blankKey,
+      wordByKey.get(placement.wordKey) ?? null,
+    ]),
+  )
+  const segmentKeys = fillBlanksSegmentKeys(result.segments)
+  let blankCounter = 0
+  const filledSegments: FilledSegment[] = result.segments.map((segment, index) => {
+    const key = segmentKeys[index] ?? `segment-${index}`
+    if (!segment.blankKey) return { key, segment, blankNumber: null, word: null }
+
+    blankCounter += 1
+    return {
+      key,
+      segment,
+      blankNumber: blankCounter,
+      word: placedWordByBlank.get(segment.blankKey) ?? null,
+    }
+  })
+  const blankNumberByKey = new Map(
+    filledSegments.flatMap((item) =>
+      item.segment.blankKey && item.blankNumber !== null
+        ? [[item.segment.blankKey, item.blankNumber] as const]
+        : [],
+    ),
+  )
+  const expectedItems = result.expectedBlanks.map((blank) => ({
+    blankKey: blank.blankKey,
+    blankNumber: blankNumberByKey.get(blank.blankKey) ?? 0,
+    words: blank.acceptedWords,
+  }))
+
+  return {
+    outcome,
+    expectedItems,
+    filledSegments,
+    formattedScore: SCORE_FORMATTER.format(Number(result.score)),
+    hasExpectedBlanks: expectedItems.length > 0,
+    isCorrect: result.isCorrect,
+  }
+}

@@ -13,6 +13,8 @@ import type {
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
 
+import { FillBlanksQuestionFaker } from '@/core/learning/fakers'
+
 import { ChoiceResultDetail } from '..'
 
 const QUESTION: ChoiceQuestion = {
@@ -333,6 +335,97 @@ describe('ChoiceResultDetail', () => {
     expect(screen.getByText('Integração correta')).toBeVisible()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Prévia isolada React + Fastify')).not.toBeInTheDocument()
+  })
+  describe('with a fill-in-the-blank result', () => {
+    const question = FillBlanksQuestionFaker.fake()
+
+    function open(result = FillBlanksQuestionFaker.fakeResult()) {
+      const view = render(
+        <ChoiceResultDetail question={question} questionNumber={2} result={result} />,
+      )
+      fireEvent.click(screen.getByText(/Questão 2 · lacunas/))
+      return view
+    }
+
+    it('shows the submitted fill read-only with the score, count, label and explanation', () => {
+      const { container } = open()
+
+      expect(screen.getByText(/Questão 2 · lacunas · Parcialmente correta/)).toBeVisible()
+      expect(screen.getByLabelText('Nota 66,67 de 100')).toBeVisible()
+      expect(screen.getByText('Somente leitura')).toBeVisible()
+      expect(screen.getByText('2 de 3 lacunas corretas')).toBeVisible()
+      expect(screen.getByText('Quase lá. Revise a forma do verbo.')).toBeVisible()
+      const fill = container.querySelector('p.whitespace-pre-wrap.rounded-md')
+      expect(fill).toHaveTextContent(/She\s*Lacuna 1:\s*goes\s*to school and/)
+      expect(fill).toHaveTextContent(/Lacuna 2:\s*go\s*her homework every/)
+      expect(fill?.querySelectorAll('[lang="en"]').length).toBeGreaterThan(0)
+    })
+
+    it('never shows the expected fill while the answers are protected', () => {
+      open()
+
+      expect(screen.queryByText('Preenchimento esperado')).toBeNull()
+      expect(screen.queryByText(/ ou /)).toBeNull()
+    })
+
+    it('shows the expected fill, with accepted alternatives, once it is released', () => {
+      open(
+        FillBlanksQuestionFaker.fakeResult({
+          expectedBlanks: [
+            { blankKey: 'b1', acceptedWords: ['goes', 'walks'] },
+            { blankKey: 'b2', acceptedWords: ['does'] },
+            { blankKey: 'b3', acceptedWords: ['day'] },
+          ],
+        }),
+      )
+
+      expect(
+        screen.getByRole('heading', { name: 'Preenchimento esperado' }),
+      ).toBeVisible()
+      const expected = within(
+        screen.getByRole('region', { name: 'Preenchimento esperado' }),
+      )
+      expect(expected.getByText('goes ou walks')).toBeVisible()
+      expect(expected.getByText('does')).toBeVisible()
+      expect(expected.getByText('day')).toBeVisible()
+    })
+
+    it.each([
+      [100, true, 3, 'Resposta correta'],
+      [66.67, false, 2, 'Parcialmente correta'],
+      [0, false, 0, 'Resposta incorreta'],
+    ])(
+      'labels a %s score as %s with text and an icon',
+      (score, isCorrect, correctBlankCount, label) => {
+        const { container } = open(
+          FillBlanksQuestionFaker.fakeResult({ score, isCorrect, correctBlankCount }),
+        )
+
+        expect(
+          screen.getByText(new RegExp(`Questão 2 · lacunas · ${label}`)),
+        ).toBeVisible()
+        expect(container.querySelector('summary svg')).not.toBeNull()
+        expect(
+          screen.getByText(`${correctBlankCount} de 3 lacunas corretas`),
+        ).toBeVisible()
+      },
+    )
+
+    it('shows a dash for a blank whose word is missing from the saved bank', () => {
+      open(
+        FillBlanksQuestionFaker.fakeResult({
+          placements: [{ blankKey: 'b1', wordKey: 'unknown' }],
+        }),
+      )
+
+      expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    })
+
+    it('uses the singular count text for a one-blank question', () => {
+      open(FillBlanksQuestionFaker.fakeResult({ blankCount: 1, correctBlankCount: 1 }))
+
+      expect(screen.getByText('1 de 1 lacuna correta')).toBeVisible()
+    })
   })
 
   it.each([

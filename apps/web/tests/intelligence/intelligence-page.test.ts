@@ -9,6 +9,20 @@ import {
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
 import {
+  AI_QUOTA_MENTOR_BLOCKED_MESSAGE,
+  AI_QUOTA_WARNING_MESSAGE,
+  AiQuotaUpstreamFixture,
+  aiQuotaDismissalKey,
+  clickIgnoringDisabled,
+  expectBlockedControl,
+  expectBox,
+  installAiQuotaReading,
+  installMentorConversation,
+  openRealPage,
+  recordServerFunctionCalls,
+  signInRealAccount,
+} from '../support/ai-quota-backend'
+import {
   ACTION_IDS,
   ADD_JUSTIFICATION,
   BLOCK_REASON,
@@ -22,6 +36,7 @@ import {
   SKILL_NAME,
 } from '../support/mentor-actions-backend'
 import {
+  ATTEMPT_ID,
   CONVERSATION_TEXTS,
   expectNoHorizontalOverflow,
   installMentorMemoriesBackend,
@@ -291,8 +306,9 @@ test('keeps the selected route, editable draft, history, search, rename and dele
         memoryItems: [],
       }
       details.set(session.id, detail)
+      // A Mentor start answers with a typed result so a quota refusal can travel as data.
       await route.fulfill({
-        body: JSON.stringify({ result: detail }),
+        body: JSON.stringify({ result: { ok: true, value: detail } }),
         contentType: 'application/json',
         status: 200,
       })
@@ -574,7 +590,10 @@ test.describe('Mentor page memories', () => {
 
       const link = page.getByRole('link', { name: 'Memórias' })
       await expect(link).toBeVisible()
-      expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+      // Poll: an entrance animation can leave a transient sub-pixel scale (43.99999 px).
+      await expect
+        .poll(async () => (await link.boundingBox())?.height ?? 0)
+        .toBeGreaterThanOrEqual(44)
       await link.click()
 
       await expect(page).toHaveURL(/\/intelligence\/memories\/?(\?.*)?$/)
@@ -1113,5 +1132,300 @@ test.describe('Mentor page confirmed actions', () => {
     await page.screenshot({
       path: '.playwright-cli/screenshots/shifu-104-page-390-remove-proposal.png',
     })
+  })
+})
+
+const MESSAGE_BOX_NAME = 'Escreva sua mensagem para o Mentor'
+const BLOCKED_PLACEHOLDER = 'Envio pausado até a renovação da cota'
+const BLOCKED_PLACEHOLDER_SHORT = 'Envio pausado'
+const QUOTA_VIEWPORTS = [
+  { name: '1440 x 900', width: 1440, height: 900 },
+  { name: '390 x 844', width: 390, height: 844 },
+] as const
+
+test.describe('Mentor page AI quota', () => {
+  test('shows the near-limit warning above the composer and keeps it dismissed for the month (CA-18)', async ({
+    page,
+    activeAccount,
+  }) => {
+    // A real session and document reloads prove that the dismissal lives in the browser.
+    await signInRealAccount(page, activeAccount)
+    await installAiQuotaReading(page, 85, activeAccount.accountId)
+    await openRealPage(page, `${ROUTES.intelligence}/`)
+    const composer = page.getByRole('textbox', { name: MESSAGE_BOX_NAME })
+    const warning = page.getByRole('status').filter({ hasText: AI_QUOTA_WARNING_MESSAGE })
+    const indicator = page.getByRole('link', {
+      name: 'Uso da IA: 85% da cota mensal, perto do limite',
+      exact: true,
+    })
+
+    await expect(warning).toBeVisible()
+    await expect(composer).toBeEnabled()
+    await expect(indicator).toBeVisible()
+    // The warning of the board has the alert icon and an icon-only dismiss, no usage link.
+    await expect(warning.getByRole('link')).toHaveCount(0)
+    await expect(warning.locator('svg')).toHaveCount(2)
+    await expectBox(warning.getByRole('button', { name: 'Dispensar aviso' }), {
+      width: 44,
+      height: 44,
+    })
+    const warningBox = await warning.boundingBox()
+    const composerBox = await composer.boundingBox()
+    expect((warningBox?.y ?? 0) + (warningBox?.height ?? 0)).toBeLessThanOrEqual(
+      composerBox?.y ?? 0,
+    )
+    // The provisional header button of the Mentor is gone; the app header owns the indicator.
+    await expect(page.getByText('IA · indisponível')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Cota de uso/ })).toHaveCount(0)
+
+    const dismissal = aiQuotaDismissalKey(activeAccount.accountId)
+    await warning.getByRole('button', { name: 'Dispensar aviso' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(warning).toHaveCount(0)
+    await expect(composer).toBeEnabled()
+    expect(
+      await page.evaluate((key) => window.localStorage.getItem(key), dismissal),
+    ).not.toBeNull()
+
+    await page.reload()
+    await expect(indicator).toBeVisible()
+    await expect(composer).toBeEnabled()
+    await expect(warning).toHaveCount(0)
+
+    await page.evaluate((key) => window.localStorage.removeItem(key), dismissal)
+    await page.reload()
+    await expect(warning).toBeVisible()
+  })
+
+  for (const viewport of QUOTA_VIEWPORTS)
+    test(`blocks sending, attachments, dictation and retry at 100% and keeps the history working at ${viewport.name} (CA-19, CA-23)`, async ({
+      authenticatedPage: page,
+    }) => {
+      await installMentorConversation(page, 'failed')
+      await installAiQuotaReading(page, 100)
+      const calls = recordServerFunctionCalls(page)
+      await page.setViewportSize(viewport)
+
+      await openMentorPage(page, { session: SESSION_ID })
+
+      await expect(
+        page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+      ).toBeVisible()
+      await expect(page.getByText('Não foi possível concluir a resposta')).toBeVisible()
+      const card = page
+        .getByRole('status')
+        .filter({ hasText: AI_QUOTA_MENTOR_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      await expect(card.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+        'href',
+        ROUTES.accountAiUsage,
+      )
+      await expect(card.locator('svg')).toHaveCount(1)
+      await expect(
+        page.getByRole('link', {
+          name: 'Uso da IA: 100% da cota mensal, cota esgotada',
+          exact: true,
+        }),
+      ).toBeVisible()
+      const cardId = (await card.getAttribute('id')) ?? ''
+      expect(cardId).not.toBe('')
+
+      const composer = page.getByRole('textbox', { name: MESSAGE_BOX_NAME })
+      await expect(composer).toBeDisabled()
+      // The field is narrow on mobile, so the board shows the short text on one line.
+      await expect(composer).toHaveAttribute(
+        'placeholder',
+        viewport.width < 640 ? BLOCKED_PLACEHOLDER_SHORT : BLOCKED_PLACEHOLDER,
+      )
+      await expect(composer).toHaveAttribute('aria-describedby', cardId)
+      const blockedControls = [
+        page.getByRole('button', { name: 'Enviar', exact: true }),
+        page.getByRole('button', { name: 'Anexar arquivo ou imagem', exact: true }),
+        page.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
+        page.getByRole('button', { name: 'Tentar novamente' }),
+      ]
+      for (const control of blockedControls) {
+        await expectBlockedControl(control, cardId)
+        await expectBox(control, { height: 44 })
+        await clickIgnoringDisabled(control)
+      }
+      const usageLink = card.getByRole('link', { name: 'Ver uso da IA' })
+      await expectBox(usageLink, { height: 44 })
+      // Inline on desktop (52 px, board), stacked on mobile with the link under the message.
+      const cardBox = await card.boundingBox()
+      const linkBox = await usageLink.boundingBox()
+      const messageBox = await card
+        .getByText(AI_QUOTA_MENTOR_BLOCKED_MESSAGE)
+        .boundingBox()
+      if (viewport.width >= 1024) {
+        expect(cardBox?.height).toBeLessThanOrEqual(60)
+      } else {
+        expect(cardBox?.height).toBeLessThanOrEqual(150)
+        expect(linkBox?.y).toBeGreaterThanOrEqual(
+          (messageBox?.y ?? 0) + (messageBox?.height ?? 0) - 1,
+        )
+      }
+      expect(calls.callsTo('submitMentorMessageServer')).toBe(0)
+      expect(calls.callsTo('createMentorSessionServer')).toBe(0)
+      expect(calls.callsTo('retryMentorResponseServer')).toBe(0)
+      await expect(
+        page.getByRole('button', { name: 'Enviar', exact: true }),
+      ).toHaveAttribute('aria-disabled', 'true')
+
+      // Reading the history, renaming and deleting keep working.
+      if (viewport.width < 640)
+        await page.getByRole('button', { name: 'Histórico de conversas' }).click()
+      const rename = page.getByRole('button', { name: `Renomear ${SESSION_TITLE}` })
+      const remove = page.getByRole('button', { name: `Excluir ${SESSION_TITLE}` })
+      await expect(rename).toBeEnabled()
+      await expect(remove).toBeEnabled()
+      await rename.click()
+      await expect(
+        page.getByRole('alertdialog').getByLabel('Título da conversa'),
+      ).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('alertdialog')).toHaveCount(0)
+      await remove.click()
+      await expect(
+        page.getByRole('alertdialog').getByRole('button', { name: 'Excluir conversa' }),
+      ).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('alertdialog')).toHaveCount(0)
+      await expectNoHorizontalOverflow(page)
+    })
+
+  test('shows the blocked card, not a generic error, when the server refuses the first message (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    await signInRealAccount(page, activeAccount)
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, `${ROUTES.intelligence}/`)
+      const composer = page.getByRole('textbox', { name: MESSAGE_BOX_NAME })
+      await expect(composer).toBeEnabled()
+      await expect(
+        page.getByRole('link', { name: 'Uso da IA: 79% da cota mensal', exact: true }),
+      ).toBeVisible()
+      await composer.fill(CONVERSATION_TEXTS.firstQuestion)
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the message arrives.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await page.getByRole('button', { name: 'Enviar', exact: true }).click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_MENTOR_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      const cardId = (await card.getAttribute('id')) ?? ''
+      await expect(composer).toBeDisabled()
+      await expect(composer).toHaveAttribute('placeholder', BLOCKED_PLACEHOLDER)
+      await expectBlockedControl(
+        page.getByRole('button', { name: 'Enviar', exact: true }),
+        cardId,
+      )
+      await expect(
+        page.getByText('Não foi possível enviar sua mensagem. Tente novamente.'),
+      ).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      await expect(
+        page.getByRole('link', {
+          name: 'Uso da IA: 100% da cota mensal, cota esgotada',
+          exact: true,
+        }),
+      ).toBeVisible()
+      expect(await upstream.hits()).toEqual({ 'POST /intelligence/mentor-sessions': 1 })
+    } finally {
+      await upstream.dispose()
+    }
+  })
+
+  test('shows the blocked card, not a generic error, when the server refuses a message of an open conversation (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    await signInRealAccount(page, activeAccount)
+    await installMentorConversation(page, 'completed')
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, `${ROUTES.intelligence}?session=${SESSION_ID}`)
+      await expect(
+        page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+      ).toBeVisible()
+      const composer = page.getByRole('textbox', { name: MESSAGE_BOX_NAME })
+      await expect(composer).toBeEnabled()
+      await composer.fill('Pode me dar outro exemplo?')
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the message arrives.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await page.getByRole('button', { name: 'Enviar', exact: true }).click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_MENTOR_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      const cardId = (await card.getAttribute('id')) ?? ''
+      await expect(composer).toBeDisabled()
+      await expectBlockedControl(
+        page.getByRole('button', { name: 'Enviar', exact: true }),
+        cardId,
+      )
+      await expect(
+        page.getByText('Não foi possível enviar sua mensagem. Tente novamente.'),
+      ).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      expect(await upstream.hits()).toEqual({
+        [`POST /intelligence/mentor-sessions/${SESSION_ID}/messages`]: 1,
+      })
+    } finally {
+      await upstream.dispose()
+    }
+  })
+
+  test('shows the blocked card, not a generic error, when the server refuses Tentar novamente (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    await signInRealAccount(page, activeAccount)
+    await installMentorConversation(page, 'failed')
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, `${ROUTES.intelligence}?session=${SESSION_ID}`)
+      const retry = page.getByRole('button', { name: 'Tentar novamente' })
+      await expect(retry).toBeVisible()
+      await expect(retry).toBeEnabled()
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the retry arrives.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await retry.click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_MENTOR_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      const cardId = (await card.getAttribute('id')) ?? ''
+      await expectBlockedControl(retry, cardId)
+      await expect(
+        page.getByText('Não foi possível alterar a resposta. Tente novamente.'),
+      ).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      expect(await upstream.hits()).toEqual({
+        [`POST /intelligence/mentor-sessions/${SESSION_ID}/responses/${ATTEMPT_ID}/retry`]: 1,
+      })
+    } finally {
+      await upstream.dispose()
+    }
   })
 })

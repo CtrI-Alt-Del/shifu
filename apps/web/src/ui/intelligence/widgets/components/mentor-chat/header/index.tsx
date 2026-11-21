@@ -111,15 +111,6 @@ export const MentorChatHeader = ({
               <Icon name='menu' className='size-5' />
             </Button>
             <Button
-              aria-label='Cota de uso. Indisponível no momento'
-              className='px-2! font-mono text-xs font-normal! disabled:opacity-100!'
-              disabled
-              title='Indisponível no momento'
-              variant='ghost'
-            >
-              IA · indisponível
-            </Button>
-            <Button
               className='gap-2 px-2! text-sm font-normal! disabled:opacity-100!'
               disabled={!onRename}
               onClick={onRename}

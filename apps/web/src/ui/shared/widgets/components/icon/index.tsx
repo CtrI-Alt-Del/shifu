@@ -17,6 +17,7 @@ import {
   Circle,
   CircleCheck,
   CircleDashed,
+  CirclePause,
   CircleUserRound,
   Copy,
   Expand,
@@ -34,6 +35,7 @@ import {
   EyeOff,
   GitFork,
   GraduationCap,
+  GripVertical,
   House,
   Info,
   Layers,
@@ -88,6 +90,7 @@ export type IconName =
   | 'circle'
   | 'circle-check'
   | 'circle-dashed'
+  | 'circle-pause'
   | 'copy'
   | 'expand'
   | 'file'
@@ -104,6 +107,7 @@ export type IconName =
   | 'eye-off'
   | 'git-fork'
   | 'graduation-cap'
+  | 'grip-vertical'
   | 'home'
   | 'info'
   | 'layers'
@@ -156,6 +160,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   circle: Circle,
   'circle-check': CircleCheck,
   'circle-dashed': CircleDashed,
+  'circle-pause': CirclePause,
   copy: Copy,
   expand: Expand,
   file: File,
@@ -172,6 +177,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'eye-off': EyeOff,
   'git-fork': GitFork,
   'graduation-cap': GraduationCap,
+  'grip-vertical': GripVertical,
   home: House,
   info: Info,
   layers: Layers,

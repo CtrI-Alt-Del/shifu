@@ -6,8 +6,18 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
-from shifu.learning.core.domain.entities import CompetencyProgress
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
+from shifu.learning.core.domain.entities import (
+    ActivityAttempt,
+    ActivityEvaluation,
+    CompetencyProgress,
+)
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+)
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
@@ -15,6 +25,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
     MultipleSelectionAnswer,
     PairMatchingAnswer,
     PairMatchingSelection,
@@ -74,6 +86,23 @@ COMPETENCY_ID = 'competency-1'
 EXPERIENCE_ID = 'experience-1'
 ACTIVITY_ID = 'activity-1'
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+CORRECT_FILL = (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'))
+
+
+def fill_answers(
+    *pairs: tuple[str, str],
+) -> tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...]:
+    return (
+        FillBlanksAnswer(
+            question_key='fill-1',
+            placements=tuple(
+                FillBlanksPlacement(blank_key=blank, word_key=word)
+                for blank, word in pairs
+            ),
+        ),
+        ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+        ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('b',)),
+    )
 
 
 def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
@@ -1272,6 +1301,159 @@ class TestSubmitChoiceActivityUseCase:
         event = self.repositories.events.add.call_args.args[0]
         assert event.payload.attempt_id == attempt.id
         assert event.payload.run_id == evaluation.run_id
+
+    def _submit_fill(
+        self,
+        submitted: tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...],
+        *,
+        key: str = 'fill-key',
+        revision: str = 'revision-1',
+    ) -> ChoiceSubmissionOutcome:
+        self.provider.get_learning_activity.return_value = (
+            CurriculumFillBlanksActivitySnapshotFaker.fake()
+        )
+        return self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            key,
+            submitted,
+            revision,
+        )
+
+    def _assert_no_attempt_written(self) -> None:
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_persist_fill_blanks_placements_in_blank_order_with_the_snapshot(
+        self,
+    ) -> None:
+        reordered = tuple(reversed(CORRECT_FILL))
+
+        outcome = self._submit_fill(fill_answers(*reordered))
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert outcome.replayed is False
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        assert attempt.answers == (
+            FillBlanksAnswer(
+                question_key='fill-1',
+                placements=tuple(
+                    FillBlanksPlacement(blank_key=blank, word_key=word)
+                    for blank, word in CORRECT_FILL
+                ),
+            ),
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+        )
+        assert attempt.grading_snapshot.questions[0].kind == 'fill_blanks'
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        assert evaluation.status is ActivityEvaluationStatus.PENDING
+        assert evaluation.parts == ()
+        event = self.repositories.events.add.call_args.args[0]
+        assert event.payload.attempt_id == attempt.id
+        assert event.payload.run_id == evaluation.run_id
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_accept_a_complete_but_wrong_fill(self) -> None:
+        outcome = self._submit_fill(
+            fill_answers(('b1', 'w6'), ('b2', 'w2'), ('b3', 'w3'))
+        )
+
+        assert outcome.replayed is False
+        self.repositories.activity_attempts.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'submitted',
+        (
+            fill_answers(('b1', 'w1'), ('b2', 'w3')),
+            fill_answers(('b1', 'w1'), ('b2', 'w1'), ('b3', 'w4')),
+            fill_answers(('b1', 'w1'), ('b2', 'missing'), ('b3', 'w4')),
+            fill_answers(('b1', 'w1'), ('b2', 'w3'), ('unknown', 'w4')),
+            fill_answers(),
+            (
+                ChoiceAnswerSubmission(
+                    question_key='fill-1', selected_option_keys=('a',)
+                ),
+                *fill_answers(*CORRECT_FILL)[1:],
+            ),
+            (
+                *fill_answers(*CORRECT_FILL)[:1],
+                FillBlanksAnswer(question_key='q1', placements=()),
+                fill_answers(*CORRECT_FILL)[2],
+            ),
+        ),
+        ids=(
+            'incomplete',
+            'repeated-occurrence',
+            'unknown-occurrence',
+            'unknown-blank',
+            'empty',
+            'choice-answer-for-fill-blanks',
+            'fill-answer-for-a-choice-question',
+        ),
+    )
+    def test_should_reject_an_invalid_fill_submission_without_writing(
+        self, submitted: tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...]
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._submit_fill(submitted)
+
+        self._assert_no_attempt_written()
+
+    def test_should_reject_a_stale_fill_blanks_revision_without_writing(self) -> None:
+        with pytest.raises(ConflictError):
+            self._submit_fill(fill_answers(*CORRECT_FILL), revision='stale')
+
+        self._assert_no_attempt_written()
+
+    def test_should_replay_the_same_fill_and_reject_different_placements(self) -> None:
+        snapshot = CurriculumFillBlanksActivitySnapshotFaker.fake()
+        attempt = ActivityAttempt.create(
+            id='attempt-prior',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                FillBlanksAnswer(
+                    question_key='fill-1',
+                    placements=tuple(
+                        FillBlanksPlacement(blank_key=blank, word_key=word)
+                        for blank, word in CORRECT_FILL
+                    ),
+                ),
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+            ),
+            submitted_at=NOW,
+            submission_key='fill-key',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            ActivityEvaluation.create(
+                id='evaluation-prior',
+                attempt_id=attempt.id,
+                status=ActivityEvaluationStatus.PENDING,
+                parts=(),
+                started_at=NOW,
+                run_id='run-prior',
+            )
+        )
+
+        replay = self._submit_fill(fill_answers(*reversed(CORRECT_FILL)))
+
+        assert replay.replayed is True
+        assert replay.attempt.attempt_id == 'attempt-prior'
+        self._assert_no_attempt_written()
+        with pytest.raises(ConflictError):
+            self._submit_fill(fill_answers(('b1', 'w2'), ('b2', 'w3'), ('b3', 'w4')))
+
+        self._assert_no_attempt_written()
 
 
 class TestSubmitChoiceActivityAnswerNormalization:

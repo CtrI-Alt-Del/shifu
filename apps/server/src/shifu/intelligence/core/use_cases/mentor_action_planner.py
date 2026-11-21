@@ -65,6 +65,50 @@ class MentorActionPlanner:
     _STOPWORDS: ClassVar[frozenset[str]] = frozenset(
         {'em', 'de', 'do', 'da', 'dos', 'das', 'e', 'a', 'o', 'para', 'no', 'na'}
     )
+    # Words of the request itself, never of a Skill title (RF-06). The action verbs
+    # come from ``_ACTION_VERB`` below.
+    _COMMAND_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            'objetivo',
+            'objetivos',
+            'habilidade',
+            'habilidades',
+            'meu',
+            'minha',
+            'meus',
+            'minhas',
+            'ao',
+            'aos',
+            'com',
+            'atual',
+            'este',
+            'esta',
+            'esse',
+            'essa',
+            'neste',
+            'nesta',
+            # Articles, connectors and polite filler that a request carries around
+            # the Skill name; the real catalog search matches them inside any title.
+            'uma',
+            'um',
+            'uns',
+            'umas',
+            'por',
+            'que',
+            'como',
+            'mais',
+            'sobre',
+            'outra',
+            'outro',
+            'nova',
+            'novo',
+            'favor',
+            'quero',
+            'pode',
+            'preciso',
+            'gostaria',
+        }
+    )
     _ACTION_INTENTS: ClassVar[dict[MentorIntent, MentorActionKind]] = {
         MentorIntent.ADD_SKILL: MentorActionKind.ADD_SKILL,
         MentorIntent.REMOVE_SKILL: MentorActionKind.REMOVE_SKILL,
@@ -85,6 +129,7 @@ class MentorActionPlanner:
         rf'|\be\s+(?=(?:{_ACTION_VERB})\b))',
         re.IGNORECASE,
     )
+    _ACTION_VERB_WORD: ClassVar[re.Pattern[str]] = re.compile(rf'(?:{_ACTION_VERB})')
     _MARKDOWN_SPECIALS: ClassVar[re.Pattern[str]] = re.compile(
         r'([\\`*_{}\[\]()#+!<>|~])'
     )
@@ -140,7 +185,7 @@ class MentorActionPlanner:
     ) -> MentorActionPlan:
         assert_access()
         skill, suggestions = self._resolve_skill(
-            account_id, request.part, context.eligible_references
+            account_id, request.part, context, request.kind, assert_access
         )
         if skill is None:
             return self._text(
@@ -313,13 +358,18 @@ class MentorActionPlanner:
         ]
 
     def _resolve_skill(
-        self, account_id: str, part: str, eligible_references: tuple[str, ...]
+        self,
+        account_id: str,
+        part: str,
+        context: MentorContextSnapshot,
+        kind: MentorActionKind,
+        assert_access: Callable[[], None],
     ) -> tuple[MentorCatalogEntry | None, tuple[str, ...]]:
         """The one Skill the part names, else the names to suggest (maybe none)."""
         skills = [
             entry
             for entry in self._catalog_provider.search(
-                account_id, part, eligible_references
+                account_id, part, context.eligible_references
             )
             if entry.kind == 'skill'
         ]
@@ -331,9 +381,30 @@ class MentorActionPlanner:
             return named[0], ()
         if len(named) > 1:
             return None, self._names(named)
+        if context.skill_id is not None:
+            # Only the selected Skill is visible, so a partial name cannot be told
+            # from a request that names another Skill: keep the strict rule.
+            return self._resolve_selected_skill(skills, part)
         # The search matches any word of the title or description, so a result is
-        # only trusted when the message really names it (or is ambiguous between
-        # Skills that share a word with it).
+        # only trusted when the message shares a Skill word with its title.
+        words = self._skill_words(part, context)
+        related = [
+            entry
+            for entry in skills
+            if self._content_words(entry.title).intersection(words)
+        ]
+        if len(related) == 1:
+            return related[0], ()
+        if (
+            kind is MentorActionKind.REMOVE_SKILL
+            and 1 < len(related) <= self.MAX_SUGGESTED_SKILLS
+        ):
+            return self._narrow_to_held(account_id, related, assert_access)
+        return None, self._names(related)
+
+    def _resolve_selected_skill(
+        self, skills: list[MentorCatalogEntry], part: str
+    ) -> tuple[MentorCatalogEntry | None, tuple[str, ...]]:
         words = self._content_words(part)
         related = [
             entry
@@ -347,6 +418,59 @@ class MentorActionPlanner:
                 return candidate, ()
             return None, ()
         return None, self._names(related)
+
+    def _narrow_to_held(
+        self,
+        account_id: str,
+        candidates: list[MentorCatalogEntry],
+        assert_access: Callable[[], None],
+    ) -> tuple[MentorCatalogEntry | None, tuple[str, ...]]:
+        """Prefer the candidates the learner holds: a removal can only target those."""
+        held: list[MentorCatalogEntry] = []
+        for entry in candidates:
+            assert_access()
+            goals = self._goal_destinations_provider.read(
+                account_id, entry.skill_id
+            ).goals
+            if any(goal.skill_experience_id is not None for goal in goals):
+                held.append(entry)
+        if len(held) == 1:
+            return held[0], ()
+        return None, self._names(held or candidates)
+
+    def _skill_words(self, part: str, context: MentorContextSnapshot) -> frozenset[str]:
+        """The content words of ``part`` that could name a Skill (RF-06)."""
+        without_titles = self._without_objective_titles(part, context)
+        return self._without_command_words(
+            without_titles
+        ) or self._without_command_words(part)
+
+    def _without_command_words(self, text: str) -> frozenset[str]:
+        return frozenset(
+            word
+            for word in self._content_words(text)
+            if word not in self._COMMAND_WORDS
+            and not self._ACTION_VERB_WORD.fullmatch(word)
+        )
+
+    def _without_objective_titles(
+        self, part: str, context: MentorContextSnapshot
+    ) -> str:
+        """``part`` without any occurrence of a learner Objective title, longest first."""
+        text = self._normalize(part)
+        titles = sorted(
+            (
+                self._normalize(value.split(': ', 1)[1])
+                for key, value in context.facts
+                if key == 'goals' and ': ' in value
+            ),
+            key=len,
+            reverse=True,
+        )
+        for title in titles:
+            if title:
+                text = re.sub(r'(?<!\w)' + re.escape(title) + r'(?!\w)', ' ', text)
+        return text
 
     def _names(self, entries: list[MentorCatalogEntry]) -> tuple[str, ...]:
         names = tuple(dict.fromkeys(entry.title for entry in entries))

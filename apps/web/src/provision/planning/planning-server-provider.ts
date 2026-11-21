@@ -1,7 +1,9 @@
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import { AI_QUOTA_EXHAUSTED_CODE } from '@/core/intelligence/ai-quota-usage'
 import type { PlanningFailure } from '@/core/intelligence/planning-session'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { IntelligenceService } from '@/rest/services/intelligence-service'
@@ -14,12 +16,15 @@ type PlanningOperation<Result> = (
 export async function withPlanningService<Result>(
   request: Request,
   operation: PlanningOperation<Result>,
+  context?: RequestTelemetryContext,
 ): Promise<Result | PlanningFailure> {
   try {
-    const access = await getBetterAuthProvider().getCurrentAccess(request)
+    const access = context
+      ? await getBetterAuthProvider().getCurrentAccess(request, context.requestId)
+      : await getBetterAuthProvider().getCurrentAccess(request)
     if (!access) return { kind: 'unauthorized' }
 
-    const service = IntelligenceService(createServerRequestClient(undefined))
+    const service = IntelligenceService(createServerRequestClient(context))
     return await operation(service, access.accessToken)
   } catch (error) {
     return planningFailure(error)
@@ -33,6 +38,11 @@ export function planningFailure(error: unknown): PlanningFailure {
       : { kind: 'unauthorized' }
   }
   if (error instanceof RestError) {
+    if (
+      error.statusCode === HTTP_STATUS_CODE.tooManyRequests &&
+      error.code === AI_QUOTA_EXHAUSTED_CODE
+    )
+      return { kind: 'quota-exhausted' }
     if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
       return { kind: 'unauthorized' }
     if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }

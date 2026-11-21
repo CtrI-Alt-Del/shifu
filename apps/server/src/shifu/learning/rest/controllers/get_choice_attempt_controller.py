@@ -62,6 +62,42 @@ class CodeQuestionResultResponse(BaseModel):
     concept_observations: tuple[ConceptObservationResponse, ...]
 
 
+class FillBlanksSegmentResponse(BaseModel):
+    text: str | None
+    blank_key: str | None
+
+
+class FillBlanksWordResponse(BaseModel):
+    key: str
+    word: str
+
+
+class FillBlanksPlacementResponse(BaseModel):
+    blank_key: str
+    word_key: str
+
+
+class FillBlanksExpectedBlankResponse(BaseModel):
+    blank_key: str
+    accepted_words: tuple[str, ...]
+
+
+class FillBlanksQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['fill_blanks']
+    prompt: str
+    content_language: str
+    segments: tuple[FillBlanksSegmentResponse, ...]
+    bank: tuple[FillBlanksWordResponse, ...]
+    placements: tuple[FillBlanksPlacementResponse, ...]
+    score: Decimal
+    is_correct: bool
+    correct_blank_count: int
+    blank_count: int
+    explanation: str
+    disclosed_expected_blanks: tuple[FillBlanksExpectedBlankResponse, ...]
+
+
 class TranslationQuestionResultResponse(BaseModel):
     question_key: str
     kind: str
@@ -106,6 +142,7 @@ class Response(BaseModel):
     questions: tuple[
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
+        | FillBlanksQuestionResultResponse
         | TranslationQuestionResultResponse
         | PairMatchingQuestionResultResponse,
         ...,

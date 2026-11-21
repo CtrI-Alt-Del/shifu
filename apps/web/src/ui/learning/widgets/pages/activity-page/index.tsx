@@ -8,6 +8,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceQuestion } from './choice-question'
+import { FillBlanksQuestion } from './fill-blanks-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
 import { HtmlCssJsQuestion } from './html-css-js-question'
@@ -57,6 +58,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked,
     handleTranslationAnswerChange,
     handlePairMatchingAnswerChange,
     pairMatchingPairs,
@@ -232,6 +236,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
     currentQuestion.kind !== 'react' &&
     currentQuestion.kind !== 'html_css_js' &&
     currentQuestion.kind !== 'react_fastify' &&
+    currentQuestion.kind !== 'fill_blanks' &&
     currentQuestion.kind !== 'translation' &&
     currentQuestion.kind !== 'pair_matching' ? (
       <ChoiceQuestion
@@ -415,6 +420,19 @@ export const ActivityPage = (props: ActivityPageProps) => {
             key={currentQuestion.key}
             onChange={handlePairMatchingAnswerChange}
             pairs={pairMatchingPairs}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            totalQuestions={totalQuestions}
+          />
+        ) : currentQuestion.kind === 'fill_blanks' ? (
+          <FillBlanksQuestion
+            activityTitle={activity.title}
+            difficulty={activity.difficulty}
+            disabled={!activity.canSubmit || isQuestionReadOnly || isFillBlanksLocked}
+            feedback={feedback}
+            key={currentQuestion.key}
+            onPlacementsChange={handleFillBlanksChange}
+            placements={fillBlanksPlacements}
             question={currentQuestion}
             questionNumber={currentQuestionNumber}
             totalQuestions={totalQuestions}

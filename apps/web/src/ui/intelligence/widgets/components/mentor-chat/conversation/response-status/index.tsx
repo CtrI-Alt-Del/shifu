@@ -7,6 +7,10 @@ export type ResponseStatusProps = {
   isPending: boolean
   onCancel(): Promise<void>
   onRetry(): Promise<void>
+  /** A quota block keeps the retry visible and focusable but inert. */
+  isAiQuotaBlocked?: boolean
+  /** Id of the quota blocked card that explains the disabled retry. */
+  aiQuotaBlockedId?: string
 }
 const STATUS_LABELS = {
   queued: 'Aguardando resposta',
@@ -25,6 +29,8 @@ export const ResponseStatus = ({
   isPending,
   onCancel,
   onRetry,
+  isAiQuotaBlocked = false,
+  aiQuotaBlockedId,
 }: ResponseStatusProps) => (
   <div className='space-y-2 py-3 text-sm text-muted-foreground'>
     {response.status === 'queued' || response.status === 'processing' ? (
@@ -50,7 +56,7 @@ export const ResponseStatus = ({
       className={response.status === 'failed' ? 'flex items-center gap-2' : 'block'}
     >
       {response.status === 'failed' ? (
-        <Icon className='size-4 shrink-0 text-destructive' name='circle-alert' />
+        <Icon className='size-4 shrink-0 text-danger' name='circle-alert' />
       ) : null}
       {response.status === 'processing' && response.progress
         ? PROGRESS_LABELS[response.progress]
@@ -67,9 +73,11 @@ export const ResponseStatus = ({
       </Button>
     ) : response.status === 'failed' || response.status === 'cancelled' ? (
       <Button
-        className='min-h-11'
-        disabled={isPending}
-        onClick={() => void onRetry()}
+        aria-describedby={isAiQuotaBlocked ? aiQuotaBlockedId : undefined}
+        aria-disabled={isAiQuotaBlocked || undefined}
+        className={`min-h-11 px-3! ${isAiQuotaBlocked ? 'text-foreground!' : ''}`}
+        disabled={isPending && !isAiQuotaBlocked}
+        onClick={isAiQuotaBlocked ? undefined : () => void onRetry()}
         variant='ghost'
       >
         Tentar novamente

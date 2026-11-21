@@ -1,0 +1,28 @@
+SHIFU-126 — identidade e permissões da conta AWS
+Data: 17/11/2026 — America/Sao_Paulo
+Responsável indicado na task: gabrielsoliveira1606; coleta técnica assistida por Codex.
+Perfil: shifu-lab
+
+$ aws sts get-caller-identity --profile shifu-lab --region us-east-1
+{
+  "UserId": "AIDAYHN63ILIFTXBGZDH5",
+  "Account": "565725315792",
+  "Arn": "arn:aws:iam::565725315792:user/shifu-storage-lab"
+}
+Código de saída: 0. Nenhuma chave ou segredo consta desta evidência.
+
+$ aws s3control get-public-access-block --account-id 565725315792 --profile shifu-lab --region us-east-1
+AccessDenied: não autorizado a executar s3:GetAccountPublicAccessBlock por
+negação explícita na SCP da organização
+arn:aws:organizations::633398616161:policy/o-d4i3d5pt8t/service_control_policy/p-qiv3yluf.
+
+As consultas anteriores com os perfis default e shifu-staging falharam com
+InvalidClientTokenId. Credenciais novas foram configuradas para shifu-lab;
+o resultado STS acima confirma a identidade atual.
+
+A leitura da política anexada ao usuário de staging mostrou escopo para o
+bucket de estado shifu-staging-state-565725315792. A tela do projeto Rubber
+Ducking confirmou us-east-2 (Ohio). A negação de CreateBucket registrada antes
+ocorreu na tentativa em us-east-1; o Terraform aplicado em us-east-2 criou o
+laboratório com sucesso (E01). O Cost Explorer permaneceu sem permissão de
+leitura para esta identidade (E11). Nenhuma política IAM/SCP foi alterada.

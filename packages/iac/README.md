@@ -27,9 +27,11 @@ terraform validate
 terraform plan
 ```
 
-Configure a região e o prefixo do bucket. Revise o plano e os custos antes de
-executar `terraform apply`. O estado é local e ignorado pelo Git: preserve-o
-até remover os recursos. Não é necessário login no Pulumi Cloud.
+O exemplo usa `us-east-2`, região configurada no projeto AWS do grupo. Confirme
+a região permitida pela conta e ajuste `terraform.tfvars` quando necessário.
+Revise o plano e os custos antes de executar `terraform apply`. O estado é local
+e ignorado pelo Git: preserve-o até remover os recursos. Não é necessário login
+no Pulumi Cloud.
 
 ```powershell
 terraform apply
@@ -46,7 +48,7 @@ $bucket = terraform output -raw s3_bucket_name
 Envie imagem, JSON, CSV e TXT privados:
 
 ```powershell
-aws s3 cp .\fixtures\private\exemplo.svg "s3://$bucket/academic/storage-activity/private/exemplo.svg" --content-type image/svg+xml
+aws s3 cp .\fixtures\private\exemplo.png "s3://$bucket/academic/storage-activity/private/exemplo.png" --content-type image/png
 aws s3 cp .\fixtures\private\exemplo.json "s3://$bucket/academic/storage-activity/private/exemplo.json" --content-type application/json
 aws s3 cp .\fixtures\private\exemplo.csv "s3://$bucket/academic/storage-activity/private/exemplo.csv" --content-type text/csv
 aws s3 cp .\fixtures\private\exemplo.txt "s3://$bucket/academic/storage-activity/private/exemplo.txt" --content-type text/plain
@@ -71,9 +73,46 @@ terraform output -raw s3_public_demo_url
 
 Abra a URL pública no navegador. A regra de lifecycle move objetos do prefixo `academic/storage-activity/archive/` para `STANDARD_IA` após 30 dias; a transição não é imediata. Versões não atuais são removidas após 90 dias.
 
+## Anexos fictícios no Mentor local
+
+Com o laboratório provisionado, use o adaptador S3 existente da API sem alterar
+o código das aplicações. Na mesma sessão PowerShell que iniciará a API,
+selecione o perfil válido da conta do grupo e os outputs do laboratório:
+
+```powershell
+$env:AWS_PROFILE = 'perfil-da-conta-do-grupo'
+$env:MENTOR_ATTACHMENT_STORAGE_BUCKET = terraform output -raw s3_bucket_name
+$env:MENTOR_ATTACHMENT_STORAGE_REGION = terraform output -raw aws_region
+$env:MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE = 'auto'
+```
+
+Substitua o nome de perfil pelo perfil local do grupo. Na configuração local
+carregada pela API, inclusive no `.env.local` quando existente, omita os
+overrides `MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL`,
+`MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY` e `MENTOR_ATTACHMENT_STORAGE_SECRET_KEY`
+usados pelo MinIO. Confirme que também não estão definidos no ambiente do
+processo. Assim, o SDK usa o endpoint AWS e a cadeia de credenciais do perfil,
+incluindo o token de sessão quando necessário. Preserve a configuração local
+anterior para restaurá-la ao final; não copie credenciais para este pacote.
+
+Inicie o Shifu pelos comandos documentados das aplicações e entre no Mentor.
+Envie `exemplo.png`, `documento-v1.pdf`, `exemplo.json`, `exemplo.csv` e
+`exemplo.txt`, de `fixtures/private/`, em uma mensagem. O Mentor aceita PNG,
+JPG, PDF, JSON, CSV e TXT, com no máximo **2.000.000 bytes por arquivo** e
+**cinco anexos por mensagem**. Envie `documento-v2.pdf` em outra mensagem se
+precisar registrar ambas as revisões no chat.
+
+Registre o envio e a leitura autenticada no Mentor e confirme os objetos no
+bucket. Os anexos permanecem privados; somente o TXT na chave pública exata
+é a demonstração de acesso anônimo. O Mentor gera uma chave por anexo: os dois
+PDFs no chat não substituem a prova de duas versões na mesma chave feita pela
+CLI acima. Se a integração exigir alteração no adaptador, registre a limitação
+no relatório em vez de modificar o produto. Restaure a configuração local da
+API após a coleta e antes de encerrar os recursos do laboratório.
+
 ## Evidências da entrega
 
-Registre nome e região do bucket, cinco tipos de arquivo (SVG, PDF, JSON, CSV
+Registre nome e região do bucket, cinco tipos de arquivo (PNG, PDF, JSON, CSV
 e TXT), a URL pública funcionando, um objeto privado e os identificadores
 das duas versões do PDF. Inclua comandos, prints, integrantes e link do
 repositório no relatório. A transição de lifecycle é complementar; não ocorre

@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { Conversation } from '..'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
@@ -56,6 +57,20 @@ vi.mock('../summary-marker/use-mentor-session-summary-query', () => ({
     refetchSummary: vi.fn(),
   }),
 }))
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
+}))
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
+const NOT_BLOCKED_QUOTA: ReturnType<typeof useAiQuotaBlock> = {
+  isAiQuotaBlocked: false,
+  isAiQuotaNearLimit: false,
+  getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou.',
+  aiQuotaBlockedRole: 'status',
+  aiQuotaAccountId: 'account-1',
+  aiQuotaPercentage: 85,
+  aiQuotaRenewsOn: '2026-12-01',
+}
+beforeEach(() => useAiQuotaBlockMock.mockReturnValue(NOT_BLOCKED_QUOTA))
 const useConversationMock = vi.mocked(useConversation)
 const useSkillActionCardMock = vi.mocked(useSkillActionCard)
 const useMentorContextMock = vi.mocked(useMentorContext)
@@ -442,6 +457,45 @@ describe('Conversation', () => {
         expect(screen.queryByRole('button', { name: 'Cancelar resposta' })).toBeNull()
         expect(screen.queryByRole('button', { name: 'Tentar novamente' })).toBeNull()
       }
+    },
+  )
+  it.each(['failed', 'cancelled'] as const)(
+    'keeps the retry of a %s response inert and described by the quota card at the limit',
+    (status) => {
+      const retryResponse = vi.fn()
+      useAiQuotaBlockMock.mockReturnValue({
+        ...NOT_BLOCKED_QUOTA,
+        isAiQuotaBlocked: true,
+        getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou. Volta em 1 de dezembro.',
+      })
+      const value = {
+        ...mentorValue,
+        isAiQuotaBlocked: true,
+        retryResponse,
+        response: {
+          attemptId: 'attempt',
+          learnerMessageId: 'learner',
+          status,
+          blocks: [],
+          consultations: [],
+          lastSequence: 4,
+          failureCode: null,
+        },
+        handleScroll: vi.fn(),
+        scrollRef: { current: null },
+      }
+      useMentorContextMock.mockReturnValue(value)
+      mockConversationValue(value)
+      render(<Conversation />)
+
+      const retry = screen.getByRole('button', { name: 'Tentar novamente' })
+      expect(retry).toHaveAttribute('aria-disabled', 'true')
+      expect(retry).toBeEnabled()
+      expect(retry).toHaveAccessibleDescription(/Sua cota de IA acabou/)
+      retry.focus()
+      expect(retry).toHaveFocus()
+      fireEvent.click(retry)
+      expect(retryResponse).not.toHaveBeenCalled()
     },
   )
   it('shows only the current executed workflow step and hides inferred context consultations', () => {

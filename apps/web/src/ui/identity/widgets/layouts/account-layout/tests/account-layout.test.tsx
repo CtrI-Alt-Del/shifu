@@ -39,8 +39,37 @@ describe('AccountLayout', () => {
     expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
       ['Perfil', ROUTES.accountProfile],
       ['Segurança', ROUTES.accountSecurity],
+      ['Uso da IA', ROUTES.accountAiUsage],
       ['Excluir conta', ROUTES.accountDelete],
     ])
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+  })
+
+  it('gives every account section a 44 px touch target', () => {
+    render(<AccountLayout />)
+
+    const navigation = screen.getByRole('navigation', { name: 'Configurações da conta' })
+
+    for (const link of within(navigation).getAllByRole('link'))
+      expect(link).toHaveClass('min-h-11')
+  })
+
+  it('keeps the board border color and the 4 px inset on the tab strip', () => {
+    render(<AccountLayout />)
+
+    const strip = within(
+      screen.getByRole('navigation', { name: 'Configurações da conta' }),
+    ).getByRole('list')
+
+    expect(strip).toHaveClass('border-control-border!', 'p-[3px]')
+  })
+
+  it('tightens the tab padding on phones so all four tabs fit in 390 px', () => {
+    render(<AccountLayout />)
+
+    const navigation = screen.getByRole('navigation', { name: 'Configurações da conta' })
+
+    for (const link of within(navigation).getAllByRole('link'))
+      expect(link).toHaveClass('px-2', 'sm:px-3')
   })
 })
