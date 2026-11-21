@@ -10,7 +10,7 @@ export type RecordedRequest = { method: string; url: string; body: unknown }
 export type TransportResponse = { status: number; body?: unknown }
 
 export const BROWSER_SUBSCRIPTION = {
-  endpoint: 'https://push.example.test/send/abc',
+  endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
   keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
 }
 

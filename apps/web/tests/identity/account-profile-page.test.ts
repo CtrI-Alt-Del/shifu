@@ -6,6 +6,7 @@ import { INITIAL_PROFILE, installAccountBackend } from '../support/account-backe
 import {
   collectApplicationErrors,
   installBrowserPushStub,
+  installPushManagerSubscribeStub,
   installStreakReminderBackend,
   pushStubCalls,
   STUB_SUBSCRIPTION,
@@ -20,6 +21,11 @@ async function installReminderDefaults(page: Page) {
 
 // Browser integration with mocked transport: proves the profile page's rendered
 // contract and outgoing requests, not server persistence.
+// Full Chromium instead of the headless shell: the shell denies notifications, which
+// the real service worker scenario at the end of this suite needs. Playwright allows
+// the `channel` option only at the top of a file.
+test.use({ channel: 'chromium' })
+
 test.describe('AccountProfilePage', () => {
   test('edits the canonical profile at mobile width and keeps the privacy destinations', async ({
     authenticatedPage,
@@ -317,7 +323,7 @@ test.describe('AccountProfilePage', () => {
     expect(backend.writeOrder()).toEqual(['public-key', 'subscription', 'preference'])
     expect(await pushStubCalls(page)).toEqual([
       'requestPermission',
-      'register /sw.js',
+      'register /service-worker.js',
       'subscribe',
     ])
   })
@@ -441,7 +447,7 @@ test.describe('AccountProfilePage', () => {
 
     await expect.poll(() => backend.callsNamed('subscription').length).toBe(1)
     expect(await pushStubCalls(page)).toEqual([
-      'register /sw.js',
+      'register /service-worker.js',
       'unsubscribe',
       'subscribe',
     ])
@@ -459,6 +465,88 @@ test.describe('AccountProfilePage', () => {
     await navigateAuthenticatedPage(page, ROUTES.accountProfile)
 
     await expect.poll(() => backend.callsNamed('subscription').length).toBe(1)
-    expect(await pushStubCalls(page)).toEqual(['register /sw.js'])
+    expect(await pushStubCalls(page)).toEqual(['register /service-worker.js'])
+  })
+
+  // The browser stub above replaces `navigator.serviceWorker`, so it cannot show what
+  // the real `/service-worker.js` does with a push. This scenario runs the real worker
+  // after enrolling from the card and delivers pushes through the DevTools Protocol.
+  // The notification click cannot be driven from a test and is proven by the manual
+  // run instead.
+  test.describe('real service worker', () => {
+    test('shows the pushed reminder and falls back to the default notification for a malformed payload', async ({
+      authenticatedPage: page,
+      context,
+    }) => {
+      await context.grantPermissions(['notifications'])
+      const errors = collectApplicationErrors(page)
+      await installStreakReminderBackend(page, { enabled: false })
+      await installPushManagerSubscribeStub(page)
+      await installAccountBackend(page)
+      const cdp = await context.newCDPSession(page)
+      const registrationId = new Promise<string>((resolve) => {
+        cdp.on('ServiceWorker.workerRegistrationUpdated', ({ registrations }) => {
+          const registered = registrations.find(({ scopeURL }) => scopeURL.endsWith('/'))
+          if (registered) resolve(registered.registrationId)
+        })
+      })
+      await cdp.send('ServiceWorker.enable')
+      await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+      const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+      await card
+        .getByRole('switch', { name: 'Lembrete de sequência Desativados', exact: true })
+        .click()
+      await expect(
+        card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+      ).toBeChecked()
+      await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
+
+      const origin = new URL(page.url()).origin
+      const shownNotifications = () =>
+        page.evaluate(async () => {
+          const registration = await navigator.serviceWorker.ready
+          const shown = await registration.getNotifications()
+          return shown.map(({ title, body, tag, icon, data }) => ({
+            title,
+            body,
+            tag,
+            icon,
+            data,
+          }))
+        })
+      const deliver = async (data: string) =>
+        cdp.send('ServiceWorker.deliverPushMessage', {
+          origin,
+          registrationId: await registrationId,
+          data,
+        })
+
+      const reminder = {
+        title: 'Shifu',
+        body: 'Sua sequência de 7 dias termina hoje — pratique para mantê-la',
+        tag: 'shifu-streak-reminder',
+        icon: `${origin}/favicon.svg`,
+        data: { url: '/' },
+      }
+      await deliver(JSON.stringify({ ...reminder, url: '/' }))
+      await expect.poll(shownNotifications).toEqual([reminder])
+
+      await deliver('this is not json')
+      await expect.poll(shownNotifications).toEqual(
+        expect.arrayContaining([
+          reminder,
+          {
+            title: 'Shifu',
+            body: '',
+            tag: '',
+            icon: `${origin}/favicon.svg`,
+            data: { url: '/' },
+          },
+        ]),
+      )
+      expect(await shownNotifications()).toHaveLength(2)
+      expect(errors).toEqual([])
+    })
   })
 })

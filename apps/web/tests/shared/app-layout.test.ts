@@ -643,7 +643,7 @@ test.describe('AppLayout streak reminder invite', () => {
       expect(backend.callsNamed('hour')[0].data).toMatchObject({ hour: 19 })
       expect(await pushStubCalls(page)).toEqual([
         'requestPermission',
-        'register /sw.js',
+        'register /service-worker.js',
         'subscribe',
       ])
       expect(errors).toEqual([])

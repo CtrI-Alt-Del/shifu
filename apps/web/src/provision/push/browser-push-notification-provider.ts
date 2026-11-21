@@ -5,7 +5,7 @@ import type {
 } from '@/core/communication/browser-push-notification'
 import { AppError } from '@/core/errors/app-error'
 
-const SERVICE_WORKER_URL = '/sw.js'
+const SERVICE_WORKER_URL = '/service-worker.js'
 const SERVICE_WORKER_SCOPE = '/'
 
 export const BrowserPushNotificationProvider = (): IBrowserPushNotificationProvider => {

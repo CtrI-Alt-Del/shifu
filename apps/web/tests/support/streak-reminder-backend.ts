@@ -46,7 +46,7 @@ const SERVER_FUNCTIONS = {
 } as const
 
 export const STUB_SUBSCRIPTION = {
-  endpoint: 'https://push.example.test/send/playwright',
+  endpoint: 'https://fcm.googleapis.com/fcm/send/playwright',
   keys: { p256dh: 'playwright-p256dh', auth: 'playwright-auth' },
 }
 
@@ -76,7 +76,7 @@ function applyPushStub(options: Required<PushStubOptions>) {
 
   const subscription = {
     toJSON: () => ({
-      endpoint: 'https://push.example.test/send/playwright',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/playwright',
       keys: { p256dh: 'playwright-p256dh', auth: 'playwright-auth' },
     }),
   }
@@ -136,6 +136,27 @@ export async function installBrowserPushStub(page: Page, stub: PushStubOptions =
   // document as well as to every later navigation.
   await page.addInitScript(applyPushStub, options)
   await page.evaluate(applyPushStub, options)
+}
+
+function applyPushManagerSubscribeStub() {
+  // Playwright's Chromium has no push backend, so a real `subscribe` fails with an
+  // AbortError. Only that call is replaced: the real worker, permission, registration
+  // and notifications stay untouched.
+  const subscription = {
+    options: { applicationServerKey: null },
+    toJSON: () => ({
+      endpoint: 'https://fcm.googleapis.com/fcm/send/playwright-real-worker',
+      keys: { p256dh: 'playwright-p256dh', auth: 'playwright-auth' },
+    }),
+    unsubscribe: async () => true,
+  }
+  PushManager.prototype.subscribe = async () =>
+    subscription as unknown as PushSubscription
+}
+
+export async function installPushManagerSubscribeStub(page: Page) {
+  await page.addInitScript(applyPushManagerSubscribeStub)
+  await page.evaluate(applyPushManagerSubscribeStub)
 }
 
 export function pushStubCalls(page: Page): Promise<string[]> {
