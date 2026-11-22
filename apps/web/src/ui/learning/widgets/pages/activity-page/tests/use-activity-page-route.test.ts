@@ -43,6 +43,7 @@ vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
   useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createCsrfMiddleware: () => ({}),
   createStart: () => ({}),
   createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => {
@@ -869,7 +870,9 @@ describe('ActivityPage routed React composition', () => {
       generation: 2,
     })
     expect(storage.records.get(otherKey)).toEqual(other)
-    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled(),
+    )
   })
 
   it('invalidates every draft for an activity when the authenticated request returns private absence', async () => {

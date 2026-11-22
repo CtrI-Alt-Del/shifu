@@ -5,7 +5,7 @@ const port = process.env.SHIFU_WEB_APP_PORT ?? '7000'
 const identityPort = process.env.SHIFU_SERVER_APP_PORT ?? '7777'
 const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '')
 const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://127.0.0.1:${port}`
+  process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://localhost:${port}`
 const identityURL =
   process.env.SHIFU_IDENTITY_API_URL ?? `http://127.0.0.1:${identityPort}`
 const mentorProxyPort = process.env.SHIFU_MENTOR_STREAM_TEST_PROXY_PORT

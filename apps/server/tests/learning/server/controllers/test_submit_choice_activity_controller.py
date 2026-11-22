@@ -148,7 +148,9 @@ def application(
         repositories.activity_attempts.add_many(list(seed.activity_attempts))
         repositories.activity_evaluations.add_many(list(seed.activity_evaluations))
 
-    with SqlalchemyIdentityDatabase(engine=postgres_database.engine).transaction() as repositories:
+    with SqlalchemyIdentityDatabase(
+        engine=postgres_database.engine
+    ).transaction() as repositories:
         for account in seed.accounts:
             repositories.accounts.add(account)
 

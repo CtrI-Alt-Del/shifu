@@ -11,6 +11,7 @@ import { useGoalsListSection } from '../use-goals-list-section'
 const mocks = vi.hoisted(() => ({ getCurrentAccess: vi.fn(), get: vi.fn() }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createCsrfMiddleware: () => ({}),
   createStart: () => ({}),
   createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({

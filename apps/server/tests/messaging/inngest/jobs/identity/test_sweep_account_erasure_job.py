@@ -9,6 +9,9 @@ from shifu.identity.database.sqlalchemy.models import (
     AccountErasureModel,
     AccountErasureParticipantModel,
 )
+from shifu.identity.database.sqlalchemy.repositories import (
+    SqlalchemyAccountErasureRepository,
+)
 from shifu.identity.messaging.inngest.jobs.sweep_account_erasures_job import (
     SweepAccountErasuresJob,
 )
@@ -32,7 +35,7 @@ class TestSweepAccountErasuresJob:
         inngest_fixture: 'InngestFixture',
     ) -> None:
         erasure_id = uuid4()
-        account_id = '01JACCOUNT000000000000000001'
+        account_id = '01JACCOUNT0000000000000001'
         now = datetime.now(UTC)
         closed_at = now - timedelta(hours=49)
         due_at = closed_at + timedelta(hours=24)
@@ -64,6 +67,13 @@ class TestSweepAccountErasuresJob:
                 ]
             )
             session.commit()
+            overdue = SqlalchemyAccountErasureRepository(
+                session
+            ).find_overdue_pending_participants(as_of=now, limit=100)
+
+        assert [
+            (participant.erasure_id, participant.module) for participant in overdue
+        ] == [(erasure_id, 'learning')]
 
         inngest_fixture.clear_mailpit()
         inngest_fixture.invoke_function(SweepAccountErasuresJob.FUNCTION_ID)

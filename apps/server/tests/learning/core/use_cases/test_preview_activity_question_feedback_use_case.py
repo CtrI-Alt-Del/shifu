@@ -94,6 +94,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricCriterionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
+
 if TYPE_CHECKING:
     from collections.abc import Generator
     from shifu.shared.core.domain.structures.code_rubric_decisions import (
@@ -1785,6 +1786,7 @@ class TestPreviewOrderingQuestion:
         self.account_activity_provider = create_autospec(
             AccountActivityProvider, instance=True
         )
+
         def activity_scope(_account_id: str) -> AbstractContextManager[None]:
             return nullcontext()
 

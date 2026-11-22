@@ -295,6 +295,7 @@ const BetterAuthProvider = () => {
                 name: currentSession.display_name,
               }),
             request,
+            session.session.id,
           )
         } catch {
           throw new AuthError(
@@ -618,12 +619,14 @@ const BetterAuthProvider = () => {
     accessVersion: number,
     action: () => Promise<Result>,
     request?: Request,
+    sessionId?: string,
   ): Promise<Result> {
     return accountActivityScope.withSharedActivity(accountId, async () => {
       try {
         await requestIdentityService(request).admitAccountActivity(
           accountId,
           accessVersion,
+          sessionId,
         )
       } catch (error) {
         if (isIdentityUnauthorized(error)) {
@@ -650,6 +653,7 @@ function createIdentityPlugin(
     accessVersion: number,
     action: () => Promise<Result>,
     request?: Request,
+    sessionId?: string,
   ) => Promise<Result>,
   closeTechnicalAccountAfterIdentityClosure: (
     identityService: ReturnType<typeof IdentityService>,
@@ -683,6 +687,7 @@ function createIdentityPlugin(
                   safeProfile.displayName,
                 ),
               context.request,
+              session.session.id,
             )
             return context.json(safeProfile)
           } catch (error) {
@@ -723,6 +728,7 @@ function createIdentityPlugin(
                   safeProfile.displayName,
                 ),
               context.request,
+              session.session.id,
             )
             return context.json(safeProfile)
           } catch (error) {

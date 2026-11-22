@@ -212,10 +212,18 @@ export const IdentityService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
       return response.body
     },
-    async admitAccountActivity(accountId: string, accessVersion: number): Promise<void> {
+    async admitAccountActivity(
+      accountId: string,
+      accessVersion: number,
+      sessionId?: string,
+    ): Promise<void> {
       const response = await restClient.post<void>(
         '/identity/internal/account-activity-admissions',
-        { account_id: accountId, access_version: accessVersion },
+        {
+          account_id: accountId,
+          access_version: accessVersion,
+          ...(sessionId ? { session_id: sessionId } : {}),
+        },
       )
       if (response.isFailure) response.throwError()
     },
