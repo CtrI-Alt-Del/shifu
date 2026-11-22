@@ -12,8 +12,10 @@ from shifu.learning.rest.controllers import (
     GetDiagnosticController,
     GetGoalDetailController,
     GetHomeGoalsController,
+    GetLearningPanoramaController,
     GetMaterialController,
     GetMaterialDetailController,
+    GetSkillEvolutionController,
     GetSkillExperienceDetailController,
     ListAvailableSkillsController,
     ListSkillExperiencesOfSkillController,
@@ -38,6 +40,8 @@ class LearningRouter:
         GetCompetencyDetailController.handle(router)
         GetGoalDetailController.handle(router)
         GetHomeGoalsController.handle(router)
+        GetLearningPanoramaController.handle(router)
+        GetSkillEvolutionController.handle(router)
         GetMaterialDetailController.handle(router)
         SearchSkillCatalogController.handle(router)
         AddSkillToGoalController.handle(router)

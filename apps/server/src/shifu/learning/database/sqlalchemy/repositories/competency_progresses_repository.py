@@ -42,6 +42,20 @@ class SqlalchemyCompetencyProgressesRepository:
         ).all()
         return [CompetencyProgressMapper.to_domain(model) for model in models]
 
+    def find_many_by_skill_experience_ids(
+        self,
+        skill_experience_ids: list[str],
+    ) -> list[CompetencyProgress]:
+        if not skill_experience_ids:
+            return []
+
+        models = self._session.scalars(
+            select(CompetencyProgressModel).where(
+                CompetencyProgressModel.skill_experience_id.in_(skill_experience_ids)
+            )
+        ).all()
+        return [CompetencyProgressMapper.to_domain(model) for model in models]
+
     def add(self, competency_progress: CompetencyProgress) -> None:
         self._session.add(CompetencyProgressMapper.to_model(competency_progress))
 

@@ -48,6 +48,12 @@ from .remove_skill_from_goal_controller import (
 from .retry_choice_evaluation_controller import (
     RetryChoiceEvaluationController as RetryChoiceEvaluationController,
 )
+from .get_learning_panorama_controller import (
+    GetLearningPanoramaController as GetLearningPanoramaController,
+)
+from .get_skill_evolution_controller import (
+    GetSkillEvolutionController as GetSkillEvolutionController,
+)
 from .get_skill_experience_detail_controller import (
     GetSkillExperienceDetailController as GetSkillExperienceDetailController,
 )
