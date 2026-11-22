@@ -494,16 +494,24 @@ class TestGetSkillEvolutionUseCase:
             ('learning-1',)
         )
 
-    def test_should_ignore_pending_failed_and_effectless_evaluations(self) -> None:
+    def test_should_ignore_pending_failed_closed_without_grade_and_effectless_evaluations(
+        self,
+    ) -> None:
         attempts = tuple(
             _attempt(name, ActivityAttemptKind.LEARNING)
-            for name in ('pending', 'failed', 'effectless', 'official')
+            for name in ('pending', 'failed', 'closed', 'effectless', 'official')
         )
         self._store(
             attempts=attempts,
             evaluations=(
                 _evaluation('pending', _at(4), '77', ActivityEvaluationStatus.PENDING),
                 _evaluation('failed', _at(5), '88', ActivityEvaluationStatus.FAILED),
+                _evaluation(
+                    'closed',
+                    _at(5),
+                    '66',
+                    ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE,
+                ),
                 _evaluation('effectless', _at(6), None),
                 _evaluation('official', _at(7), '50'),
             ),

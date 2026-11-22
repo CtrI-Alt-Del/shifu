@@ -733,6 +733,13 @@ def _seed_account_a(database: SqlalchemyLearningDatabase) -> None:
             ActivityEvaluationStatus.FAILED,
         ),
         _attempt(
+            11,
+            EXP_LOGIC_LEARNING,
+            ActivityAttemptKind.LEARNING,
+            _at(11, 14),
+            ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE,
+        ),
+        _attempt(
             7,
             EXP_LOGIC_LEARNING,
             ActivityAttemptKind.LEARNING,
