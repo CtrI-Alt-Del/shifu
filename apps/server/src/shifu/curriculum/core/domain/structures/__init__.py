@@ -54,6 +54,8 @@ from .material_sequence_item import MaterialSequenceItem as MaterialSequenceItem
 from .multiple_selection_question import (
     MultipleSelectionQuestion as MultipleSelectionQuestion,
 )
+from .ordering_step import OrderingStep as OrderingStep
+from .ordering_question import OrderingQuestion as OrderingQuestion
 from .qualitative_evaluation_part import (
     QualitativeEvaluationPart as QualitativeEvaluationPart,
 )

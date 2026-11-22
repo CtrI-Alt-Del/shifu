@@ -14,22 +14,17 @@ export type ObjectivePickerProps = {
 }
 
 export const ObjectivePicker = ({ candidates, hint, onSelect }: ObjectivePickerProps) => {
-  const labelId = useId()
   const hintId = useId()
   const reasonIdPrefix = useId()
 
   return (
     <fieldset
       aria-describedby={hintId}
-      aria-labelledby={labelId}
       className='m-0 flex min-w-0 flex-col items-start gap-2.5 border-0 p-0 max-[480px]:items-stretch'
     >
-      <p
-        className='text-[13px] font-medium leading-normal text-secondary-foreground'
-        id={labelId}
-      >
+      <legend className='text-[13px] font-medium leading-normal text-secondary-foreground'>
         Objetivo
-      </p>
+      </legend>
       <div className='flex flex-wrap items-start gap-2 max-[480px]:flex-col max-[480px]:items-stretch'>
         {candidates.map((candidate) => (
           <Button

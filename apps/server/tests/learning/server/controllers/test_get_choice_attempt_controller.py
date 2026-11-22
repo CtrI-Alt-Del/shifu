@@ -12,10 +12,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from shifu.app import FastAPIApp
+from shifu.curriculum.core.domain.entities import Activity
+from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.database.sqlalchemy.mappers import ActivityMapper
 from shifu.curriculum.core.domain.structures import (
+    ChoiceConceptCriterion,
     CodeRubricEvaluationPart,
+    CorrectnessEvaluationPart,
+    EvaluationRule,
+    OrderingQuestion,
+    OrderingStep,
     ReactQuestion,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
@@ -43,6 +50,7 @@ from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
     SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
@@ -170,6 +178,114 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetChoiceAttemptController:
+    def test_ordering_result_discloses_only_released_accepted_orders(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _ordering_activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = _ordering_activity_path(activity.id)
+        detail = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        passage_key = '592f83f0-e269-4b62-9467-e3e17d2bb001'
+        submitted_orders = {
+            'q1': ['second', 'first', 'third'],
+            'q2': ['first', 'second', 'third'],
+            'q3': ['first', 'second', 'third'],
+        }
+
+        for question_key, ordered_step_keys in submitted_orders.items():
+            preview = cast(
+                'Response',
+                client.post(
+                    f'{path}/questions/{question_key}/preliminary-evaluations',
+                    headers=headers,
+                    json={
+                        'activity_revision': revision,
+                        'passage_key': passage_key,
+                        'answer': {
+                            'kind': 'ordering',
+                            'question_key': question_key,
+                            'ordered_step_keys': ordered_step_keys,
+                        },
+                    },
+                ),  # pyright: ignore[reportUnknownMemberType]
+            )
+            assert preview.status_code == 200, preview.json()
+
+        submission = cast(
+            'Response',
+            client.post(
+                f'{path}/attempts',
+                headers=headers,
+                json={
+                    'submission_key': 'c16d8431-75b5-4879-a4ce-1d0d0f221001',
+                    'passage_key': passage_key,
+                    'activity_revision': revision,
+                    'answers': [
+                        {
+                            'kind': 'ordering',
+                            'question_key': question_key,
+                            'ordered_step_keys': ordered_step_keys,
+                        }
+                        for question_key, ordered_step_keys in submitted_orders.items()
+                    ],
+                },
+            ),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert submission.status_code == 201, submission.json()
+        attempt_id = cast('str', submission.json()['attempt_id'])
+
+        database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        EvaluateChoiceActivityUseCase(
+            database,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, evaluation.run_id)
+
+        response = cast(
+            'Response',
+            client.get(f'{path}/attempts/{attempt_id}', headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body['status'] == 'completed'
+        results = cast('list[dict[str, object]]', body['questions'])
+        assert [result['question_key'] for result in results] == ['q1', 'q2', 'q3']
+        for result in results:
+            question_key = cast('str', result['question_key'])
+            assert result['kind'] == 'ordering'
+            assert result['submitted_step_keys'] == submitted_orders[question_key]
+
+        assert results[0]['score'] == '0'
+        assert 'accepted_orders' not in results[0]
+        assert results[1]['score'] == '100'
+        assert results[1]['accepted_orders'] == [
+            ['first', 'second', 'third'],
+            ['first', 'third', 'second'],
+        ]
+        assert results[2]['score'] == '100'
+        assert results[2]['accepted_orders'] == [
+            ['first', 'second', 'third'],
+            ['first', 'third', 'second'],
+        ]
+
     def test_html_attempt_round_trips_frozen_snapshot_and_submitted_project(
         self,
         client: TestClient,
@@ -1133,6 +1249,62 @@ class TestGetChoiceAttemptController:
         assert released[2][
             'disclosed_correct_pairs'
         ] == PairMatchingControllerFixture.pairs(0, 1, 2)
+
+
+def _ordering_activity() -> Activity:
+    questions = tuple(
+        OrderingQuestion(
+            key=f'q{index}',
+            prompt='Organize as etapas.',
+            steps=(
+                OrderingStep(key='first', text='Preparar os ingredientes.'),
+                OrderingStep(key='second', text='Misturar os ingredientes.'),
+                OrderingStep(key='third', text='Assar a mistura.'),
+            ),
+            accepted_orders=(
+                ('first', 'second', 'third'),
+                ('first', 'third', 'second'),
+            ),
+            correct_explanation='A ordem correta explica o processo.',
+            incorrect_explanation='A ordem precisa ser revista.',
+            concept_criteria=(
+                ChoiceConceptCriterion(
+                    concept_id=SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
+                    criterion='Compreende a sequência.',
+                    examples='Prepara antes de misturar.',
+                    limits='Não presume etapas ausentes.',
+                    correct_score=100,
+                    incorrect_score=0,
+                ),
+            ),
+        )
+        for index in (1, 2, 3)
+    )
+    return Activity.create(
+        id='01SHF000000000000000000098',
+        competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade de ordenação',
+        objective='Organizar um processo.',
+        questions=questions,
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=34),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=33),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=33),
+            )
+        ),
+    )
+
+
+def _ordering_activity_path(activity_id: str) -> str:
+    return (
+        f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}'
+        f'/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
+        f'/activities/{activity_id}'
+    )
 
 
 def _attempts_path() -> str:

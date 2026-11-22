@@ -1,11 +1,12 @@
 """Shared `AnswerRequest` shape validation for the preview and submit controllers.
 
 Both controllers accept the same discriminated answer envelope (code files,
-translation text, matched pairs, or a choice selection) and must reject one that mixes or
+translation text, ordered steps, matched pairs, blanks or choices). Reject mixed shapes and
 omits the fields its own `kind` requires.
 """
 
 _FIELD_BY_KIND = {
+    'ordering': 'ordered_step_keys',
     'fill_blanks': 'placements',
     'javascript_stdin': 'files',
     'react': 'files',
@@ -15,6 +16,7 @@ _FIELD_BY_KIND = {
     'pair_matching': 'pairs',
 }
 _ERROR_BY_FIELD = {
+    'ordered_step_keys': 'Ordering answers require ordered step keys only',
     'placements': 'Fill-blanks answers require placements only',
     'files': 'Code answers require files only',
     'text': 'Translation answers require text only',
@@ -28,6 +30,7 @@ def validate_answer_request_shape(
     text: str | None,
     files: object | None,
     selected_option_keys: object | None,
+    ordered_step_keys: object | None = None,
     placements: object | None = None,
     pairs: object | None = None,
 ) -> None:
@@ -38,6 +41,7 @@ def validate_answer_request_shape(
         'text': text,
         'placements': placements,
         'pairs': pairs,
+        'ordered_step_keys': ordered_step_keys,
     }
     required = _FIELD_BY_KIND.get(kind or '', 'selected_option_keys')
     value = fields[required]

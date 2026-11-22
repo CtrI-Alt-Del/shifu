@@ -89,6 +89,19 @@ const HTML_CSS_JS_QUESTION: HtmlQuestion = {
   criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
 }
 
+const ORDERING_QUESTION = {
+  key: 'ordering-question-1',
+  kind: 'ordering',
+  prompt: 'Organize as etapas.',
+  steps: [
+    { key: 'wash', text: 'Lavar' },
+    { key: 'cut', text: 'Cortar' },
+    { key: 'cook', text: 'Cozinhar' },
+  ],
+  initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+  verified: null,
+} as const
+
 function createControllerMock(
   overrides: Partial<ActivityPageController> = {},
 ): ActivityPageController {
@@ -124,6 +137,9 @@ function createControllerMock(
     handleRetryLoad: vi.fn(),
     handleReturnToSkill: vi.fn(),
     handleToggleOption: vi.fn(),
+    currentOrderingOrder: [],
+    handleOrderingOrderChange: vi.fn(),
+    isOrderingVerified: false,
     hasSubmissionError: false,
     hasUnsentAnswers: true,
     isSubmissionLocked: false,
@@ -170,6 +186,126 @@ describe('ActivityPage', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     clearDiagnosticRun('goal-test', 'skill-test')
+  })
+
+  it('renders the ordering controls and the verify action', () => {
+    const handleOrderingOrderChangeMock = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'revision-1',
+          questions: [ORDERING_QUESTION],
+        },
+        currentQuestion: ORDERING_QUESTION,
+        currentOrderingOrder: ['wash', 'cut', 'cook'],
+        handleOrderingOrderChange: handleOrderingOrderChangeMock,
+        feedback: null,
+        frozenAnswer: null,
+        isOrderingVerified: false,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mover para baixo: Lavar' }))
+    expect(handleOrderingOrderChangeMock).toHaveBeenCalledWith(['cut', 'wash', 'cook'])
+    expect(screen.getByRole('button', { name: 'Verificar' })).toBeEnabled()
+  })
+
+  it.each([
+    {
+      isCorrect: true,
+      score: 100,
+      label: 'Ordem correta',
+      isLastQuestion: true,
+      action: 'Enviar atividade',
+    },
+    {
+      isCorrect: false,
+      score: 0,
+      label: 'Ordem incorreta',
+      isLastQuestion: false,
+      action: 'Próxima questão',
+    },
+  ])(
+    'shows the provisional ordering outcome and delegates $action without reopening the sequence',
+    ({ isCorrect, score, label, isLastQuestion, action }) => {
+      const handleContinue = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: { ...ACTIVITY, questions: [ORDERING_QUESTION] },
+          isMixedActivity: true,
+          currentQuestion: ORDERING_QUESTION,
+          currentOrderingOrder: ['wash', 'cut', 'cook'],
+          isOrderingVerified: true,
+          feedback: {
+            status: 'conclusive',
+            score,
+            isCorrect,
+            explanation: 'Comentário sobre a sequência enviada.',
+          },
+          frozenAnswer: {
+            kind: 'ordering',
+            questionKey: ORDERING_QUESTION.key,
+            orderedStepKeys: ['wash', 'cut', 'cook'],
+          },
+          isLastQuestion,
+          handleContinue,
+        }),
+      )
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+      expect(screen.getByText(`${score}%`)).toBeVisible()
+      expect(
+        screen.getByText(/a nota final da Atividade será calculada após o envio/),
+      ).toBeVisible()
+      expect(screen.getByText('Comentário sobre a sequência enviada.')).toBeVisible()
+      expect(screen.queryByRole('button', { name: /Mover para/ })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      expect(handleContinue).toHaveBeenCalledOnce()
+    },
+  )
+
+  it.each([
+    { feedback: null, label: 'Tentar avaliação novamente' },
+    { feedback: { status: 'inconclusive' as const, score: null }, label: 'Reverificar' },
+  ])('keeps an unconfirmed order frozen and offers $label', ({ feedback, label }) => {
+    const handleContinue = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, questions: [ORDERING_QUESTION] },
+        isMixedActivity: true,
+        currentQuestion: ORDERING_QUESTION,
+        currentOrderingOrder: ['cut', 'wash', 'cook'],
+        frozenAnswer: {
+          kind: 'ordering',
+          questionKey: ORDERING_QUESTION.key,
+          orderedStepKeys: ['cut', 'wash', 'cook'],
+        },
+        feedback,
+        handleContinue,
+        hasFeedbackError: feedback === null,
+      }),
+    )
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Mover para cima: Cortar' })).toBeDisabled()
+    if (feedback === null) {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Não foi possível avaliar. Tente novamente.',
+      )
+    } else {
+      expect(
+        screen.getByText(
+          'Não foi possível concluir esta avaliação. Reavalie a mesma resposta.',
+        ),
+      ).toBeVisible()
+      expect(screen.queryByText('Pontuação:')).not.toBeInTheDocument()
+    }
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    expect(handleContinue).toHaveBeenCalledOnce()
   })
 
   it('announces loading without exposing stale question controls', () => {

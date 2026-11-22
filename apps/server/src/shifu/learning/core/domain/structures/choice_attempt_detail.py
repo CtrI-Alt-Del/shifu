@@ -16,6 +16,9 @@ from shifu.learning.core.domain.structures.fill_blanks_result_detail import (
 )
 from shifu.shared.core.domain.structures import structure
 from shifu.learning.core.domain.structures.code_result_detail import CodeResultDetail
+from shifu.learning.core.domain.structures.ordering_result_detail import (
+    OrderingResultDetail,
+)
 from shifu.learning.core.domain.structures.pair_matching_result_detail import (
     PairMatchingResultDetail,
 )
@@ -42,6 +45,7 @@ class ChoiceAttemptDetail:
     questions: tuple[
         ChoiceResultDetail
         | CodeResultDetail
+        | OrderingResultDetail
         | FillBlanksResultDetail
         | TranslationResultDetail
         | PairMatchingResultDetail,

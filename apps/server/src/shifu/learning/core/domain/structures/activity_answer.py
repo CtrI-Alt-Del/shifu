@@ -9,12 +9,14 @@ from shifu.learning.core.domain.structures.pair_matching_answer import (
 from shifu.learning.core.domain.structures.single_choice_answer import (
     SingleChoiceAnswer,
 )
+from shifu.learning.core.domain.structures.ordering_answer import OrderingAnswer
 from shifu.learning.core.domain.structures.translation_answer import TranslationAnswer
 
 type ActivityAnswer = (
     SingleChoiceAnswer
     | MultipleSelectionAnswer
     | CodeAnswer
+    | OrderingAnswer
     | FillBlanksAnswer
     | TranslationAnswer
     | PairMatchingAnswer

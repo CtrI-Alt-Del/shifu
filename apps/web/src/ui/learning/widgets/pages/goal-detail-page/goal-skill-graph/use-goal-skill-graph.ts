@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ELK from 'elkjs/lib/elk.bundled.js'
+import ELK from 'elkjs/lib/elk-api.js'
+import elkWorkerUrl from 'elkjs/lib/elk-worker.min.js?url'
 import type { Edge } from '@xyflow/react'
 
 import type { GoalSkillDetail, GoalSkillRelation } from '@/core/learning/goal-detail'
@@ -98,7 +99,7 @@ export function useGoalSkillGraph(
 
   useEffect(() => {
     let isCurrent = true
-    const elk = new ELK()
+    let elk: InstanceType<typeof ELK> | undefined
     const graph = {
       id: 'goal-skill-graph',
       layoutOptions: {
@@ -121,10 +122,15 @@ export function useGoalSkillGraph(
         targets: [edge.target],
       })),
     }
-    void elk
-      .layout(graph)
+    void Promise.resolve()
+      .then(() => {
+        if (!isCurrent) return null
+
+        elk = new ELK({ workerUrl: elkWorkerUrl })
+        return elk.layout(graph)
+      })
       .then((layout) => {
-        if (!isCurrent) return
+        if (!isCurrent || !layout) return
 
         const root = layout.children?.find((child) => child.id === ROOT_ID)
         setNodes([
@@ -182,6 +188,7 @@ export function useGoalSkillGraph(
       })
     return () => {
       isCurrent = false
+      elk?.terminateWorker()
     }
   }, [goalId, layoutEdges, skills, title])
 

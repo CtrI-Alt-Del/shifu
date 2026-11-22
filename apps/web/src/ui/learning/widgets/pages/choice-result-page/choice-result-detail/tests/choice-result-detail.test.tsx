@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type {
   CodeQuestion,
+  OrderingResultQuestion,
   ChoiceQuestion,
   CodeResultQuestion,
   HtmlCssJsQuestion,
@@ -64,6 +65,99 @@ const TRANSLATION_QUESTION: TranslationQuestion = {
 
 describe('ChoiceResultDetail', () => {
   afterEach(cleanup)
+
+  it.each([undefined, []])(
+    'keeps an incorrect submitted order private until accepted sequences are disclosed (%s)',
+    (acceptedOrders) => {
+      const result: OrderingResultQuestion = {
+        key: 'ordering-history',
+        kind: 'ordering',
+        prompt: 'Organize o preparo.',
+        steps: [
+          { key: 'wash', text: 'Lavar os legumes' },
+          { key: 'cut', text: 'Cortar os legumes' },
+          { key: 'cook', text: 'Cozinhar os legumes' },
+        ],
+        submittedStepKeys: ['cook', 'wash', 'cut'],
+        score: 0,
+        isCorrect: false,
+        explanation: 'Revise a sequência do preparo.',
+        acceptedOrders,
+      }
+      render(
+        <ChoiceResultDetail question={undefined} questionNumber={2} result={result} />,
+      )
+      const submittedOrder = screen.getByRole('region', {
+        name: 'Sua ordem na questão 2',
+        hidden: true,
+      })
+      expect(submittedOrder).not.toBeVisible()
+      fireEvent.click(screen.getByText('Questão 2 · ordenação · incorreta'))
+
+      expect(screen.getByLabelText('Nota 0 de 100')).toBeVisible()
+      expect(submittedOrder).toBeVisible()
+      const rows = within(submittedOrder).getAllByRole('listitem')
+      expect(rows[0]).toHaveTextContent('Cozinhar os legumes')
+      expect(rows[1]).toHaveTextContent('Lavar os legumes')
+      expect(rows[2]).toHaveTextContent('Cortar os legumes')
+      expect(screen.getByText('Revise a sequência do preparo.')).toBeVisible()
+      expect(screen.getByText('Sua ordem · somente leitura')).toBeVisible()
+      expect(screen.queryByText('Sequências aceitas')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    },
+  )
+
+  it('shows the historical correct order and every sequence explicitly released by Learning', () => {
+    const result: OrderingResultQuestion = {
+      key: 'ordering-history',
+      kind: 'ordering',
+      prompt: 'Prepare a refeição.',
+      steps: [
+        { key: 'wash', text: 'Lavar' },
+        { key: 'cut', text: 'Cortar' },
+        { key: 'cook', text: 'Cozinhar' },
+      ],
+      submittedStepKeys: ['wash', 'cut', 'cook'],
+      score: 100,
+      isCorrect: true,
+      explanation: 'Sequência concluída corretamente.',
+      acceptedOrders: [
+        ['wash', 'cut', 'cook'],
+        ['cut', 'wash', 'cook'],
+      ],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={1} result={result} />)
+    fireEvent.click(screen.getByText('Questão 1 · ordenação · correta'))
+
+    expect(screen.getByLabelText('Nota 100 de 100')).toBeVisible()
+    const accepted = screen.getByRole('region', { name: 'Ordens aceitas da questão 1' })
+    expect(accepted).toBeVisible()
+    const orders = within(accepted).getAllByRole('list')
+    expect(orders).toHaveLength(2)
+    expect(within(orders[0]).getAllByRole('listitem')[0]).toHaveTextContent('Lavar')
+    expect(within(orders[1]).getAllByRole('listitem')[0]).toHaveTextContent('Cortar')
+    expect(screen.getByText('Sequência concluída corretamente.')).toBeVisible()
+  })
+
+  it('labels unavailable historical steps without exposing their private identifiers', () => {
+    const result: OrderingResultQuestion = {
+      key: 'ordering-history',
+      kind: 'ordering',
+      prompt: 'Prepare a refeição.',
+      steps: [{ key: 'known', text: 'Etapa preservada' }],
+      submittedStepKeys: ['private-removed-step'],
+      score: 0,
+      isCorrect: false,
+      explanation: 'Conteúdo histórico parcialmente indisponível.',
+      acceptedOrders: [['private-accepted-step']],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={3} result={result} />)
+    fireEvent.click(screen.getByText('Questão 3 · ordenação · incorreta'))
+
+    expect(screen.getAllByText('Etapa indisponível')).toHaveLength(2)
+    expect(screen.queryByText('private-removed-step')).not.toBeInTheDocument()
+    expect(screen.queryByText('private-accepted-step')).not.toBeInTheDocument()
+  })
 
   it('shows only the submitted selection and safe feedback when disclosure is protected', () => {
     const result: ChoiceResultQuestion = {
