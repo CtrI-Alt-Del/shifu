@@ -16,7 +16,7 @@ last_updated_at: 2026-11-22
 | Visual checks | 0/1 passed. VM-04 is blocked; the user declined connecting Penpot for this task. |
 | Independent review | The reviewer accepted stale-and-confirmed reconciliation for `unknown` receipts, durable-result recovery, and idempotent settlement under overlapping Learning runs. No implementation findings remain in ACH-09/10. Visual reviewer marked VM-04 blocked. |
 | Blockers | ACH-01 privacy policy alignment; ACH-02 Inngest legacy retention; ACH-03 Penpot reference; ACH-04 Communication catalog authority; ACH-11 Playwright host/package build; ACH-12 dependency and formatting warnings; ACH-17 test-integrity failures in incoming `main`; ACH-18 local Inngest GraphQL timeout. Staging remains deliberately disabled until end-to-end TLS exists. |
-| Candidate | `feat/shifu-98-account-deletion`, worktree `.agent/worktrees/shifu-98-account-deletion`; code candidate `e7457f85`, with `origin/main` at `c0567b49ccb81dbca7406fee7af24e873eb6ed56` merged. Main checkout remains on `shifu-128`. |
+| Candidate | Branch `feat/shifu-98-account-deletion`, worktree `.agent/worktrees/shifu-98-account-deletion`; implementation candidate `e7457f85`, synchronized with `origin/main` `c0567b49ccb81dbca7406fee7af24e873eb6ed56`. Draft PR #61 was created from head `e1374adc8799ad1840a4bf85497501ef8cb7eccf`; initial pending checks are recorded under Delivery. Main checkout remains on `shifu-128`. |
 
 # Progress
 
@@ -96,10 +96,10 @@ last_updated_at: 2026-11-22
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `feat/shifu-98-account-deletion`; worktree `D:\Área de Trabalho\API\shifu\.agent\worktrees\shifu-98-account-deletion`; code candidate `e7457f85`, synchronized with `origin/main` at `c0567b49ccb81dbca7406fee7af24e873eb6ed56`. |
+| Candidate | Branch `feat/shifu-98-account-deletion`; worktree `D:\Área de Trabalho\API\shifu\.agent\worktrees\shifu-98-account-deletion`; implementation candidate `e7457f85`; draft PR #61 published from head `e1374adc8799ad1840a4bf85497501ef8cb7eccf`; `origin/main` at `c0567b49ccb81dbca7406fee7af24e873eb6ed56` is an ancestor. |
 | Completed | Implemented the scoped Identity, Shared, Learning, Intelligence, Gamification, Communication and Web paths; added migrations; added durable BFF retry, guarded Communication queue admission, Intelligence outbox purge and context-preserving async locking; resolved unknown receipt reconciliation, durable-result retry and concurrent settlement; made staging fail closed until end-to-end TLS exists; integrated the latest account-appearance migration while preserving the user-approved fail-closed session behavior; updated Spec revision 3 and this Evaluation. |
 | Unfinished | Reconcile privacy-policy and Communication catalog authority; prove Inngest historical retention; rerun the invalid-payload push-purge check after the local GraphQL timeout; run browser checks in a supported Playwright environment; connect Penpot for visual comparison; resolve package-build, test-integrity and warning findings. |
-| Uncommitted work | Only the SHIFU-98 Spec and Evaluation artifacts remain to be committed. The merge and scoped code fixes are committed. No changes were made in the main checkout. |
+| Uncommitted work | No uncommitted SHIFU-98 work remained when the PR was created. Implementation and SDD artifacts were committed on this branch. This publication record is a documentation-only change. No changes were made in the main checkout. |
 | Active processes | Disposable containers from the real Inngest test have exited. Shared `api-mysql-1` remains running. Playwright and local application processes are stopped. |
 | Isolation | Main checkout remains on `shifu-128`; no branch switch or edit was made there. |
 | Blockers | ACH-01 through ACH-04, ACH-11/12, ACH-17 and ACH-18. Browser/visual and some job-boundary evidence remains incomplete. Staging cannot be enabled until end-to-end TLS is implemented. |
@@ -118,11 +118,11 @@ last_updated_at: 2026-11-22
 | PR | Current head SHA | Review state |
 | --- | --- | --- |
 | Prior PR #47 | Merged; partial interface-only delivery. It left the final action disabled and deletion unimplemented. | This PR continues the same Jira scope with Identity orchestration and module data erasure. |
-| New PR | Not created yet; code candidate `e7457f85`; `origin/main` is an ancestor of the branch. | Draft publication was explicitly requested; readiness remains blocked by ACH-01–04, ACH-11/12 and ACH-17/18. |
+| New PR | [#61 — Encerramento e eliminação coordenada da conta](https://github.com/CtrI-Alt-Del/shifu/pull/61); draft; branch `feat/shifu-98-account-deletion`; published head `e1374adc8799ad1840a4bf85497501ef8cb7eccf`; `origin/main` is an ancestor. | No review decision or review submissions yet. All checks were pending at first read on the published head; this documentation update will cause a new head and a fresh check run. Readiness remains blocked by ACH-01–04, ACH-11/12 and ACH-17/18. |
 
 | Field | Result |
 | --- | --- |
-| Publication | Requested by the user; draft PR will be created after the authorized commits and push. |
+| Publication | Draft PR #61 created after the authorized commits and push. Initial GitHub check rollup on head `e1374adc8799ad1840a4bf85497501ef8cb7eccf` showed all checks pending. The current head will change with this documentation-only publication record; await its check rollup before reporting current CI. |
 | Source verification | Identity PRD v6 and Learning PRD v34 addenda were read back. Communication PRD v4 and privacy policy v4 remain blockers. |
 | Documentation Alignment | No Atlassian writes were made. Inngest legacy retention and Penpot reference remain unresolved. |
 | Revision History | Spec revision 3 records the durable BFF retry, guarded Communication queue and Intelligence outbox purge corrections. |
