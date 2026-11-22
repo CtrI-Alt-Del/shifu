@@ -57,6 +57,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -457,6 +458,21 @@ class SubmitChoiceActivityUseCase:
 
             if not isinstance(answer, ChoiceAnswerSubmission):
                 raise ValidationError
+
+            if isinstance(question, CurriculumImageChoiceQuestionSnapshot):
+                selected_keys = answer.selected_option_keys
+                if len(selected_keys) != 1 or selected_keys[0] not in {
+                    option.key for option in question.options
+                }:
+                    raise ValidationError
+
+                normalized.append(
+                    SingleChoiceAnswer(
+                        question_key=answer.question_key,
+                        selected_option_key=selected_keys[0],
+                    )
+                )
+                continue
 
             option_keys = {option.key for option in question.options}
             selected = answer.selected_option_keys

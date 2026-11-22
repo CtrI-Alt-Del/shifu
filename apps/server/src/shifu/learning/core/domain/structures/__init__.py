@@ -32,6 +32,15 @@ from .choice_evaluation_result import (
 )
 from .choice_option_detail import ChoiceOptionDetail as ChoiceOptionDetail
 from .choice_question_detail import ChoiceQuestionDetail as ChoiceQuestionDetail
+from .image_choice_option_detail import (
+    ImageChoiceOptionDetail as ImageChoiceOptionDetail,
+)
+from .image_choice_question_detail import (
+    ImageChoiceQuestionDetail as ImageChoiceQuestionDetail,
+)
+from .image_choice_result_detail import (
+    ImageChoiceResultDetail as ImageChoiceResultDetail,
+)
 from .ordering_question_detail import OrderingQuestionDetail as OrderingQuestionDetail
 from .ordering_question_detail import OrderingStepDetail as OrderingStepDetail
 from .ordering_answer import OrderingAnswer as OrderingAnswer

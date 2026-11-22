@@ -8,6 +8,7 @@ from shifu.curriculum.core.domain.structures import (
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
+    ImageChoiceQuestion,
     OrderingQuestion,
     PairMatchingQuestion,
     TranslationQuestion,
@@ -103,6 +104,7 @@ class Activity:
                     HtmlCssJsQuestion,
                     ReactFastifyQuestion,
                     OrderingQuestion,
+                    ImageChoiceQuestion,
                     TranslationQuestion,
                     PairMatchingQuestion,
                 ),
@@ -111,7 +113,7 @@ class Activity:
         ):
             raise InvalidActivityError
 
-        if _has_invalid_ordering_part(self.questions, self.evaluation_rule.parts):
+        if _has_invalid_correctness_part(self.questions, self.evaluation_rule.parts):
             raise InvalidActivityError
 
         if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
@@ -166,7 +168,7 @@ class Activity:
         )
 
 
-def _has_invalid_ordering_part(
+def _has_invalid_correctness_part(
     questions: tuple[ActivityQuestion, ...],
     parts: tuple[object, ...],
 ) -> bool:
@@ -176,7 +178,7 @@ def _has_invalid_ordering_part(
         if isinstance(part, CorrectnessEvaluationPart | CodeRubricEvaluationPart)
     }
     return any(
-        isinstance(question, OrderingQuestion)
+        isinstance(question, OrderingQuestion | ImageChoiceQuestion)
         and not isinstance(parts_by_key.get(question.key), CorrectnessEvaluationPart)
         for question in questions
     )

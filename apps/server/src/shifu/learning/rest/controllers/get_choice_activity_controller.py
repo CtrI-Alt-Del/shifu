@@ -28,6 +28,19 @@ class ChoiceQuestionResponse(BaseModel):
     options: tuple[OptionResponse, ...]
 
 
+class ImageChoiceOptionResponse(BaseModel):
+    key: str
+    image_path: str
+    description: str
+
+
+class ImageChoiceQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['image_choice']
+    prompt: str
+    options: tuple[ImageChoiceOptionResponse, ...]
+
+
 class OrderingStepResponse(BaseModel):
     key: str
     text: str
@@ -158,7 +171,8 @@ class Response(BaseModel):
         | OrderingQuestionResponse
         | FillBlanksQuestionResponse
         | TranslationQuestionResponse
-        | PairMatchingQuestionResponse,
+        | PairMatchingQuestionResponse
+        | ImageChoiceQuestionResponse,
         ...,
     ]
     can_submit: bool

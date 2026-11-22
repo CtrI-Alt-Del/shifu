@@ -16,6 +16,9 @@ from shifu.learning.core.domain.structures.fill_blanks_result_detail import (
 )
 from shifu.shared.core.domain.structures import structure
 from shifu.learning.core.domain.structures.code_result_detail import CodeResultDetail
+from shifu.learning.core.domain.structures.image_choice_result_detail import (
+    ImageChoiceResultDetail,
+)
 from shifu.learning.core.domain.structures.ordering_result_detail import (
     OrderingResultDetail,
 )
@@ -48,6 +51,7 @@ class ChoiceAttemptDetail:
         | OrderingResultDetail
         | FillBlanksResultDetail
         | TranslationResultDetail
-        | PairMatchingResultDetail,
+        | PairMatchingResultDetail
+        | ImageChoiceResultDetail,
         ...,
     ] = ()

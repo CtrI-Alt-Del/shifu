@@ -47,11 +47,13 @@ class ItemRequest(BaseModel):
 
     @field_validator('answers')
     @classmethod
-    def reject_fill_blanks_answers(
+    def reject_learning_only_answers(
         cls, answers: tuple[AnswerRequest, ...]
     ) -> tuple[AnswerRequest, ...]:
         if any(answer.kind == 'fill_blanks' for answer in answers):
             raise ValueError('Fill-blanks answers are not accepted in the diagnostic')
+        if any(answer.kind == 'image_choice' for answer in answers):
+            raise ValueError('Image-choice answers are not accepted in the diagnostic')
         return answers
 
 

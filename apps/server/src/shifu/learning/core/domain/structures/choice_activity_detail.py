@@ -9,6 +9,9 @@ from shifu.shared.core.domain.structures import structure
 from shifu.learning.core.domain.structures.code_question_detail import (
     CodeQuestionDetail,
 )
+from shifu.learning.core.domain.structures.image_choice_question_detail import (
+    ImageChoiceQuestionDetail,
+)
 from shifu.learning.core.domain.structures.ordering_question_detail import (
     OrderingQuestionDetail,
 )
@@ -31,7 +34,8 @@ class ChoiceActivityDetail:
         | OrderingQuestionDetail
         | FillBlanksQuestionDetail
         | TranslationQuestionDetail
-        | PairMatchingQuestionDetail,
+        | PairMatchingQuestionDetail
+        | ImageChoiceQuestionDetail,
         ...,
     ]
     can_submit: bool

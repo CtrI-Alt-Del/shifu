@@ -22,6 +22,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -92,6 +93,7 @@ class ActivityAttemptMapper:
                     'fill_blanks',
                     'translation',
                     'pair_matching',
+                    'image_choice',
                 }
                 for question in questions
             ):
@@ -115,6 +117,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'translation'
                     else CurriculumPairMatchingQuestionSnapshot
                     if question.get('kind') == 'pair_matching'
+                    else CurriculumImageChoiceQuestionSnapshot
+                    if question.get('kind') == 'image_choice'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
@@ -143,7 +147,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot | CurriculumImageChoiceQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -220,6 +224,13 @@ class ActivityAttemptMapper:
                         selected_option_keys=tuple(
                             cast('list[str]', item['selected_option_keys'])
                         ),
+                    )
+                )
+            elif kind == 'image_choice':
+                answers.append(
+                    SingleChoiceAnswer(
+                        question_key=question_key,
+                        selected_option_key=cast('str', item['selected_option_key']),
                     )
                 )
             elif kind == 'ordering':

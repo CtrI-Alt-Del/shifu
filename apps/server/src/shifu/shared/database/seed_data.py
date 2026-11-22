@@ -81,10 +81,10 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
-from shifu.curriculum.database.cooking_ordering_seed import (
+from shifu.curriculum.database.cooking_question_formats_seed import (
     COOKING_COMPETENCY_ID,
     COOKING_SKILL_ID,
-    build_cooking_ordering_seed,
+    build_cooking_question_formats_seed,
 )
 from shifu.curriculum.database.english_question_formats_seed import (
     ENGLISH_COMPETENCY_ID,
@@ -2921,14 +2921,14 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         status=CompetencyProgressStatus.LEARNING,
     )
 
-    # A cooking Skill whose Learning Activity exercises step-ordering questions, also
-    # in learning so the format opens without a diagnostic.
-    cooking = build_cooking_ordering_seed()
+    # A cooking Skill whose Learning Activities exercise step-ordering and image-choice
+    # questions, also in learning so the formats open without a diagnostic.
+    cooking = build_cooking_question_formats_seed()
     cooking_goal = Goal(
         id=SEED_COOKING_GOAL_ID,
         account_id=SEED_ACCOUNT_ID,
         title='Culinária para iniciantes',
-        description='Pratique a ordem das etapas em preparos simples com legumes.',
+        description='Pratique a ordem das etapas e o ponto de cocção em preparos simples.',
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
     )
@@ -2936,7 +2936,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         id=SEED_COOKING_EXPERIENCE_ID,
         goal_id=SEED_COOKING_GOAL_ID,
         skill_id=COOKING_SKILL_ID,
-        inclusion_reason='Praticar a ordenação das etapas de um preparo.',
+        inclusion_reason='Praticar a ordem das etapas e o ponto de cocção de um preparo.',
         status=SkillExperienceStatus.LEARNING,
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,

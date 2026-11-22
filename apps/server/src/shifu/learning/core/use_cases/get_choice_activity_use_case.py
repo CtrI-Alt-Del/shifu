@@ -11,6 +11,8 @@ from shifu.learning.core.domain.structures import (
     FillBlanksSegmentDetail,
     FillBlanksWordDetail,
     CodeQuestionCriterionDetail,
+    ImageChoiceOptionDetail,
+    ImageChoiceQuestionDetail,
     OrderingQuestionDetail,
     OrderingStepDetail,
     VerifiedOrderingDetail,
@@ -36,6 +38,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
@@ -345,6 +348,8 @@ class GetChoiceActivityUseCase:
                         ),
                     )
                     if isinstance(question, CurriculumPairMatchingQuestionSnapshot)
+                    else self.image_choice_question_detail(question)
+                    if isinstance(question, CurriculumImageChoiceQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -398,6 +403,24 @@ class GetChoiceActivityUseCase:
                 )
                 if verified is not None
                 else None
+            ),
+        )
+
+    @staticmethod
+    def image_choice_question_detail(
+        question: CurriculumImageChoiceQuestionSnapshot,
+    ) -> ImageChoiceQuestionDetail:
+        return ImageChoiceQuestionDetail(
+            key=question.key,
+            kind='image_choice',
+            prompt=question.prompt,
+            options=tuple(
+                ImageChoiceOptionDetail(
+                    key=option.key,
+                    image_path=option.image_path,
+                    description=option.description,
+                )
+                for option in question.options
             ),
         )
 

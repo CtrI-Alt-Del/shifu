@@ -78,6 +78,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
+)
 from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
     CurriculumPairMatchingQuestionSnapshotFaker,
 )
@@ -1424,6 +1427,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             'correct_pair_count',
             'total_pair_count',
             'outcome',
+            'option_feedback',
         }
 
     @pytest.mark.parametrize(
@@ -1702,6 +1706,130 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         assert passage.status == 'active'
         assert len(passage.verified_orderings) == 1
         self.repositories.activity_attempts.add.assert_not_called()
+
+    def _use_image_snapshot(self) -> None:
+        base = mixed_snapshot()
+        self.provider.get_learning_activity.return_value = replace(
+            base,
+            questions=(
+                base.questions[0],
+                CurriculumImageChoiceQuestionSnapshotFaker.fake('qi'),
+                base.questions[1],
+            ),
+            parts=(
+                base.parts[0],
+                CurriculumChoicePartSnapshot(
+                    question_key='qi', weight_percentage=Decimal(40)
+                ),
+                base.parts[1],
+            ),
+        )
+
+    def _execute_image(
+        self,
+        selected_option_keys: tuple[str, ...],
+        revision: str = 'revision-1',
+        answer: ChoiceAnswerSubmission | PairMatchingAnswer | None = None,
+    ) -> PreliminaryQuestionResult:
+        return self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qi',
+            revision,
+            answer
+            or ChoiceAnswerSubmission(
+                question_key='qi', selected_option_keys=selected_option_keys
+            ),
+        )
+
+    def test_should_score_the_correct_image_100_with_its_feedback_line(self) -> None:
+        self._use_image_snapshot()
+
+        result = self._execute_image(
+            (CurriculumImageChoiceQuestionSnapshotFaker.option_key(2),)
+        )
+
+        assert result.status == 'conclusive'
+        assert result.score == Decimal(100)
+        assert result.is_correct is True
+        assert result.explanation == 'Explicação de acerto.'
+        assert result.option_feedback == 'Linha de retorno 3'
+        self.assessor.assess.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_score_an_incorrect_image_0_with_only_its_own_feedback_line(
+        self,
+    ) -> None:
+        self._use_image_snapshot()
+
+        result = self._execute_image(
+            (CurriculumImageChoiceQuestionSnapshotFaker.option_key(0),)
+        )
+
+        assert result.score == Decimal(0)
+        assert result.is_correct is False
+        assert result.explanation == 'Explicação de erro.'
+        assert result.option_feedback == 'Linha de retorno 1'
+        assert 'Linha de retorno 3' not in repr(result)
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'selected_option_keys',
+        (
+            (),
+            ('opt-000000000001', 'opt-000000000002'),
+            ('opt-000000000001', 'opt-000000000001'),
+            ('opt-ffffffffffff',),
+        ),
+        ids=('none', 'two', 'repeated', 'unknown'),
+    )
+    def test_should_reject_invalid_image_keys_without_effects(
+        self, selected_option_keys: tuple[str, ...]
+    ) -> None:
+        self._use_image_snapshot()
+
+        with pytest.raises(ValidationError):
+            self._execute_image(selected_option_keys)
+
+        self._assert_nothing_written()
+
+    def test_should_reject_another_format_answer_for_the_image_question(self) -> None:
+        self._use_image_snapshot()
+
+        with pytest.raises(ValidationError):
+            self._execute_image((), answer=self._pair_answer(0, 1, 2))
+
+        self._assert_nothing_written()
+
+    def test_should_reject_a_stale_revision_for_image_feedback(self) -> None:
+        self._use_image_snapshot()
+
+        with pytest.raises(ConflictError):
+            self._execute_image(
+                (CurriculumImageChoiceQuestionSnapshotFaker.option_key(2),),
+                revision='old-revision',
+            )
+
+        self._assert_nothing_written()
+
+    def test_should_reject_image_feedback_for_another_accounts_goal(self) -> None:
+        self._use_image_snapshot()
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id='goal-1', account_id='another-account'
+        )
+
+        with pytest.raises(NotFoundError):
+            self._execute_image(
+                (CurriculumImageChoiceQuestionSnapshotFaker.option_key(2),)
+            )
+
+        self._assert_nothing_written()
 
 
 class TestPreviewOrderingQuestion:

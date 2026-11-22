@@ -77,6 +77,12 @@ from .curriculum_javascript_stdin_question_snapshot import (
 from .curriculum_learning_activity_snapshot import (
     CurriculumLearningActivitySnapshot as CurriculumLearningActivitySnapshot,
 )
+from .curriculum_image_choice_option_snapshot import (
+    CurriculumImageChoiceOptionSnapshot as CurriculumImageChoiceOptionSnapshot,
+)
+from .curriculum_image_choice_question_snapshot import (
+    CurriculumImageChoiceQuestionSnapshot as CurriculumImageChoiceQuestionSnapshot,
+)
 from .curriculum_ordering_step_snapshot import (
     CurriculumOrderingStepSnapshot as CurriculumOrderingStepSnapshot,
 )

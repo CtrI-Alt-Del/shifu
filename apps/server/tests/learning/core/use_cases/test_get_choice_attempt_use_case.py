@@ -7,6 +7,9 @@ from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
 
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
+)
 from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
     CurriculumPairMatchingQuestionSnapshotFaker,
 )
@@ -42,6 +45,7 @@ from shifu.learning.core.domain.structures import (
     FillBlanksExpectedBlank,
     FillBlanksPlacement,
     FillBlanksResultDetail,
+    ImageChoiceResultDetail,
     MultipleSelectionAnswer,
     PairMatchingAnswer,
     PairMatchingEvaluationResult,
@@ -1095,3 +1099,255 @@ class TestGetChoiceAttemptUseCase:
 
         assert detail.outcome == 'incorrect'
         assert detail.disclosed_correct_pairs == self._KEY
+
+    def _use_image_attempt(
+        self,
+        selected_index: int,
+        *,
+        attempt_id: str = 'attempt-1',
+        submitted_at: datetime | None = None,
+        kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+    ) -> tuple[ActivityAttempt, ActivityEvaluation]:
+        base = mixed_snapshot()
+        grading = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumImageChoiceQuestionSnapshotFaker.fake('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        attempt = ActivityAttempt.create(
+            id=attempt_id,
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=kind,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                SingleChoiceAnswer(
+                    question_key='q3',
+                    selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                        selected_index
+                    ),
+                ),
+            ),
+            submitted_at=submitted_at or NOW - timedelta(minutes=10),
+            submission_key=f'submission-{attempt_id}',
+            grading_snapshot=grading,
+        )
+        correct = selected_index == 2
+        evaluation = ActivityEvaluation.create(
+            id=f'evaluation-{attempt_id}',
+            attempt_id=attempt.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW - timedelta(minutes=9),
+            run_id=f'run-{attempt_id}',
+        )
+        evaluation.parts = (
+            ChoiceEvaluationResult(
+                question_key='q1',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            ),
+            ChoiceEvaluationResult(
+                question_key='q2',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            ),
+            ChoiceEvaluationResult(
+                question_key='q3',
+                score=Decimal(100 if correct else 0),
+                is_correct=correct,
+                explanation='Explicação de acerto.'
+                if correct
+                else 'Explicação de erro.',
+            ),
+        )
+        evaluation.status = ActivityEvaluationStatus.COMPLETED
+        evaluation.score = Decimal(80)
+        evaluation.completed_at = NOW
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation
+        ]
+        return attempt, evaluation
+
+    def _image_detail(self, attempt: ActivityAttempt) -> ImageChoiceResultDetail:
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, attempt.id
+        )
+        image_details = [
+            item
+            for item in detail.questions
+            if isinstance(item, ImageChoiceResultDetail)
+        ]
+        assert len(image_details) == 1
+        return image_details[0]
+
+    def test_should_show_the_chosen_image_and_its_line_without_the_key_when_incorrect(
+        self,
+    ) -> None:
+        attempt, _ = self._use_image_attempt(0)
+
+        detail = self._image_detail(attempt)
+
+        assert detail.kind == 'image_choice'
+        assert detail.selected_option_key == (
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(0)
+        )
+        assert detail.score == Decimal(0)
+        assert detail.is_correct is False
+        assert detail.option_feedback == 'Linha de retorno 1'
+        assert detail.explanation == 'Explicação de erro.'
+        assert detail.disclosed_correct_option_key is None
+        assert tuple(option.key for option in detail.options) == tuple(
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(index)
+            for index in range(4)
+        )
+        assert 'Linha de retorno 3' not in repr(detail)
+
+    def test_should_identify_the_image_of_a_correct_answer(self) -> None:
+        attempt, _ = self._use_image_attempt(2)
+
+        detail = self._image_detail(attempt)
+
+        assert detail.is_correct is True
+        assert detail.score == Decimal(100)
+        assert detail.disclosed_correct_option_key == (
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(2)
+        )
+
+    def test_should_release_the_image_after_a_later_correct_attempt(self) -> None:
+        attempt, evaluation = self._use_image_attempt(0)
+        later_attempt, later_evaluation = self._use_image_attempt(
+            2, attempt_id='attempt-2', submitted_at=NOW - timedelta(minutes=5)
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt,
+            later_attempt,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation,
+            later_evaluation,
+        ]
+
+        detail = self._image_detail(attempt)
+
+        assert detail.is_correct is False
+        assert detail.disclosed_correct_option_key == (
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(2)
+        )
+
+    def test_should_keep_the_image_hidden_after_a_later_incorrect_attempt(self) -> None:
+        attempt, evaluation = self._use_image_attempt(0)
+        later_attempt, later_evaluation = self._use_image_attempt(
+            1, attempt_id='attempt-2', submitted_at=NOW - timedelta(minutes=5)
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt,
+            later_attempt,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation,
+            later_evaluation,
+        ]
+
+        detail = self._image_detail(attempt)
+
+        assert detail.disclosed_correct_option_key is None
+
+    def test_should_release_the_image_when_the_competency_is_mastered(self) -> None:
+        attempt, _ = self._use_image_attempt(0)
+        progress = self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value
+        assert isinstance(progress, CompetencyProgress)
+        progress.status = CompetencyProgressStatus.MASTERED
+
+        detail = self._image_detail(attempt)
+
+        assert detail.is_correct is False
+        assert detail.disclosed_correct_option_key == (
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(2)
+        )
+
+    def test_should_show_an_image_review_attempt_as_history_without_changing_the_official_result(
+        self,
+    ) -> None:
+        official, official_evaluation = self._use_image_attempt(
+            2, attempt_id='attempt-official', submitted_at=NOW - timedelta(minutes=30)
+        )
+        official_evaluation.score = Decimal(100)
+        review, review_evaluation = self._use_image_attempt(
+            0,
+            attempt_id='attempt-review',
+            submitted_at=NOW - timedelta(minutes=5),
+            kind=ActivityAttemptKind.REVIEW,
+        )
+        review_evaluation.score = Decimal(60)
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            official,
+            review,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            official_evaluation,
+            review_evaluation,
+        ]
+
+        self.repositories.activity_attempts.find_by_id.return_value = review
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = review_evaluation
+        review_detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, review.id
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = official
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = official_evaluation
+        official_detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, official.id
+        )
+
+        # The review is read-only history: its own image, grade and line.
+        review_image = next(
+            item
+            for item in review_detail.questions
+            if isinstance(item, ImageChoiceResultDetail)
+        )
+        assert review_detail.status is ActivityEvaluationStatus.COMPLETED
+        assert review_detail.score == Decimal(60)
+        assert review_detail.completes_skill is False
+        assert review_image.selected_option_key == (
+            CurriculumImageChoiceQuestionSnapshotFaker.option_key(0)
+        )
+        assert review_image.is_correct is False
+        assert review_image.option_feedback == 'Linha de retorno 1'
+        # The official attempt keeps its own result and still completes the Skill.
+        official_image = next(
+            item
+            for item in official_detail.questions
+            if isinstance(item, ImageChoiceResultDetail)
+        )
+        assert official_detail.score == Decimal(100)
+        assert official_detail.completes_skill is True
+        assert official_image.is_correct is True
+        assert official_image.score == Decimal(100)
+        self.repositories.activity_evaluations.update.assert_not_called()
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.skill_experiences.update.assert_not_called()

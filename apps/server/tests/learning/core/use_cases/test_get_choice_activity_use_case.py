@@ -5,6 +5,9 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 from unittest.mock import create_autospec
 
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
+)
 from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
     CurriculumPairMatchingQuestionSnapshotFaker,
 )
@@ -24,6 +27,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
+    ImageChoiceQuestionDetail,
     OrderingQuestionDetail,
     VerifiedOrdering,
     PairMatchingQuestionDetail,
@@ -813,3 +817,72 @@ class TestGetChoiceActivityUseCase:
         assert 'Associa vocabulario' not in serialized
         self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
         self.provider.get_choice_activity.assert_not_called()
+
+    def test_should_project_image_choice_options_in_order_without_answer_or_feedback(
+        self,
+    ) -> None:
+        original = snapshot()
+        question = CurriculumImageChoiceQuestionSnapshotFaker.fake(
+            'q2', concept_ids=('concept-2',)
+        )
+        mixed = CurriculumLearningActivitySnapshot(
+            id=original.id,
+            competency_id=original.competency_id,
+            difficulty=original.difficulty,
+            title='Ponto de cocção',
+            questions=(original.questions[0], question, original.questions[2]),
+            parts=original.parts,
+            required_concept_ids=(),
+            activity_type='learning',
+            schema_version=1,
+            revision='image-choice-1',
+        )
+        self.provider.get_learning_activity.return_value = mixed
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        assert tuple(item.key for item in detail.questions) == ('q1', 'q2', 'q3')
+        projected = detail.questions[1]
+        assert isinstance(projected, ImageChoiceQuestionDetail)
+        assert projected.kind == 'image_choice'
+        assert tuple(
+            (item.key, item.image_path, item.description) for item in projected.options
+        ) == tuple(
+            (item.key, item.image_path, item.description) for item in question.options
+        )
+        serialized = repr(projected)
+        assert 'is_correct' not in serialized
+        assert 'feedback' not in serialized
+        assert 'Linha de retorno' not in serialized
+        assert 'Explicação' not in serialized
+        assert detail.activity_revision == 'image-choice-1'
+        self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
+        self.provider.get_choice_activity.assert_not_called()
+
+    def test_should_refuse_image_choice_to_an_account_that_does_not_own_the_goal(
+        self,
+    ) -> None:
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id=GOAL_ID, account_id='another-account'
+        )
+
+        with pytest.raises(NotFoundError):
+            self.subject.execute(
+                ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+            )
+
+        self.provider.get_learning_activity.assert_not_called()
+
+    def test_should_refuse_image_choice_before_the_competency_is_released(
+        self,
+    ) -> None:
+        self.progress.content_released = False
+
+        with pytest.raises(NotFoundError):
+            self.subject.execute(
+                ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+            )
+
+        self.provider.get_learning_activity.assert_not_called()

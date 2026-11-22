@@ -58,6 +58,7 @@ from tests.fixtures.fill_blanks_activity_fixture import (
     PARTIAL_PAIRS,
     FillBlanksActivityFixture,
 )
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.learning.rest.controllers.pair_matching_controller_fixture import (
     PairMatchingControllerFixture,
@@ -1185,6 +1186,191 @@ class TestPreviewActivityQuestionFeedbackController:
         )
 
         assert response.status_code == 409, response.json()
+
+    def _image_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    @staticmethod
+    def _image_preview(
+        client: TestClient, body: dict[str, object], *, path: str | None = None
+    ) -> 'Response':
+        return cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                (path or ImageChoiceActivityFixture.preview_path()),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json=body,
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        ('index', 'score', 'is_correct', 'explanation'),
+        (
+            (
+                2,
+                '100',
+                True,
+                ImageChoiceActivityFixture.CORRECT_EXPLANATION,
+            ),
+            (
+                0,
+                '0',
+                False,
+                ImageChoiceActivityFixture.INCORRECT_EXPLANATION,
+            ),
+            (
+                3,
+                '0',
+                False,
+                ImageChoiceActivityFixture.INCORRECT_EXPLANATION,
+            ),
+        ),
+        ids=('correct', 'incorrect-raw', 'incorrect-burnt'),
+    )
+    def test_image_choice_preview_has_score_explanation_and_the_chosen_line_without_writes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        index: int,
+        score: str,
+        is_correct: bool,
+        explanation: str,
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+
+        response = self._image_preview(
+            client,
+            ImageChoiceActivityFixture.preview(
+                revision, ImageChoiceActivityFixture.OPTION_KEYS[index]
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        assert response.json() == {
+            'status': 'conclusive',
+            'score': score,
+            'explanation': explanation,
+            'is_correct': is_correct,
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+            'option_feedback': ImageChoiceActivityFixture.FEEDBACKS[index],
+        }
+        if not is_correct:
+            assert ImageChoiceActivityFixture.FEEDBACKS[2] not in response.text
+            assert ImageChoiceActivityFixture.CORRECT_OPTION_KEY not in response.text
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        # The same preview twice is the same answer and still writes nothing.
+        repeated = self._image_preview(
+            client,
+            ImageChoiceActivityFixture.preview(
+                revision, ImageChoiceActivityFixture.OPTION_KEYS[index]
+            ),
+        )
+        assert repeated.json() == response.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize(
+        ('answer', 'expected_status'),
+        (
+            (ImageChoiceActivityFixture.image_answer(), 422),
+            (
+                ImageChoiceActivityFixture.image_answer(
+                    *ImageChoiceActivityFixture.OPTION_KEYS[:2]
+                ),
+                422,
+            ),
+            (
+                {
+                    'kind': 'image_choice',
+                    'question_key': 'image-1',
+                    'placements': [{'blank_key': 'b1', 'word_key': 'w1'}],
+                },
+                422,
+            ),
+            (
+                {
+                    'kind': 'image_choice',
+                    'question_key': 'image-1',
+                    'selected_option_keys': ['opt-7c1e94a05d32'],
+                    'text': 'extra',
+                },
+                422,
+            ),
+            (ImageChoiceActivityFixture.image_answer('opt-ffffffffffff'), 400),
+            (
+                {
+                    'kind': 'image_choice',
+                    'question_key': 'q1',
+                    'selected_option_keys': ['opt-7c1e94a05d32'],
+                },
+                400,
+            ),
+        ),
+        ids=(
+            'no-key',
+            'two-keys',
+            'other-format-field',
+            'extra-field',
+            'unknown-key',
+            'wrong-question-key',
+        ),
+    )
+    def test_image_choice_preview_rejects_invalid_requests_without_effects(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+        expected_status: int,
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+
+        response = self._image_preview(
+            client, {'activity_revision': revision, 'answer': answer}
+        )
+
+        assert response.status_code == expected_status, response.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
+
+    def test_image_choice_preview_rejects_a_stale_revision_and_another_owner(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+        body = ImageChoiceActivityFixture.preview(
+            'stale-revision', ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+        )
+
+        stale = self._image_preview(client, body)
+        other_owner = self._image_preview(
+            client,
+            body,
+            path=ImageChoiceActivityFixture.preview_path().replace(
+                SEED_ADAPTIVE_LAB_GOAL_ID, '01SHF000000000000000000099'
+            ),
+        )
+
+        assert stale.status_code == 409, stale.json()
+        assert other_owner.status_code == 404, other_owner.json()
+        assert ImageChoiceActivityFixture.CORRECT_OPTION_KEY not in other_owner.text
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
 
 
 def _activity_path() -> str:

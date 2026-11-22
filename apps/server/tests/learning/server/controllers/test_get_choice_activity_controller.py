@@ -20,6 +20,11 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
+from shifu.curriculum.database.cooking_question_formats_seed import (
+    COOKING_COMPETENCY_ID,
+    COOKING_IMAGE_CHOICE_ACTIVITY_ID,
+    COOKING_SKILL_ID,
+)
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
@@ -57,11 +62,13 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
+    SEED_COOKING_GOAL_ID,
     SEED_GOAL_ID,
     SEED_LOGIC_EXPERIENCE_ID,
     build_development_seed,
 )
 from tests.fixtures.fill_blanks_activity_fixture import FillBlanksActivityFixture
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
@@ -1289,6 +1296,174 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 404
         assert response.json()['code'] == 'not_found'
+
+    def test_returns_the_public_image_choice_projection_without_the_answer_key(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['key'] for question in body['questions']] == [
+            'q1',
+            'image-1',
+            'q3',
+        ]
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'image_choice',
+            'single_choice',
+        ]
+        assert body['questions'][1] == {
+            'key': 'image-1',
+            'kind': 'image_choice',
+            'prompt': ImageChoiceActivityFixture.PROMPT,
+            'options': [
+                {'key': key, 'image_path': path, 'description': description}
+                for key, path, description in zip(
+                    ImageChoiceActivityFixture.OPTION_KEYS,
+                    ImageChoiceActivityFixture.IMAGE_PATHS,
+                    ImageChoiceActivityFixture.DESCRIPTIONS,
+                    strict=True,
+                )
+            ],
+        }
+        for hidden in (
+            'is_correct',
+            'feedback',
+            'concept_criteria',
+            ImageChoiceActivityFixture.CORRECT_EXPLANATION,
+            ImageChoiceActivityFixture.INCORRECT_EXPLANATION,
+            *ImageChoiceActivityFixture.FEEDBACKS,
+        ):
+            assert hidden not in response.text
+        assert body['activity_revision']
+        assert body['is_diagnostic'] is False
+
+    def test_hides_the_image_choice_activity_from_another_goal_owner(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(
+                    goal_id='01SHF000000000000000000099',
+                    activity_id=ImageChoiceActivityFixture.ACTIVITY_ID,
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'Recurso não encontrado.',
+        }
+        assert 'opt-' not in response.text
+
+    def test_hides_the_image_choice_activity_before_the_competency_is_released(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        with SqlalchemyLearningDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            progress = repositories.competency_progresses.find_by_id(
+                SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+            )
+            assert progress is not None
+            progress.content_released = False
+            repositories.competency_progresses.update(progress)
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
+        assert 'opt-' not in response.text
+
+    def test_does_not_publish_an_image_choice_concept_outside_the_competency(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many(
+                [
+                    ImageChoiceActivityFixture.activity(
+                        concept_id='01SHF000000000000000000999'
+                    )
+                ]
+            )
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
+
+    def test_seeded_cooking_activity_projects_four_images_with_neutral_descriptions(
+        self, client: TestClient
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                (
+                    f'/learning/goals/{SEED_COOKING_GOAL_ID}'
+                    f'/skills/{COOKING_SKILL_ID}'
+                    f'/competencies/{COOKING_COMPETENCY_ID}'
+                    f'/activities/{COOKING_IMAGE_CHOICE_ACTIVITY_ID}'
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        image_question = response.json()['questions'][1]
+        assert image_question['kind'] == 'image_choice'
+        assert image_question['prompt'] == 'Qual destas cebolas está caramelizada?'
+        options = image_question['options']
+        assert len(options) == 4
+        assert all(
+            re.fullmatch(r'opt-[0-9a-f]{12}', option['key']) for option in options
+        )
+        assert all(
+            re.fullmatch(r'/curriculum/images/[0-9a-f]{16}\.webp', option['image_path'])
+            for option in options
+        )
+        assert all(
+            'caramel' not in option['description'].casefold() for option in options
+        )
+        assert len({option['image_path'] for option in options}) == 4
 
 
 def _activity_path(

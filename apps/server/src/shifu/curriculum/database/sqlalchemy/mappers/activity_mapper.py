@@ -11,6 +11,7 @@ from shifu.curriculum.core.domain.structures import (
     CorrectnessEvaluationPart,
     EvaluationRule,
     FillBlanksQuestion,
+    ImageChoiceQuestion,
     JavascriptStdinQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
@@ -37,6 +38,7 @@ _KIND_QUESTION_TYPES = {
     'html_css_js': HtmlCssJsQuestion,
     'translation': TranslationQuestion,
     'pair_matching': PairMatchingQuestion,
+    'image_choice': ImageChoiceQuestion,
 }
 
 
@@ -82,11 +84,12 @@ class ActivityMapper:
         | FillBlanksQuestion
         | TranslationQuestion
         | PairMatchingQuestion
+        | ImageChoiceQuestion
     ):
         question_type = _KIND_QUESTION_TYPES.get(str(data.get('kind')))
         if question_type is not None:
             return cast(
-                'OrderingQuestion | FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion',
+                'OrderingQuestion | FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion | ImageChoiceQuestion',
                 Serialization.deserialize_value(data, question_type),
             )
 
@@ -146,7 +149,8 @@ class ActivityMapper:
             | OrderingQuestion
             | FillBlanksQuestion
             | TranslationQuestion
-            | PairMatchingQuestion,
+            | PairMatchingQuestion
+            | ImageChoiceQuestion,
             ...,
         ],
     ) -> (
