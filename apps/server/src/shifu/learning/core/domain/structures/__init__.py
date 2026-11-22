@@ -87,6 +87,9 @@ from .code_rubric_result import CodeRubricResult as CodeRubricResult
 from .competency_activity_detail import (
     CompetencyActivityDetail as CompetencyActivityDetail,
 )
+from .competency_completion_overview import (
+    CompetencyCompletionOverview as CompetencyCompletionOverview,
+)
 from .competency_completion_summary import (
     CompetencyCompletionSummary as CompetencyCompletionSummary,
 )
@@ -146,9 +149,16 @@ from .skill_catalog_row import (
 from .skill_competency_summary import (
     SkillCompetencySummary as SkillCompetencySummary,
 )
+from .skill_completion_overview import (
+    SkillCompletionOverview as SkillCompletionOverview,
+)
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
 from .skill_evaluation_state import SkillEvaluationState as SkillEvaluationState
 from .skill_experience_detail import SkillExperienceDetail as SkillExperienceDetail
+from .skill_experience_reference import (
+    SkillExperienceReference as SkillExperienceReference,
+)
+from .skill_review_overview import SkillReviewOverview as SkillReviewOverview
 from .skill_recommendation import SkillRecommendation as SkillRecommendation
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,

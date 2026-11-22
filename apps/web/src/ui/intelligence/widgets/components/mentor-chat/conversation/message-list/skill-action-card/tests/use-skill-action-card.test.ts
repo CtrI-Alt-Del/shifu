@@ -7,11 +7,13 @@ import { AppError } from '@/core/errors/app-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorSkillActionOutcome } from '@/core/learning/mentor-skill-action-outcome'
+import type { SkillExperienceReference } from '@/core/learning/skill-experience-reference'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import { useConfirmMentorSkillAdditionAction } from '@/ui/intelligence/hooks/use-confirm-mentor-skill-addition-action'
 import { useConfirmMentorSkillRemovalAction } from '@/ui/intelligence/hooks/use-confirm-mentor-skill-removal-action'
 import { useDeclineMentorActionProposalAction } from '@/ui/intelligence/hooks/use-decline-mentor-action-proposal-action'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+import { useOtherSkillExperiencesQuery } from '@/ui/intelligence/hooks/use-other-skill-experiences-query'
 import { useSkillActionCard } from '../use-skill-action-card'
 
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
@@ -26,7 +28,12 @@ vi.mock('@/ui/intelligence/hooks/use-confirm-mentor-skill-removal-action', () =>
 vi.mock('@/ui/intelligence/hooks/use-decline-mentor-action-proposal-action', () => ({
   useDeclineMentorActionProposalAction: vi.fn(),
 }))
+vi.mock('@/ui/intelligence/hooks/use-other-skill-experiences-query', () => ({
+  OTHER_SKILL_EXPERIENCES_QUERY_KEY: ['intelligence', 'other-skill-experiences'],
+  useOtherSkillExperiencesQuery: vi.fn(),
+}))
 const useMentorContextMock = vi.mocked(useMentorContext)
+const useOtherSkillExperiencesQueryMock = vi.mocked(useOtherSkillExperiencesQuery)
 const useConfirmMentorSkillAdditionActionMock = vi.mocked(
   useConfirmMentorSkillAdditionAction,
 )
@@ -44,6 +51,8 @@ const GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F03'
 const OTHER_GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F04'
 const EXPERIENCE_ID = '01J7T8AC91Z5K8M4JQ8C2D6F05'
 const OTHER_EXPERIENCE_ID = '01J7T8AC91Z5K8M4JQ8C2D6F06'
+const CAREER_GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F08'
+const CAREER_EXPERIENCE_ID = '01J7T8AC91Z5K8M4JQ8C2D6F09'
 const JUSTIFICATION =
   'Você pediu ao Mentor para adicionar esta Habilidade. Funções, parâmetros e retornos.'
 
@@ -106,6 +115,19 @@ const pickerProposal = (overrides: Partial<MentorActionProposal> = {}) =>
     ...overrides,
   })
 
+function referenceOf(
+  overrides: Partial<SkillExperienceReference> = {},
+): SkillExperienceReference {
+  return {
+    goalId: CAREER_GOAL_ID,
+    goalTitle: 'Carreira em dados',
+    skillExperienceId: CAREER_EXPERIENCE_ID,
+    skillId: SKILL_ID,
+    status: 'completed',
+    ...overrides,
+  }
+}
+
 function outcomeOf(
   overrides: Partial<MentorSkillActionOutcome>,
 ): MentorSkillActionOutcome {
@@ -151,6 +173,10 @@ describe('useSkillActionCard', () => {
       selectedSessionId: SESSION_ID,
       onActionResolved: onActionResolvedMock,
     } as unknown as MentorContextValue)
+    useOtherSkillExperiencesQueryMock.mockReturnValue({
+      otherSkillExperiences: [],
+      isLoadingOtherSkillExperiences: false,
+    })
     useConfirmMentorSkillAdditionActionMock.mockReturnValue({
       confirmSkillAddition: confirmSkillAdditionMock,
       error: null,
@@ -665,6 +691,200 @@ describe('useSkillActionCard', () => {
         true,
         true,
       ])
+    })
+  })
+
+  describe('other Goal experiences', () => {
+    function lastLookupSkillId() {
+      return useOtherSkillExperiencesQueryMock.mock.calls.at(-1)?.[0]
+    }
+
+    it('looks up the Skill only while an addition awaits confirmation', () => {
+      renderCard(makeProposal())
+
+      expect(lastLookupSkillId()).toBe(SKILL_ID)
+    })
+
+    it('does not look up anything for a removal proposal', () => {
+      const { result } = renderCard(removal())
+
+      expect(lastLookupSkillId()).toBeNull()
+      expect(result.current.otherGoalExperiences).toEqual([])
+    })
+
+    it.each(['declined', 'rejected'] as const)(
+      'does not look up anything for a %s addition',
+      (status) => {
+        const { result } = renderCard(makeProposal({ status }))
+
+        expect(lastLookupSkillId()).toBeNull()
+        expect(result.current.otherGoalExperiences).toEqual([])
+      },
+    )
+
+    it('does not look up anything for a completed addition', () => {
+      const { result } = renderCard(
+        makeProposal({ status: 'completed', outcome: 'already_present' }),
+      )
+
+      expect(lastLookupSkillId()).toBeNull()
+      expect(result.current.otherGoalExperiences).toEqual([])
+    })
+
+    it('returns the experiences of other Goals for a fixed destination', () => {
+      const career = referenceOf()
+      const portfolio = referenceOf({
+        goalId: OTHER_GOAL_ID,
+        goalTitle: 'Construir meu portfólio',
+        skillExperienceId: OTHER_EXPERIENCE_ID,
+        status: 'learning',
+      })
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [career, portfolio],
+        isLoadingOtherSkillExperiences: false,
+      })
+
+      const { result } = renderCard(makeProposal())
+
+      expect(result.current.otherGoalExperiences).toEqual([career, portfolio])
+    })
+
+    it('filters out the fixed destination Goal and keeps the addition available', () => {
+      const own = referenceOf({
+        goalId: GOAL_ID,
+        goalTitle: 'Aprender a programar',
+        skillExperienceId: EXPERIENCE_ID,
+      })
+      const career = referenceOf()
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [own, career],
+        isLoadingOtherSkillExperiences: false,
+      })
+
+      const { result } = renderCard(makeProposal())
+
+      expect(result.current.otherGoalExperiences).toEqual([career])
+      expect(actionOf(result, 'Adicionar habilidade').disabled).toBeFalsy()
+    })
+
+    it('shows no notice when the Skill exists only in the destination Goal', () => {
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [
+          referenceOf({ goalId: GOAL_ID, skillExperienceId: EXPERIENCE_ID }),
+        ],
+        isLoadingOtherSkillExperiences: false,
+      })
+
+      const { result } = renderCard(makeProposal())
+
+      expect(result.current.otherGoalExperiences).toEqual([])
+    })
+
+    it('shows no notice and keeps the addition available when the lookup is empty after a failure', () => {
+      const { result } = renderCard(makeProposal())
+
+      expect(result.current.otherGoalExperiences).toEqual([])
+      expect(actionLabels(result)).toEqual(['Recusar', 'Adicionar habilidade'])
+      expect(actionOf(result, 'Adicionar habilidade').disabled).toBeFalsy()
+    })
+
+    it('keeps the addition available while the lookup is loading', () => {
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [],
+        isLoadingOtherSkillExperiences: true,
+      })
+
+      const { result } = renderCard(makeProposal())
+
+      expect(result.current.otherGoalExperiences).toEqual([])
+      expect(actionOf(result, 'Adicionar habilidade').disabled).toBeFalsy()
+    })
+
+    it('relates the notice to the chosen destination and updates when it changes', () => {
+      const first = referenceOf({
+        goalId: GOAL_ID,
+        goalTitle: 'Aprender a programar',
+        skillExperienceId: EXPERIENCE_ID,
+      })
+      const second = referenceOf({
+        goalId: OTHER_GOAL_ID,
+        goalTitle: 'Construir meu portfólio',
+        skillExperienceId: OTHER_EXPERIENCE_ID,
+        status: 'learning',
+      })
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [first, second],
+        isLoadingOtherSkillExperiences: false,
+      })
+      const { result } = renderCard(
+        pickerProposal({
+          candidateGoals: [
+            {
+              goalId: GOAL_ID,
+              title: 'Aprender a programar',
+              containsSkill: false,
+              skillExperienceId: null,
+            },
+            {
+              goalId: OTHER_GOAL_ID,
+              title: 'Construir meu portfólio',
+              containsSkill: false,
+              skillExperienceId: null,
+            },
+          ],
+        }),
+      )
+
+      expect(result.current.otherGoalExperiences).toEqual([])
+
+      act(() => result.current.handleSelectGoal(GOAL_ID))
+
+      expect(result.current.otherGoalExperiences).toEqual([second])
+
+      act(() => result.current.swap?.handleSelect())
+
+      expect(result.current.otherGoalExperiences).toEqual([])
+
+      act(() => result.current.handleSelectGoal(OTHER_GOAL_ID))
+
+      expect(result.current.otherGoalExperiences).toEqual([first])
+    })
+
+    it('stops looking up and hides the notice while a confirmation is processing', () => {
+      useOtherSkillExperiencesQueryMock.mockReturnValue({
+        otherSkillExperiences: [referenceOf()],
+        isLoadingOtherSkillExperiences: false,
+      })
+      confirmSkillAdditionMock.mockReturnValue(new Promise(() => undefined))
+      const { result } = renderCard(makeProposal())
+      expect(result.current.otherGoalExperiences).toHaveLength(1)
+
+      act(() => actionOf(result, 'Adicionar habilidade').handleSelect?.())
+
+      expect(lastLookupSkillId()).toBeNull()
+      expect(result.current.otherGoalExperiences).toEqual([])
+    })
+
+    it('invalidates the Intelligence lookup of the Skill after a successful addition', async () => {
+      confirmSkillAdditionMock.mockResolvedValue(outcomeOf({}))
+      const { result } = renderCard(makeProposal())
+
+      await act(async () => actionOf(result, 'Adicionar habilidade').handleSelect?.())
+
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['intelligence', 'other-skill-experiences', SKILL_ID],
+      })
+    })
+
+    it('does not invalidate the lookup when the addition is rejected', async () => {
+      confirmSkillAdditionMock.mockResolvedValue(
+        outcomeOf({ outcome: 'rejected', rejectionReason: 'goal_unavailable' }),
+      )
+      const { result } = renderCard(makeProposal())
+
+      await act(async () => actionOf(result, 'Adicionar habilidade').handleSelect?.())
+
+      expect(queryClient.invalidateQueries).not.toHaveBeenCalled()
     })
   })
 

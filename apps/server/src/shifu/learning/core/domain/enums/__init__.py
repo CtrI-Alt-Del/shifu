@@ -11,6 +11,7 @@ from .competency_progress_status import (
 )
 from .competency_availability import CompetencyAvailability as CompetencyAvailability
 from .skill_experience_status import SkillExperienceStatus as SkillExperienceStatus
+from .starting_point_coverage import StartingPointCoverage as StartingPointCoverage
 from .mentor_action_operation import MentorActionOperation as MentorActionOperation
 from .mentor_action_outcome import MentorActionOutcome as MentorActionOutcome
 from .mentor_action_rejection_reason import (

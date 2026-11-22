@@ -37,7 +37,7 @@ export const AccountMenu = ({ account }: AccountMenuProps) => {
         type='button'
         variant='ghost'
       >
-        <span className='grid size-8 shrink-0 place-items-center rounded-full border border-white/10 bg-muted'>
+        <span className='grid size-8 shrink-0 place-items-center rounded-full border border-glass-border bg-muted'>
           <Icon className='shrink-0' name='user-round' size={16} />
         </span>
       </Button>

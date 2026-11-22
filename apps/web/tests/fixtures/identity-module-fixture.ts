@@ -75,6 +75,7 @@ export const test = base.extend<IdentityModuleFixtures>({
             displayName: 'Playwright Learner',
             email: 'playwright@shifu.local',
             accountDeletionStatus: null,
+            appearance: 'dark',
           },
         }),
         contentType: 'application/json',

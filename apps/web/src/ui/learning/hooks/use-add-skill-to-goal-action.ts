@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
@@ -10,6 +10,7 @@ import type { CreatedSkillExperience } from '@/core/learning/created-skill-exper
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
+import { SKILL_EXPERIENCES_OF_SKILL_QUERY_KEY } from '@/ui/learning/hooks/use-skill-experiences-of-skill-query'
 
 const addSkillToGoal = createServerFn({ method: 'POST' })
   .middleware([serverFunctionTelemetryMiddleware])
@@ -49,12 +50,17 @@ const addSkillToGoal = createServerFn({ method: 'POST' })
   )
 
 export function useAddSkillToGoalAction(goalId: string) {
+  const queryClient = useQueryClient()
   const { error, isPending, mutateAsync, reset } = useMutation({
     mutationFn: (input: {
       skillId: string
       foundationSkillIds: readonly string[]
     }): Promise<CreatedSkillExperience[]> =>
       addSkillToGoal({ data: { goalId, ...input } }),
+    onSuccess: (_created, { skillId }) =>
+      queryClient.invalidateQueries({
+        queryKey: [...SKILL_EXPERIENCES_OF_SKILL_QUERY_KEY, skillId],
+      }),
   })
 
   return {

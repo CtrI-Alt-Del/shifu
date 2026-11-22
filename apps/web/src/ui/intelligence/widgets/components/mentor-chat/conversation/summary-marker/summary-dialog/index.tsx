@@ -32,7 +32,7 @@ export const SummaryDialog = ({
   >
     <DialogClose
       aria-label='Fechar'
-      className='absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground'
+      className='absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
       type='button'
     >
       <Icon className='size-4' name='x' />

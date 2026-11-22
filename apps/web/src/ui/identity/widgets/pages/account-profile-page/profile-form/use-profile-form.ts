@@ -2,8 +2,18 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useForm, useStore } from '@tanstack/react-form'
 import { z } from 'zod'
 import { AuthError } from '@/core/errors/auth-error'
+import {
+  ACCOUNT_APPEARANCES,
+  type AccountAppearance,
+} from '@/core/identity/account-appearance'
 import type { ProfileFormProps } from './index'
 import { useUpdateAccountProfileAction } from './use-update-account-profile-action'
+
+type ProfileFormValues = {
+  displayName: string
+  timeZone: string
+  appearance: AccountAppearance
+}
 
 const PROFILE_SCHEMA = z.object({
   displayName: z
@@ -18,7 +28,29 @@ const PROFILE_SCHEMA = z.object({
     .min(1, 'Selecione seu fuso horário.')
     .max(64)
     .refine(isTimeZone, 'Selecione um fuso horário válido.'),
+  appearance: z.enum(ACCOUNT_APPEARANCES, 'Selecione uma aparência válida.'),
 })
+
+const APPEARANCE_LABELS: Record<AccountAppearance, string> = {
+  dark: 'Escuro',
+  light: 'Claro',
+  system: 'Sistema',
+}
+
+const APPEARANCE_HELP: Record<AccountAppearance, string> = {
+  dark: 'O Shifu usa o tema escuro em todos os seus dispositivos.',
+  light: 'O Shifu usa o tema claro em todos os seus dispositivos.',
+  system: 'O Shifu segue o tema claro ou escuro configurado em cada dispositivo.',
+}
+
+const APPEARANCE_OPTIONS = ACCOUNT_APPEARANCES.map((value) => ({
+  value,
+  label: APPEARANCE_LABELS[value],
+}))
+
+function isAccountAppearance(value: string | null): value is AccountAppearance {
+  return ACCOUNT_APPEARANCES.some((appearance) => appearance === value)
+}
 
 function isTimeZone(value: string) {
   try {
@@ -65,13 +97,18 @@ export function useProfileForm({ profile }: ProfileFormProps) {
   const [detectedTimeZone] = useState(detectTimeZone)
   const [message, setMessage] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [errors, setErrors] = useState<{ displayName?: string; timeZone?: string }>({})
+  const [errors, setErrors] = useState<{
+    displayName?: string
+    timeZone?: string
+    appearance?: string
+  }>({})
   const inFlightRef = useRef(false)
   const alertRef = useRef<HTMLParagraphElement>(null)
   const previousProfileRef = useRef(profile)
-  const defaultValuesRef = useRef({
+  const defaultValuesRef = useRef<ProfileFormValues>({
     displayName: profile.displayName,
     timeZone: profile.timeZone ?? detectedTimeZone,
+    appearance: profile.appearance,
   })
   const form = useForm({
     defaultValues: defaultValuesRef.current,
@@ -92,7 +129,8 @@ export function useProfileForm({ profile }: ProfileFormProps) {
     const previous = previousProfileRef.current
     if (
       previous.displayName === profile.displayName &&
-      previous.timeZone === profile.timeZone
+      previous.timeZone === profile.timeZone &&
+      previous.appearance === profile.appearance
     )
       return
     previousProfileRef.current = profile
@@ -100,6 +138,7 @@ export function useProfileForm({ profile }: ProfileFormProps) {
       defaultValuesRef.current = {
         displayName: profile.displayName,
         timeZone: profile.timeZone ?? detectedTimeZone,
+        appearance: profile.appearance,
       }
       form.reset(defaultValuesRef.current)
     }
@@ -109,18 +148,18 @@ export function useProfileForm({ profile }: ProfileFormProps) {
     if (message && !isSuccess) alertRef.current?.focus()
   }, [message, isSuccess])
 
-  async function handleSave({
-    value,
-  }: {
-    value: { displayName: string; timeZone: string }
-  }) {
+  async function handleSave({ value }: { value: ProfileFormValues }) {
     if (inFlightRef.current) return
     const parsed = PROFILE_SCHEMA.safeParse(value)
     setErrors({})
     setIsSuccess(false)
     if (!parsed.success) {
       const fields = parsed.error.flatten().fieldErrors
-      setErrors({ displayName: fields.displayName?.[0], timeZone: fields.timeZone?.[0] })
+      setErrors({
+        displayName: fields.displayName?.[0],
+        timeZone: fields.timeZone?.[0],
+        appearance: fields.appearance?.[0],
+      })
       setMessage('Revise os campos destacados.')
       return
     }
@@ -131,6 +170,7 @@ export function useProfileForm({ profile }: ProfileFormProps) {
       defaultValuesRef.current = {
         displayName: saved.displayName,
         timeZone: saved.timeZone ?? '',
+        appearance: saved.appearance,
       }
       form.reset(defaultValuesRef.current)
       setIsSuccess(true)
@@ -138,7 +178,9 @@ export function useProfileForm({ profile }: ProfileFormProps) {
     } catch (error) {
       if (
         error instanceof AuthError &&
-        (error.field === 'displayName' || error.field === 'timeZone')
+        (error.field === 'displayName' ||
+          error.field === 'timeZone' ||
+          error.field === 'appearance')
       )
         setErrors({ [error.field]: error.message })
       setMessage(
@@ -161,8 +203,14 @@ export function useProfileForm({ profile }: ProfileFormProps) {
   function handleTimeZoneChange(value: string | null) {
     form.setFieldValue('timeZone', value ?? '')
   }
+  function handleAppearanceChange(value: string | null) {
+    if (isAccountAppearance(value)) form.setFieldValue('appearance', value)
+  }
   return {
     alertRef,
+    appearance: values.appearance,
+    appearanceHelp: APPEARANCE_HELP[values.appearance],
+    appearanceOptions: APPEARANCE_OPTIONS,
     displayName: values.displayName,
     email: profile.email,
     errors,
@@ -173,6 +221,7 @@ export function useProfileForm({ profile }: ProfileFormProps) {
     refreshWarning,
     timeZone: values.timeZone,
     timeZoneOptions,
+    handleAppearanceChange,
     handleDisplayNameChange,
     handleTimeZoneChange,
     handleSubmit,

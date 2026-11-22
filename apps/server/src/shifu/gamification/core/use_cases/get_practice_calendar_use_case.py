@@ -8,7 +8,7 @@ from shifu.gamification.core.domain.derived_practice_streak import (
 )
 from shifu.gamification.core.domain.errors import InvalidGamificationError
 from shifu.gamification.core.domain.practice_day_state import practice_day_state
-from shifu.gamification.core.domain.resolved_time_zone import resolved_time_zone
+from shifu.shared.core.domain.resolved_time_zone import resolved_time_zone
 from shifu.gamification.core.domain.structures import (
     CalendarDay,
     PracticeCalendar,

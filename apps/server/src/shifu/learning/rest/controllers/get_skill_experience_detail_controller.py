@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
@@ -49,6 +50,39 @@ class EvaluationResponse(BaseModel):
     status: str
 
 
+class CompletionCompetencyResponse(BaseModel):
+    competency_id: str = Field(serialization_alias='competencyId')
+    competency_name: str = Field(serialization_alias='competencyName')
+    position: int
+    initial_progress: float | None = Field(serialization_alias='initialProgress')
+    initial_coverage: str = Field(serialization_alias='initialCoverage')
+    final_progress: float = Field(serialization_alias='finalProgress')
+    mastered_on: date = Field(serialization_alias='masteredOn')
+
+
+class CompletionReviewResponse(BaseModel):
+    attempt_count: int = Field(serialization_alias='attemptCount')
+    latest_score: float | None = Field(serialization_alias='latestScore')
+
+
+class CompletionResponse(BaseModel):
+    started_on: date = Field(serialization_alias='startedOn')
+    completed_on: date = Field(serialization_alias='completedOn')
+    duration_days: int = Field(serialization_alias='durationDays')
+    completed_by_diagnosis: bool = Field(serialization_alias='completedByDiagnosis')
+    learning_activity_count: int | None = Field(
+        serialization_alias='learningActivityCount'
+    )
+    learning_attempt_count: int | None = Field(
+        serialization_alias='learningAttemptCount'
+    )
+    initial_result: float | None = Field(serialization_alias='initialResult')
+    initial_result_coverage: str = Field(serialization_alias='initialResultCoverage')
+    final_result: float = Field(serialization_alias='finalResult')
+    competencies: tuple[CompletionCompetencyResponse, ...]
+    review: CompletionReviewResponse
+
+
 class Response(BaseModel):
     goal_id: str = Field(serialization_alias='goalId')
     skill_id: str = Field(serialization_alias='skillId')
@@ -64,6 +98,7 @@ class Response(BaseModel):
         serialization_alias='overallCoverageComplete'
     )
     recommendation_gap: str | None = Field(serialization_alias='recommendationGap')
+    completion: CompletionResponse | None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -101,5 +136,6 @@ class GetSkillExperienceDetailController:
                 user.account_id,
                 goal_id,
                 skill_id,
+                user.time_zone,
             )
             return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)

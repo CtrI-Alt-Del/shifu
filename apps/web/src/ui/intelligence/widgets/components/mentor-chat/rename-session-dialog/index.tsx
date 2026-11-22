@@ -34,7 +34,7 @@ export const RenameSessionDialog = () => {
       <AlertDialogContent>
         <button
           aria-label='Fechar'
-          className='absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-white/5'
+          className='absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted'
           disabled={isRenamingSession}
           onClick={closeDialog}
           type='button'

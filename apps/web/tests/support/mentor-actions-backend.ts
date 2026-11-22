@@ -77,6 +77,15 @@ export type ConfirmationStep =
   | { kind: 'failure'; statusCode: number }
   | { kind: 'abort' }
 
+/** Post-mapping shape of the Learning other-experiences lookup (SkillExperienceReference). */
+export type OtherSkillExperienceFixture = {
+  goalId: string
+  goalTitle: string
+  skillExperienceId: string
+  skillId: string
+  status: 'not-started' | 'diagnosing' | 'learning' | 'completed'
+}
+
 export type ActionCall = {
   exportName: string
   method: string
@@ -155,6 +164,8 @@ export type ActionsBackendOptions = {
   /** Serves the proposal only through the response stream, as in a live answer. */
   isLive?: boolean
   goalDetail?: (state: { isAdded: boolean }) => unknown
+  /** Answers of the Intelligence other-experiences lookup; 'fail' aborts the request. */
+  otherSkillExperiences?: OtherSkillExperienceFixture[] | 'fail'
 }
 
 export type ActionsBackend = {
@@ -359,6 +370,15 @@ export async function installMentorActionsBackend(
         kind: 'success',
         detail: options.goalDetail({ isAdded }),
       })
+      return
+    }
+    if (exportName.includes('listOtherSkillExperiencesServer')) {
+      calls.push({ exportName, method: request.method(), data })
+      if (options.otherSkillExperiences === 'fail') {
+        await route.abort('failed')
+        return
+      }
+      await fulfillJson(route, options.otherSkillExperiences ?? [])
       return
     }
     if (exportName.includes('declineMentorActionProposalServer')) {

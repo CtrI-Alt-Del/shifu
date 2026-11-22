@@ -36,7 +36,7 @@ export const DesktopHeader = ({ accountMenu, items, pathname }: DesktopHeaderPro
             data-account-menu-trigger
             type='button'
           >
-            <span className='grid size-8 place-items-center rounded-full border border-white/10 bg-muted'>
+            <span className='grid size-8 place-items-center rounded-full border border-glass-border bg-muted'>
               <Icon name='user-round' size={16} />
             </span>
           </button>

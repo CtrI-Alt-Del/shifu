@@ -2,6 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { ToasterProps } from '@/ui/shadcn/sonner'
+
 import { RootLayout } from '..'
 import { useRootLayout } from '../use-root-layout'
 
@@ -19,7 +21,7 @@ vi.mock('@/ui/shared/contexts/auth-context', () => ({
   AuthContextProvider: ({ children }: { children: ReactNode }) => children,
 }))
 vi.mock('@/ui/shadcn/sonner', () => ({
-  Toaster: () => <div data-testid='toaster' />,
+  Toaster: ({ theme }: ToasterProps) => <div data-testid='toaster' data-theme={theme} />,
 }))
 vi.mock('@/ui/shared/widgets/layouts/app-layout', () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
@@ -35,6 +37,7 @@ describe('RootLayout', () => {
   it('keeps public content outside the authenticated shell', () => {
     useRootLayoutMock.mockReturnValue({
       mentorContextHint: null,
+      theme: 'dark',
       isHydrated: true,
       isPublic: true,
     })
@@ -53,6 +56,7 @@ describe('RootLayout', () => {
   it('wraps protected content with the application shell', () => {
     useRootLayoutMock.mockReturnValue({
       mentorContextHint: null,
+      theme: 'dark',
       isHydrated: true,
       isPublic: false,
     })
@@ -72,6 +76,7 @@ describe('RootLayout', () => {
   it('keeps the decorative background out of the public and protected shells', () => {
     useRootLayoutMock.mockReturnValue({
       mentorContextHint: null,
+      theme: 'dark',
       isHydrated: true,
       isPublic: true,
     })
@@ -85,6 +90,7 @@ describe('RootLayout', () => {
 
     useRootLayoutMock.mockReturnValue({
       mentorContextHint: null,
+      theme: 'dark',
       isHydrated: true,
       isPublic: false,
     })
@@ -103,6 +109,7 @@ describe('RootLayout', () => {
   ])('mounts the single toaster on %s routes', (_case, isPublic) => {
     useRootLayoutMock.mockReturnValue({
       mentorContextHint: null,
+      theme: 'dark',
       isHydrated: true,
       isPublic,
     })
@@ -115,4 +122,25 @@ describe('RootLayout', () => {
 
     expect(screen.getAllByTestId('toaster')).toHaveLength(1)
   })
+
+  it.each(['dark', 'light', 'system'] as const)(
+    'writes the %s theme on the document and passes it to the toaster',
+    (theme) => {
+      useRootLayoutMock.mockReturnValue({
+        mentorContextHint: null,
+        theme,
+        isHydrated: true,
+        isPublic: false,
+      })
+
+      render(
+        <RootLayout>
+          <p>Content</p>
+        </RootLayout>,
+      )
+
+      expect(document.documentElement).toHaveAttribute('data-theme', theme)
+      expect(screen.getByTestId('toaster')).toHaveAttribute('data-theme', theme)
+    },
+  )
 })

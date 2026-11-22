@@ -49,7 +49,7 @@ test.describe('AccountProfilePage', () => {
     await authenticatedPage.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(authenticatedPage.getByRole('status')).toHaveText('Perfil salvo.')
     expect(backend.profileRequests).toEqual([
-      { displayName: 'Nome atualizado', timeZone: 'UTC' },
+      { displayName: 'Nome atualizado', timeZone: 'UTC', appearance: 'dark' },
     ])
     await authenticatedPage.getByRole('button', { name: 'Abrir menu da conta' }).click()
     await expect(
@@ -75,6 +75,101 @@ test.describe('AccountProfilePage', () => {
       .getByRole('link', { name: 'Consultar política de privacidade' })
       .click()
     await expect(authenticatedPage).toHaveURL(/\/privacy\/?$/)
+  })
+  test('saves each appearance by keyboard and applies it without reloading the page', async ({
+    authenticatedPage,
+  }) => {
+    await installReminderDefaults(authenticatedPage)
+    const backend = await installAccountBackend(authenticatedPage)
+    await authenticatedPage.emulateMedia({ colorScheme: 'light' })
+    await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
+    await expect(authenticatedPage.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await authenticatedPage.evaluate(() => {
+      ;(window as typeof window & { __appearanceMarker?: boolean }).__appearanceMarker =
+        true
+    })
+    const field = authenticatedPage.getByRole('combobox', { name: 'Aparência' })
+    await expect(field).toContainText('Escuro')
+    const steps = [
+      { label: 'Claro', value: 'light', background: 'rgb(244, 241, 234)' },
+      { label: 'Sistema', value: 'system', background: 'rgb(244, 241, 234)' },
+      { label: 'Escuro', value: 'dark', background: 'rgb(10, 10, 12)' },
+    ] as const
+    for (const step of steps) {
+      await field.focus()
+      await authenticatedPage.keyboard.press('Enter')
+      await authenticatedPage.getByRole('option', { name: step.label }).focus()
+      await authenticatedPage.keyboard.press('Enter')
+      await expect(field).toContainText(step.label)
+      await authenticatedPage
+        .getByRole('button', { name: 'Salvar', exact: true })
+        .press('Enter')
+      await expect(authenticatedPage.getByRole('status')).toHaveText('Perfil salvo.')
+      await expect(authenticatedPage.locator('html')).toHaveAttribute(
+        'data-theme',
+        step.value,
+      )
+      await expect(authenticatedPage.locator('body')).toHaveCSS(
+        'background-color',
+        step.background,
+      )
+    }
+    expect(backend.profileRequests).toEqual(
+      steps.map((step) => ({
+        displayName: INITIAL_PROFILE.displayName,
+        timeZone: 'UTC',
+        appearance: step.value,
+      })),
+    )
+    expect(
+      await authenticatedPage.evaluate(
+        () =>
+          (window as typeof window & { __appearanceMarker?: boolean }).__appearanceMarker,
+      ),
+    ).toBe(true)
+  })
+  test('keeps the current theme and the appearance draft when saving fails, then recovers', async ({
+    authenticatedPage,
+  }) => {
+    await installReminderDefaults(authenticatedPage)
+    await installAccountBackend(authenticatedPage)
+    const failures = [
+      { status: 503, body: { message: 'Indisponível.' } },
+      {
+        status: 400,
+        body: { message: 'Confira o campo informado.', code: 'invalid_appearance' },
+      },
+    ]
+    const bodies: unknown[] = []
+    await authenticatedPage.route('**/api/auth/account/profile', async (route) => {
+      const body = route.request().postDataJSON()
+      bodies.push(body)
+      const failure = failures.shift()
+      await route.fulfill({
+        status: failure?.status ?? 200,
+        contentType: 'application/json',
+        body: JSON.stringify(failure?.body ?? { ...INITIAL_PROFILE, ...body }),
+      })
+    })
+    await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
+    const field = authenticatedPage.getByRole('combobox', { name: 'Aparência' })
+    await field.click()
+    await authenticatedPage.getByRole('option', { name: 'Claro' }).click()
+    const save = authenticatedPage.getByRole('button', { name: 'Salvar', exact: true })
+    await save.click()
+    await expect(authenticatedPage.getByRole('alert')).toBeVisible()
+    await expect(authenticatedPage.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await expect(field).toContainText('Claro')
+    await save.click()
+    await expect(authenticatedPage.getByRole('alert')).toHaveText(
+      'Confira o campo informado.',
+    )
+    await expect(field).toHaveAttribute('aria-invalid', 'true')
+    await expect(authenticatedPage.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await save.click()
+    await expect(authenticatedPage.getByRole('status')).toHaveText('Perfil salvo.')
+    expect(bodies).toHaveLength(3)
+    expect(bodies.at(-1)).toMatchObject({ appearance: 'light' })
   })
   test('identifies the browser timezone suggestion without persisting on read', async ({
     authenticatedPage,

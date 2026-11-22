@@ -33,6 +33,7 @@ function createResult(
       displayName: 'Maria',
       email: 'm@example.com',
       timeZone: 'UTC',
+      appearance: 'dark',
     },
     isLoadingAccountProfile: false,
     accountProfileError: null,

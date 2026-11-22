@@ -43,7 +43,7 @@
 .planner-options .planner-option > input:checked + span {
   border-color: var(--primary);
   background: var(--primary);
-  color: #ffffff;
+  color: var(--primary-foreground);
 }
 
 .planner-options .planner-option > input[type="radio"] + span::after {
@@ -53,7 +53,7 @@
 }
 
 .planner-options .planner-option > input[type="radio"]:checked + span::after {
-  background: #ffffff;
+  background: var(--primary-foreground);
 }
 
 .planner-options .planner-option--exclusive > span:last-child {

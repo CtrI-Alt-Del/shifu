@@ -14,6 +14,10 @@ import { z } from 'zod'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { ROUTES } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
+import {
+  ACCOUNT_APPEARANCES,
+  type AccountAppearance,
+} from '@/core/identity/account-appearance'
 import { RestError } from '@/core/errors/rest-error'
 import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import {
@@ -43,6 +47,7 @@ const ACCOUNT_ERASURE_FIRST_CONFIRMATION_LIFETIME_MS = 15 * 60 * 1000
 export type LayoutAccount = {
   displayName: string
   email: string
+  appearance: AccountAppearance
 }
 
 const signInBody = z.object({
@@ -82,6 +87,7 @@ type ServerAuthenticatedAccess = {
   displayName: string
   email: string
   timeZone: string | null
+  appearance: AccountAppearance
   accessToken: string
 }
 
@@ -302,6 +308,7 @@ const BetterAuthProvider = () => {
         displayName: currentSession.display_name,
         email: session.user.email,
         timeZone: currentSession.time_zone,
+        appearance: currentSession.appearance,
         accessToken,
       }
     } catch (error) {
@@ -688,7 +695,13 @@ function createIdentityPlugin(
         {
           method: 'POST',
           requireHeaders: true,
-          body: z.object({ displayName: z.string(), timeZone: z.string() }).strict(),
+          body: z
+            .object({
+              displayName: z.string(),
+              timeZone: z.string(),
+              appearance: z.enum(ACCOUNT_APPEARANCES),
+            })
+            .strict(),
         },
         async (context) => {
           context.setHeader('Cache-Control', 'no-store')
@@ -1824,6 +1837,7 @@ function toAccountProfile(
       display_name: z.string().min(1),
       email: z.string().min(1),
       time_zone: z.string().nullable(),
+      appearance: z.enum(ACCOUNT_APPEARANCES),
     })
     .safeParse(profile)
   if (!parsed.success)
@@ -1836,6 +1850,7 @@ function toAccountProfile(
     displayName: parsed.data.display_name,
     email: parsed.data.email,
     timeZone: parsed.data.time_zone,
+    appearance: parsed.data.appearance,
   }
 }
 
@@ -1857,9 +1872,12 @@ function throwAccountError(error: unknown, passwordChange = false): never {
       })
     if (
       error.statusCode === HTTP_STATUS_CODE.badRequest &&
-      ['invalid_display_name', 'invalid_time_zone', 'invalid_new_password'].includes(
-        error.code ?? '',
-      )
+      [
+        'invalid_display_name',
+        'invalid_time_zone',
+        'invalid_appearance',
+        'invalid_new_password',
+      ].includes(error.code ?? '')
     )
       throw APIError.from('BAD_REQUEST', {
         code: error.code ?? 'invalid_input',

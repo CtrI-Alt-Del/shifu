@@ -17,7 +17,7 @@ export const MemoryOriginList = ({ origins }: MemoryOriginListProps) => (
       >
         {origin.isAvailable ? (
           <Anchor
-            className={`${ROW_CLASS_NAME} text-foreground hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text`}
+            className={`${ROW_CLASS_NAME} text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text`}
             route='intelligence'
             search={{
               session: origin.sessionId,

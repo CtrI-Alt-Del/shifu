@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthError } from '@/core/errors/auth-error'
+import type { AccountProfile } from '@/provision/auth/cookie-session-auth-provider'
 import type { ProfileFormProps } from '..'
 import { useProfileForm } from '../use-profile-form'
 import { useUpdateAccountProfileAction } from '../use-update-account-profile-action'
@@ -23,11 +24,12 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 
 const useUpdateAccountProfileActionMock = vi.mocked(useUpdateAccountProfileAction)
 const updateAccountProfileMock = vi.fn()
-const PROFILE = {
+const PROFILE: AccountProfile = {
   accountId: 'account-a',
   displayName: 'Maria',
   email: 'maria@example.com',
   timeZone: 'UTC',
+  appearance: 'dark',
 }
 const EVENT = {
   preventDefault: vi.fn(),
@@ -107,6 +109,7 @@ describe('useProfileForm', () => {
         expect(updateAccountProfileMock).toHaveBeenCalledWith({
           displayName: PROFILE.displayName,
           timeZone: 'UTC',
+          appearance: 'dark',
         })
         expect(result.current.isSuccess).toBe(true)
       } finally {
@@ -121,6 +124,7 @@ describe('useProfileForm', () => {
     expect(updateAccountProfileMock).toHaveBeenCalledWith({
       displayName: 'Maria',
       timeZone: 'UTC',
+      appearance: 'dark',
     })
     expect(result.current.isSuccess).toBe(true)
     expect(result.current.message).toBe('Perfil salvo.')
@@ -193,6 +197,76 @@ describe('useProfileForm', () => {
     ).toEqual({ ...PROFILE, displayName: 'Ana' })
     expect(canonicalUpdateMock).toHaveBeenCalledOnce()
     queryClient.clear()
+  })
+  it('exposes the saved appearance with localized options and help text', () => {
+    const { result, rerender } = renderHook(
+      (props: ProfileFormProps) => useProfileForm(props),
+      { initialProps: { profile: PROFILE } },
+    )
+    expect(result.current.appearance).toBe('dark')
+    expect(result.current.appearanceOptions).toEqual([
+      { value: 'dark', label: 'Escuro' },
+      { value: 'light', label: 'Claro' },
+      { value: 'system', label: 'Sistema' },
+    ])
+    expect(result.current.appearanceHelp).toContain('tema escuro')
+    rerender({ profile: { ...PROFILE, appearance: 'system' } })
+    expect(result.current.appearance).toBe('system')
+    expect(result.current.appearanceHelp).toContain('cada dispositivo')
+  })
+  it.each(['light', 'system', 'dark'] as const)(
+    'submits the canonical %s appearance and adopts the saved value',
+    async (appearance) => {
+      const initial = appearance === 'dark' ? 'light' : 'dark'
+      updateAccountProfileMock.mockResolvedValue({ ...PROFILE, appearance })
+      const { result } = renderHook(() =>
+        useProfileForm({ profile: { ...PROFILE, appearance: initial } }),
+      )
+      act(() => result.current.handleAppearanceChange(appearance))
+      expect(result.current.appearance).toBe(appearance)
+      await act(async () => result.current.handleSubmit(EVENT))
+      expect(updateAccountProfileMock).toHaveBeenCalledWith({
+        displayName: PROFILE.displayName,
+        timeZone: 'UTC',
+        appearance,
+      })
+      expect(result.current.isSuccess).toBe(true)
+      expect(result.current.appearance).toBe(appearance)
+    },
+  )
+  it('ignores an appearance outside the canonical values', () => {
+    const { result } = renderHook(() => useProfileForm({ profile: PROFILE }))
+    act(() => result.current.handleAppearanceChange('sepia'))
+    act(() => result.current.handleAppearanceChange(null))
+    expect(result.current.appearance).toBe('dark')
+  })
+  it('keeps the appearance draft and shows the server field error for recovery', async () => {
+    updateAccountProfileMock.mockRejectedValueOnce(
+      new AuthError('validation-failed', 'Confira o campo informado.', {
+        field: 'appearance',
+      }),
+    )
+    const { result } = renderHook(() => useProfileForm({ profile: PROFILE }))
+    act(() => result.current.handleAppearanceChange('light'))
+    await act(async () => result.current.handleSubmit(EVENT))
+    expect(result.current.errors.appearance).toBe('Confira o campo informado.')
+    expect(result.current.message).toBe('Confira o campo informado.')
+    expect(result.current.appearance).toBe('light')
+    expect(result.current.isSuccess).toBe(false)
+    updateAccountProfileMock.mockResolvedValue({ ...PROFILE, appearance: 'light' })
+    await act(async () => result.current.handleSubmit(EVENT))
+    expect(result.current.isSuccess).toBe(true)
+    expect(result.current.errors.appearance).toBeUndefined()
+  })
+  it('keeps the appearance draft after an unavailable save', async () => {
+    updateAccountProfileMock.mockRejectedValueOnce(new Error('offline'))
+    const { result } = renderHook(() => useProfileForm({ profile: PROFILE }))
+    act(() => result.current.handleAppearanceChange('system'))
+    await act(async () => result.current.handleSubmit(EVENT))
+    expect(result.current.message).toBe(
+      'Não foi possível salvar o perfil agora. Tente novamente.',
+    )
+    expect(result.current.appearance).toBe('system')
   })
   it.each([1, 160, 161])('enforces the name boundary at %i characters', async (count) => {
     const { result } = renderHook(() => useProfileForm({ profile: PROFILE }))

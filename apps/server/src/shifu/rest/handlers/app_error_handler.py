@@ -11,6 +11,7 @@ from shifu.communication.core.domain.errors import (
     PushUnavailableError,
 )
 from shifu.identity.core.domain.errors import (
+    InvalidAppearanceError,
     InvalidCredentialsError,
     InvalidCurrentPasswordError,
     InvalidDisplayNameError,
@@ -172,6 +173,7 @@ class AppErrorHandler:
         account_codes: dict[type[Exception], str] = {
             InvalidDisplayNameError: 'invalid_display_name',
             InvalidTimeZoneError: 'invalid_time_zone',
+            InvalidAppearanceError: 'invalid_appearance',
             InvalidPasswordError: 'invalid_new_password',
         }
         return AppErrorHandler._build_response(

@@ -119,7 +119,7 @@ Authorization: Bearer {{accessToken}}
 x-shifu-bff-secret: {{bffSharedSecret}}
 Content-Type: application/json
 
-{"display_name": "Aprendiz", "time_zone": "America/Sao_Paulo"}
+{"display_name": "Aprendiz", "time_zone": "America/Sao_Paulo", "appearance": "system"}
 
 ### Change own password with current session preserved
 POST {{baseUrl}}/identity/accounts/me/password
