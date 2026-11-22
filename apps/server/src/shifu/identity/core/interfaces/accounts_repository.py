@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
@@ -6,6 +7,10 @@ from shifu.identity.core.domain.entities import Account
 
 class AccountsRepository(Protocol):
     def find_by_id(self, account_id: str) -> Account | None: ...
+
+    def find_many_active_by_ids(self, account_ids: Sequence[str]) -> list[Account]:
+        """Return only ``active`` accounts among the given IDs, in one query."""
+        ...
 
     def find_non_deleted_by_email(self, email: str) -> Account | None:
         """Find the normalized e-mail reservation under the caller transaction lock."""

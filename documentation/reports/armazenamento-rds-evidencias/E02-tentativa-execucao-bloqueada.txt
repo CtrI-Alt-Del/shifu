@@ -1,0 +1,41 @@
+SHIFU-127 — Tentativa de execução AWS
+Data: 2026-11-18
+Janela da coleta: 22:36:49–22:37:32 UTC
+(19:36:49–19:37:32 America/Sao_Paulo)
+Responsável informado: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Identidade confirmada por STS:
+- Perfil: shifu-lab
+- Conta: 565725315792
+- ARN: arn:aws:iam::565725315792:user/shifu-storage-lab
+
+Pré-verificação bloqueada por permissões IAM:
+- ec2:DescribeVpcs: UnauthorizedOperation.
+- ec2:DescribeSubnets: UnauthorizedOperation.
+- ec2:DescribeRouteTables: UnauthorizedOperation.
+- rds:DescribeOrderableDBInstanceOptions: AccessDenied.
+- rds:DescribeDBInstances: AccessDenied.
+- ce:GetCostAndUsage: AccessDenied.
+
+Ambiente e estado local:
+- Terraform 1.16.4 e AWS CLI 2.37.12 disponíveis.
+- `terraform state list` informou que não há arquivo de estado nesta raiz.
+- `psql` não foi localizado no PATH nem em `C:\Program Files\PostgreSQL`.
+- A listagem do VS Code exibiu `cweijan.vscode-database-client2`; a CLI também
+  retornou EPERM ao tentar criar logs em AppData. Nenhuma conexão foi feita.
+- O endpoint não existe nesta execução porque nenhum `terraform plan` ou
+  `terraform apply` foi iniciado.
+
+Resultado:
+- Nenhum recurso foi criado ou alterado nesta tentativa.
+- A ausência de state local não prova ausência de recursos remotos preexistentes;
+  a consulta RDS necessária para verificar isso foi negada.
+- Não foi possível observar custos. A consulta anterior ao apply falhou por
+  `ce:GetCostAndUsage`; nenhum valor zero foi inferido.
+- Migrações, dados, consultas, conexão por psql/Database Client, snapshot,
+  `terraform destroy` e confirmação remota de remoção não foram executados.
+- Não foram fornecidas senha, variáveis privadas, plano ou estado nesta tentativa.
+
+Esta evidência registra os limites observados. Ela não representa uma execução
+concluída nem comprova remoção de recursos AWS.

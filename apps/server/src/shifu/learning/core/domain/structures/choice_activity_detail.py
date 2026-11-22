@@ -9,6 +9,12 @@ from shifu.shared.core.domain.structures import structure
 from shifu.learning.core.domain.structures.code_question_detail import (
     CodeQuestionDetail,
 )
+from shifu.learning.core.domain.structures.ordering_question_detail import (
+    OrderingQuestionDetail,
+)
+from shifu.learning.core.domain.structures.pair_matching_question_detail import (
+    PairMatchingQuestionDetail,
+)
 from shifu.learning.core.domain.structures.translation_question_detail import (
     TranslationQuestionDetail,
 )
@@ -22,8 +28,10 @@ class ChoiceActivityDetail:
     questions: tuple[
         ChoiceQuestionDetail
         | CodeQuestionDetail
+        | OrderingQuestionDetail
         | FillBlanksQuestionDetail
-        | TranslationQuestionDetail,
+        | TranslationQuestionDetail
+        | PairMatchingQuestionDetail,
         ...,
     ]
     can_submit: bool
@@ -31,3 +39,4 @@ class ChoiceActivityDetail:
     unresolved_attempt_id: str | None = None
     is_diagnostic: bool = False
     activity_revision: str | None = None
+    ordering_passage_key: str | None = None

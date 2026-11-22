@@ -1,0 +1,19 @@
+E10 — Validação final local
+
+Data: 20/11/2026
+Responsável: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Diretório: packages/iac/dynamodb
+
+- `terraform fmt -check -recursive`: exit 0, sem arquivos fora de formato.
+- `terraform validate -no-color`: exit 0, configuração válida, sem erros ou avisos.
+- `bash -n scripts/lab.sh`: exit 0, sem erros de sintaxe.
+- `python -m py_compile scripts/dynamodb_lab.py`: exit 0.
+- `scripts/lab.sh validate-fixtures`: exit 0; 20 itens, cinco tipos com quatro
+  eventos cada, quatro aprendizes e 20 chaves compostas únicas.
+- Seis evidências JSON versionadas (E01 e E04–E08): parsing sem erro.
+- Verificação de whitespace nos arquivos do relatório e laboratório: nenhum
+  espaço final encontrado.
+
+Os providers Terraform já estavam instalados pelo lockfile. O state, os planos,
+`.terraform`, `__pycache__` e resultados auxiliares locais são ignorados pelo Git.

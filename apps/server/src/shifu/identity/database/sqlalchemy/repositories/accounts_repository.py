@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import delete, select, text
@@ -18,6 +19,20 @@ class SqlalchemyAccountsRepository:
             select(AccountModel).where(AccountModel.id == account_id).with_for_update()
         )
         return AccountMapper.to_domain(model) if model is not None else None
+
+    def find_many_active_by_ids(self, account_ids: Sequence[str]) -> list[Account]:
+        if not account_ids:
+            return []
+        models = self._session.scalars(
+            select(AccountModel)
+            .where(
+                AccountModel.id.in_(account_ids),
+                AccountModel.status == AccountStatus.ACTIVE.value,
+                AccountModel.deleted_at.is_(None),
+            )
+            .order_by(AccountModel.id)
+        ).all()
+        return [AccountMapper.to_domain(model) for model in models]
 
     def find_non_deleted_by_email(self, email: str) -> Account | None:
         self._session.execute(

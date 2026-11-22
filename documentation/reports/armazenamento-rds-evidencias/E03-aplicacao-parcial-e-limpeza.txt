@@ -1,0 +1,70 @@
+SHIFU-127 — Pré-verificação, apply parcial e limpeza
+Data: 2026-11-18
+Janela observada: 23:38:58–23:51:37 UTC
+(20:38:58–20:51:37 America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Identidade e ambiente:
+- Perfil AWS: shifu-lab
+- Conta STS: 565725315792
+- Região: us-east-2
+- VPC padrão: vpc-0420e74cba45bc0a9; disponível, DNS support e DNS hostnames habilitados.
+- Sub-redes padrão: subnet-00eb516ebf5e548ae (us-east-2b),
+  subnet-04af2a9c793abf482 (us-east-2a) e
+  subnet-08fbe5d2391919259 (us-east-2c). Todas disponíveis e com rota ativa
+  da tabela principal para o Internet Gateway.
+- PostgreSQL 17 em db.t4g.micro estava disponível como opção. A resposta de
+  opções incluía versões 17.7 a 17.11 com gp3.
+- Antes do apply, havia somente o RDS shifu-staging. Ele não foi alterado.
+- IP público consultado para a regra do laboratório: 201.75.169.251/32.
+- Terraform 1.16.4; AWS CLI 2.37.12.
+
+Plano revisado:
+- Comando: terraform plan -input=false -no-color -out .terraform/rds-lab.tfplan
+- Resultado: 5 to add, 0 to change, 0 to destroy.
+- Criações propostas: aws_db_instance.rds_lab, aws_db_subnet_group.rds_lab,
+  aws_security_group.rds_lab,
+  aws_vpc_security_group_ingress_rule.postgres_from_group_ip e
+  random_id.execution.
+- O plano usava PostgreSQL 17, db.t4g.micro, Single-AZ, 20 GB gp3 criptografados,
+  banco shifu e porta TCP 5432 restrita a 201.75.169.251/32. Não propunha
+  mudanças no staging nem na rede padrão.
+- Identificador calculado nesta execução: shifu-rds-lab-c108f89e97. A instância
+  não chegou a ser criada.
+
+Apply e erro:
+- O apply do plano salvo criou o random_id e o grupo RDS
+  shifu-rds-lab-subnets.
+- A criação do security group foi negada pela AWS com UnauthorizedOperation:
+  ec2:CreateSecurityGroup não está permitido para
+  arn:aws:iam::565725315792:user/shifu-storage-lab na VPC
+  vpc-0420e74cba45bc0a9.
+- Terraform não criou o security group, a regra de ingresso ou a instância RDS.
+- Migrações, dados, consultas, clientes, snapshot e custo do laboratório não
+  foram executados ou gerados.
+
+Limpeza:
+- terraform destroy concluiu com 2 recursos destruídos: random_id.execution e
+  aws_db_subnet_group.rds_lab.
+- terraform state list retornou zero recursos gerenciados após o destroy.
+- Consultas AWS posteriores não encontraram a instância
+  shifu-rds-lab-c108f89e97, o grupo shifu-rds-lab-subnets, o grupo
+  shifu-rds-lab-postgres ou o snapshot shifu-rds-lab-c108f89e97-manual.
+- Não houve snapshot a excluir. A instância shifu-staging permaneceu intacta.
+
+Custos observados antes do apply:
+- Fonte: AWS Cost Explorer, serviço Amazon Relational Database Service,
+  métrica UnblendedCost em USD, granularidade diária, intervalo
+  2026-11-10 a 2026-11-18 (limite final exclusivo).
+- A consulta agrupada por USAGE_TYPE e a consulta diária total foram concluídas.
+- Totais diários: 2026-11-10–11: US$ 0.0000000495; cada intervalo diário de
+  2026-11-11–12 até 2026-11-17–18: US$ 0.0000000502.
+- Todas as linhas estavam marcadas Estimated=true. Os valores são do serviço
+  RDS da conta, incluem o staging e não podem ser atribuídos a este laboratório.
+- Nenhum valor de custo da instância do laboratório foi observado. Não se
+  registra custo zero por ausência de uma instância.
+
+Esta evidência registra uma tentativa parcial. A execução completa permanece
+pendente da liberação de ec2:CreateSecurityGroup e das demais permissões de
+criação/remoção do laboratório.

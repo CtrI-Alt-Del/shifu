@@ -54,6 +54,8 @@ from .material_sequence_item import MaterialSequenceItem as MaterialSequenceItem
 from .multiple_selection_question import (
     MultipleSelectionQuestion as MultipleSelectionQuestion,
 )
+from .ordering_step import OrderingStep as OrderingStep
+from .ordering_question import OrderingQuestion as OrderingQuestion
 from .qualitative_evaluation_part import (
     QualitativeEvaluationPart as QualitativeEvaluationPart,
 )
@@ -80,3 +82,9 @@ from .translation_rubric_criterion import (
 from .translation_rubric_evaluation_part import (
     TranslationRubricEvaluationPart as TranslationRubricEvaluationPart,
 )
+from .pair_matching_concept_criterion import (
+    PairMatchingConceptCriterion as PairMatchingConceptCriterion,
+)
+from .pair_matching_item import PairMatchingItem as PairMatchingItem
+from .pair_matching_pair import PairMatchingPair as PairMatchingPair
+from .pair_matching_question import PairMatchingQuestion as PairMatchingQuestion

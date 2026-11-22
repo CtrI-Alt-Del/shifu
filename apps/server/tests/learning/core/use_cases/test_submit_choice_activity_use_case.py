@@ -28,7 +28,16 @@ from shifu.learning.core.domain.structures import (
     FillBlanksAnswer,
     FillBlanksPlacement,
     MultipleSelectionAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     SingleChoiceAnswer,
+    OrderingAnswer,
+    OrderingAnswerSubmission,
+    VerifiedOrdering,
+)
+from shifu.learning.core.domain.entities import OrderingPassage
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
 )
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
@@ -59,6 +68,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactInitialFileSnapshot,
@@ -283,6 +294,7 @@ class TestSubmitChoiceActivityUseCase:
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -1299,6 +1311,141 @@ class TestSubmitChoiceActivityUseCase:
         assert event.payload.attempt_id == attempt.id
         assert event.payload.run_id == evaluation.run_id
 
+    def test_should_submit_verified_order_and_replay_after_a_new_passage_starts(
+        self,
+    ) -> None:
+        base = mixed_snapshot()
+        ordering_question = CurriculumOrderingQuestionSnapshot(
+            key='q3',
+            kind='ordering',
+            prompt='Organize as etapas.',
+            steps=tuple(
+                CurriculumOrderingStepSnapshot(key=key, text=text)
+                for key, text in (
+                    ('prepare', 'Preparar'),
+                    ('cook', 'Cozinhar'),
+                    ('serve', 'Servir'),
+                )
+            ),
+            accepted_orders=(
+                ('prepare', 'cook', 'serve'),
+                ('prepare', 'serve', 'cook'),
+            ),
+            correct_explanation='Sequência aceita.',
+            incorrect_explanation='Revise a sequência.',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id='concept-3',
+                    criterion='Ordem do processo',
+                    examples='Preparar antes de cozinhar.',
+                    limits='A apresentação pode variar.',
+                    correct_score=Decimal(100),
+                    incorrect_score=Decimal(0),
+                ),
+            ),
+        )
+        ordering_snapshot = replace(
+            base,
+            questions=(*base.questions[:2], ordering_question),
+            parts=(
+                *base.parts[:2],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        passage = OrderingPassage.create(
+            id='01JSHIFU000000000000000001',
+            skill_experience_id=EXPERIENCE_ID,
+            activity_id=ACTIVITY_ID,
+            passage_key='00000000-0000-4000-8000-000000000001',
+            activity_revision=ordering_snapshot.revision,
+            grading_snapshot=ordering_snapshot,
+        )
+        passage.add_verified(
+            VerifiedOrdering(
+                question_key='q3',
+                ordered_step_keys=('prepare', 'cook', 'serve'),
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Sequência aceita.',
+            )
+        )
+        self.repositories.ordering_passages.find_active.return_value = passage
+        self.provider.get_learning_activity.return_value = ordering_snapshot
+
+        self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'ordering-submission-key',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+            ),
+            ordering_snapshot.revision,
+            passage_key=passage.passage_key,
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert isinstance(attempt.answers[-1], OrderingAnswer)
+        assert (
+            attempt.answers[-1].ordered_step_keys
+            == passage.verified_orderings[0].ordered_step_keys
+        )
+        assert attempt.grading_snapshot == ordering_snapshot
+        assert passage.status == 'consumed'
+        self.repositories.ordering_passages.update.assert_called_once_with(passage)
+        self.repositories.events.add.assert_called_once()
+
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+        newer_passage = replace(
+            passage,
+            id='01JSHIFU000000000000000002',
+            passage_key='00000000-0000-4000-8000-000000000002',
+            status='active',
+            verified_orderings=(),
+        )
+        self.repositories.ordering_passages.find_active.return_value = newer_passage
+
+        replayed = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'ordering-submission-key',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+            ),
+            ordering_snapshot.revision,
+            passage_key=passage.passage_key,
+        )
+
+        assert replayed.replayed is True
+        assert replayed.attempt.attempt_id == attempt.id
+        assert newer_passage.status == 'active'
+        assert newer_passage.verified_orderings == ()
+        self.repositories.activity_attempts.add.assert_called_once()
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.ordering_passages.update.assert_called_once_with(passage)
+        self.repositories.events.add.assert_called_once()
+
     def _submit_fill(
         self,
         submitted: tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...],
@@ -1717,3 +1864,240 @@ class TestSubmitChoiceActivityAnswerNormalization:
                     ),
                 ),
             )
+
+
+class TestSubmitPairMatchingActivity:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.database = create_autospec(LearningDatabase, instance=True)
+        self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        self.clock = create_autospec(ClockProvider, instance=True)
+        self.ids = create_autospec(IdentifierProvider, instance=True)
+        self.ids.generate.side_effect = ('attempt-1', 'evaluation-1', 'run-1')
+        self.clock.now.return_value = NOW
+        self.experience = SkillExperienceFaker.fake(
+            id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
+        )
+        self.experience.status = SkillExperienceStatus.LEARNING
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id=GOAL_ID, account_id=ACCOUNT_ID
+        )
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = self.experience
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            self.experience
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = CompetencyProgress(
+            id='progress-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            content_released=True,
+            created_at=NOW,
+            updated_at=NOW,
+            initial_progress=Decimal('0'),
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = None
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
+        base = mixed_snapshot()
+        self.snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = self.snapshot
+        self.provider.get_skill_content.return_value = None
+        self.subject = SubmitChoiceActivityUseCase(
+            self.database, self.provider, self.clock, self.ids
+        )
+
+    @staticmethod
+    def _pairs(*translation_indexes: int) -> PairMatchingAnswer:
+        return PairMatchingAnswer(
+            question_key='q3',
+            pairs=tuple(
+                PairMatchingSelection(
+                    word_key=f'word-{word_index}',
+                    translation_key=f'translation-{translation_index}',
+                )
+                for word_index, translation_index in enumerate(translation_indexes)
+            ),
+        )
+
+    def _submit(
+        self,
+        pair_answer: object,
+        key: str = 'submission-key',
+        revision: str | None = 'revision-1',
+    ) -> ChoiceSubmissionOutcome:
+        return self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            key,
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                pair_answer,  # type: ignore[arg-type]
+            ),
+            revision,
+        )
+
+    def test_should_persist_one_attempt_with_the_saved_pairs_on_the_mixed_snapshot(
+        self,
+    ) -> None:
+        outcome = self._submit(self._pairs(1, 0, 2))
+
+        assert outcome.attempt.attempt_id == 'attempt-1'
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        assert outcome.replayed is False
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.answers == (
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+            self._pairs(1, 0, 2),
+        )
+        assert attempt.grading_snapshot == self.snapshot
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+        self.provider.get_choice_activity.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'pair_answer',
+        (
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-9', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-9'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='other',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            ChoiceAnswerSubmission(question_key='q3', selected_option_keys=('a',)),
+        ),
+        ids=(
+            'incomplete',
+            'unknown-word',
+            'unknown-translation',
+            'wrong-question-key',
+            'wrong-answer-type',
+        ),
+    )
+    def test_should_reject_invalid_pair_answers_without_persisting(
+        self, pair_answer: object
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(pair_answer)
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_reject_a_stale_revision_without_persisting(self) -> None:
+        with pytest.raises(ConflictError):
+            self._submit(self._pairs(0, 1, 2), revision='old-revision')
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_replay_the_same_attempt_for_identical_pairs(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+
+        outcome = self._submit(self._pairs(1, 0, 2))
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_a_replay_with_different_pairs(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+
+        with pytest.raises(ConflictError):
+            self._submit(self._pairs(0, 1, 2))
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_replay_when_the_same_pairs_arrive_in_another_order(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+        reordered = PairMatchingAnswer(
+            question_key='q3', pairs=tuple(reversed(self._pairs(1, 0, 2).pairs))
+        )
+
+        outcome = self._submit(reordered)
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()

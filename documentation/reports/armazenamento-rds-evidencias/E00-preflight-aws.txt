@@ -1,0 +1,27 @@
+SHIFU-127 — Pré-verificação AWS e ambiente local
+Data: 2026-11-18 (America/Sao_Paulo)
+Responsável informado: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Perfil: shifu-lab
+Conta e identidade: 565725315792; arn:aws:iam::565725315792:user/shifu-storage-lab
+Resultado STS: autenticação válida.
+
+Bloqueios observados na preparação:
+- rds:DescribeDBInstances: AccessDenied.
+- ec2:DescribeVpcs: UnauthorizedOperation.
+- rds:DescribeOrderableDBInstanceOptions: AccessDenied.
+- ce:GetCostAndUsage: AccessDenied.
+- Perfil shifu-staging: InvalidClientTokenId.
+- `psql` não foi localizado no PATH nesta máquina.
+- `docker compose ps` não conseguiu acessar o Docker Desktop Linux Engine (permission denied).
+
+Ambiente local confirmado:
+- Terraform 1.16.4, Windows AMD64.
+- AWS CLI 2.37.12.
+- Extensão VS Code `cweijan.vscode-database-client2` instalada.
+
+Nenhuma consulta de estado RDS/VPC, plano AWS ou criação de recurso foi possível.
+Nenhum recurso AWS foi criado ou alterado nesta etapa. Custos, endpoint,
+migrações, consultas, conexões, snapshot e destruição permanecem sem evidência.
+Esta anotação registra bloqueios; não é uma evidência de execução do laboratório.

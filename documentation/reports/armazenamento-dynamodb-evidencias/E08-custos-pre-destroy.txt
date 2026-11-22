@@ -1,0 +1,15 @@
+E08 — Consulta de custo antes da remoção
+
+Data: 20/11/2026
+Responsável: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Conta: 565725315792
+Perfil: shifu-lab
+
+Antes do `terraform destroy`, Cost Explorer foi consultado para o período
+diário 2026-11-20 a 2026-11-21 (fim exclusivo), métrica `UnblendedCost`,
+agrupamento por serviço. A resposta estava estimada (`Estimated=true`) e não
+continha grupo `Amazon DynamoDB`. A consulta listou outros serviços da conta,
+que não podem ser atribuídos ao laboratório. Ausência de linha não prova custo
+zero. O retorno após a remoção está preservado em
+`E08-custos-pos-destroy.json`.

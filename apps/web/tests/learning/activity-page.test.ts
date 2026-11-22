@@ -5,6 +5,7 @@ import {
   ChoiceQuestionFaker,
   FillBlanksQuestionFaker,
   LearningRouteIdsFaker,
+  PairMatchingQuestionFaker,
 } from '@/core/learning/fakers'
 import { installControlledDictation } from '../support/native-dictation'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
@@ -129,6 +130,179 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
     ),
   ).toBe(true)
 })
+
+const registerOrderingAnswerTest = (outcome: 'correct' | 'incorrect') =>
+  test(`verifies and submits ${outcome === 'correct' ? 'a correct' : 'an incorrect'} ordering answer through the Activity route`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const isCorrect = outcome === 'correct'
+    const orderingActivity = {
+      ...activity,
+      activityRevision: 'ordering-revision-1',
+      orderingPassageKey: null,
+      questions: [
+        {
+          key: 'ordering-1',
+          kind: 'ordering' as const,
+          prompt: 'Organize o preparo.',
+          steps: [
+            { key: 'wash', text: 'Lavar os legumes' },
+            { key: 'cut', text: 'Cortar os legumes' },
+            { key: 'cook', text: 'Aquecer a frigideira' },
+          ],
+          initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+          verified: null,
+        },
+      ],
+    }
+    const requests: string[] = []
+    const passageKeys: string[] = []
+    await bff.route(async (route) => {
+      const body = route.request().postData() ?? ''
+      const envelope = body ? (JSON.parse(body) as { t?: SerializedServerValue }) : null
+      const serverPayload = envelope?.t ? decodeServerValue(envelope.t) : null
+      const data = (serverPayload as { data?: Record<string, unknown> } | null)?.data
+      const submission = data?.submission as Record<string, unknown> | undefined
+      const passageKey = data?.passageKey ?? submission?.passageKey
+      if (typeof passageKey === 'string') passageKeys.push(passageKey)
+      const payload = decodeURIComponent(`${route.request().url()} ${body}`)
+      if (!payload.includes(ids.activityId)) return route.fallback()
+      requests.push(payload)
+      if (!payload.includes('questionKey') && !payload.includes('submissionKey')) {
+        await route.fulfill({
+          body: JSON.stringify({ result: orderingActivity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              attemptId: ids.attemptId,
+              status: 'pending',
+              resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            status: 'conclusive',
+            score: isCorrect ? 100 : 0,
+            isCorrect,
+            explanation: isCorrect ? 'Ordem correta.' : 'Ordem incorreta.',
+          },
+        }),
+        contentType: 'application/json',
+      })
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    const prompt = authenticatedPage.getByRole('heading', { name: 'Organize o preparo.' })
+    await expect
+      .poll(
+        () =>
+          prompt.evaluate((element) => {
+            let opacity = 1
+            let current: HTMLElement | null = element as HTMLElement
+            while (current) {
+              opacity *= Number(getComputedStyle(current).opacity)
+              current = current.parentElement
+            }
+            return opacity
+          }),
+        { timeout: 5000 },
+      )
+      .toBeGreaterThan(0.99)
+    await authenticatedPage.setViewportSize({ width: 1440, height: 980 })
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-initial-${outcome}-desktop-1440.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-initial-${outcome}-mobile-390.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 1440, height: 980 })
+    if (isCorrect)
+      await authenticatedPage
+        .getByRole('button', { name: 'Mover para baixo: Lavar os legumes' })
+        .click()
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Verificar' }),
+    ).toBeEnabled()
+    await authenticatedPage.getByRole('button', { name: 'Verificar' }).click()
+    await expect(
+      authenticatedPage.getByText(isCorrect ? 'Ordem correta.' : 'Ordem incorreta.', {
+        exact: true,
+      }),
+    ).toBeVisible()
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-${outcome}-desktop-1440.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    const submitButton = authenticatedPage.getByRole('button', {
+      name: 'Enviar atividade',
+    })
+    await authenticatedPage.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    )
+    const submitBounds = await submitButton.boundingBox()
+    const bottomNavigationBounds = await authenticatedPage
+      .getByRole('navigation', { name: 'Navegação inferior' })
+      .boundingBox()
+    const mentorFabBounds = await authenticatedPage
+      .getByRole('button', { name: 'Abrir Mentor' })
+      .boundingBox()
+    if (!submitBounds || !bottomNavigationBounds || !mentorFabBounds)
+      throw new Error('Ordering mobile actions must have visible bounds')
+    expect(submitBounds.height).toBeGreaterThanOrEqual(44)
+    expect(submitBounds.y + submitBounds.height).toBeLessThanOrEqual(
+      bottomNavigationBounds.y,
+    )
+    expect(submitBounds.x + submitBounds.width).toBeLessThanOrEqual(mentorFabBounds.x)
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-${outcome}-mobile-390.png`,
+      animations: 'disabled',
+    })
+    await authenticatedPage.getByRole('button', { name: 'Enviar atividade' }).click()
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+
+    expect(requests.some((payload) => payload.includes('orderedStepKeys'))).toBe(true)
+    expect(passageKeys).toHaveLength(2)
+    expect(passageKeys[0]).toBeTruthy()
+    expect(passageKeys[1]).toBe(passageKeys[0])
+  })
+
+registerOrderingAnswerTest('correct')
+registerOrderingAnswerTest('incorrect')
+
+type SerializedServerValue = {
+  t?: number
+  s?: unknown
+  a?: SerializedServerValue[]
+  p?: { k?: string[]; v?: SerializedServerValue[] }
+}
+
+const decodeServerValue = (value: SerializedServerValue): unknown => {
+  if (value.t === 1) return value.s
+  if (value.t === 9) return value.a?.map(decodeServerValue) ?? []
+  if (value.t === 10 && value.p?.k && value.p.v)
+    return Object.fromEntries(
+      value.p.k.map((key, index) => [key, decodeServerValue(value.p?.v?.[index] ?? {})]),
+    )
+  return null
+}
 
 const decodeSerializedMarkup = (payload: string) => payload.replace(/\\{1,2}x3[cC]/g, '<')
 
@@ -1204,6 +1378,179 @@ for (const viewport of FILL_BLANKS_VIEWPORTS) {
     expect(submission).toContain('w1')
     expect(submission).toContain('w2')
     expect(submission).toContain('fill-revision-1')
+  })
+}
+
+const pairMatchingActivity = {
+  ...activity,
+  accountId: 'playwright-account',
+  activityRevision: 'pair-revision-1',
+  questions: [
+    PairMatchingQuestionFaker.fake(),
+    ChoiceQuestionFaker.fake({
+      key: 'q1',
+      prompt: 'Qual é o resultado?',
+      options: [
+        { key: 'a', text: '4' },
+        { key: 'b', text: '6' },
+      ],
+    }),
+  ],
+}
+
+async function stubPairMatchingActivity(
+  bff: {
+    route: (
+      handler: (route: import('@playwright/test').Route) => Promise<void>,
+    ) => Promise<void>
+  },
+  requests: string[],
+) {
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (!payload.includes(ids.activityId)) return route.fallback()
+    requests.push(payload)
+    if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes('questionKey') || payload.includes('question_key')) {
+      const isPair = payload.includes('pairs-1')
+      const result = isPair
+        ? {
+            status: 'conclusive',
+            score: 33.33,
+            explanation: 'Alguns pares estão corretos. Revise o vocabulário.',
+            isCorrect: false,
+            outcome: 'partial',
+            correctPairCount: 1,
+            totalPairCount: 3,
+          }
+        : { status: 'conclusive', score: 100, explanation: 'Correto.', isCorrect: true }
+      await route.fulfill({
+        body: JSON.stringify({ result }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: pairMatchingActivity }),
+      contentType: 'application/json',
+    })
+  })
+}
+
+const PAIR_MATCHING_VIEWPORTS = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]
+
+for (const viewport of PAIR_MATCHING_VIEWPORTS) {
+  test(`pairs, verifies, locks and submits a pair matching Activity by keyboard on ${viewport.name}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    await authenticatedPage.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    })
+    const requests: string[] = []
+    await stubPairMatchingActivity(bff, requests)
+
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    await expect(authenticatedPage.getByText('Inglês (Estados Unidos)')).toBeVisible()
+    await expect(authenticatedPage.getByText('Português (Brasil)')).toBeVisible()
+    await expect(authenticatedPage.getByText('0 de 3 pares formados.')).toBeVisible()
+    const verify = authenticatedPage.getByRole('button', { name: 'Avaliar resposta' })
+    await expect(verify).toBeDisabled()
+
+    const wordsList = authenticatedPage.locator('ul').nth(0)
+    const translationsList = authenticatedPage.locator('ul').nth(1)
+    const pair = async (word: string, translation: string) => {
+      await wordsList.getByRole('button', { name: new RegExp(`^${word}`) }).focus()
+      await authenticatedPage.keyboard.press('Enter')
+      await translationsList
+        .getByRole('button', { name: new RegExp(`^${translation}`) })
+        .focus()
+      await authenticatedPage.keyboard.press('Enter')
+    }
+
+    // A wrong but complete pairing is valid; verification does not need correctness.
+    await pair('dog', 'casa')
+    await pair('house', 'água')
+    await expect(verify).toBeDisabled()
+    await pair('water', 'cachorro')
+    await expect(authenticatedPage.getByText('3 de 3 pares formados.')).toBeVisible()
+    await expect(verify).toBeEnabled()
+
+    // A pair is replaced by selecting its word again and choosing another translation.
+    await wordsList.getByRole('button', { name: /^water/ }).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await translationsList.getByRole('button', { name: /^água/ }).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(authenticatedPage.getByText('2 de 3 pares formados.')).toBeVisible()
+    await pair('house', 'cachorro')
+    await expect(authenticatedPage.getByText('3 de 3 pares formados.')).toBeVisible()
+
+    await verify.focus()
+    await authenticatedPage.keyboard.press('Enter')
+    const result = authenticatedPage.getByRole('region', { name: 'Resultado' })
+    await expect(result).toContainText('Parcialmente correta')
+    await expect(result).toContainText('1 de 3 pares corretos')
+    await expect(result).toContainText(
+      'Alguns pares estão corretos. Revise o vocabulário.',
+    )
+    await expect(result).not.toContainText('esperad')
+
+    // After verifying, the evaluated answer is read-only.
+    for (const button of await wordsList.getByRole('button').all())
+      await expect(button).toBeDisabled()
+    await expect(
+      authenticatedPage.getByText('Resposta avaliada: não é possível alterar.'),
+    ).toBeVisible()
+    await authenticatedPage.getByRole('button', { name: 'Próxima questão' }).click()
+
+    await authenticatedPage.getByRole('radio', { name: '4' }).focus()
+    await authenticatedPage.keyboard.press('Space')
+    await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
+    await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+    await expect(authenticatedPage).toHaveURL(
+      new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
+    )
+
+    const previews = requests.filter(
+      (request) =>
+        request.includes('questionKey') &&
+        !request.includes('submissionKey') &&
+        request.includes('pairs-1'),
+    )
+    expect(previews).toHaveLength(1)
+    expect(previews[0]).toContain('pair_matching')
+    expect(previews[0]).toContain('pair-revision-1')
+    for (const key of ['w-3f9a21c4', 'w-b07d5e18', 'w-5c1e9a73']) {
+      expect(previews[0]).toContain(key)
+    }
+    const submission =
+      requests.find(
+        (request) =>
+          request.includes('submissionKey') || request.includes('submission_key'),
+      ) ?? ''
+    expect(submission).toContain('pair_matching')
+    expect(submission).toContain('pair-revision-1')
+    // The submitted pairs are the ones that were verified (dog-casa, house-cachorro).
+    expect(submission).toContain('t-91c7d3fa')
+    expect(submission).toContain('t-e2480b6d')
   })
 }
 

@@ -15,7 +15,9 @@ from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
 )
+from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
@@ -27,8 +29,12 @@ from shifu.shared.database.seed_data import (
     build_development_seed,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -155,6 +161,86 @@ class TestRetryChoiceEvaluationController:
             assert evaluation is not None
             assert evaluation.status is ActivityEvaluationStatus.PENDING
             assert evaluation.run_id is not None
+
+    def test_retries_a_failed_pair_evaluation_once_with_the_same_saved_pairs(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        headers = {'Authorization': 'Bearer test-access-token'}
+        with SqlalchemyCurriculumDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            repositories.activities.add_many([PairMatchingControllerFixture.activity()])
+        revision = cast(
+            'str',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(), headers=headers
+            ).json()['activity_revision'],
+        )
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=PairMatchingControllerFixture.submission(revision, 1, 0, 2),
+                headers=headers,
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+        database: SqlalchemyLearningDatabase = application.state.learning_database
+        with database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+            assert evaluation is not None
+            evaluation.fail('evaluation_failed')
+            repositories.activity_evaluations.update(evaluation)
+            saved_before = repositories.activity_attempts.find_by_id(attempt_id)
+        assert saved_before is not None
+
+        retried = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{PairMatchingControllerFixture.attempts_path()}/{attempt_id}/retry',
+                headers=headers,
+            ),
+        )
+
+        assert retried.status_code == 202, retried.json()
+        with database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        evaluate = EvaluateChoiceActivityUseCase(
+            database,
+            SystemClockProvider(),
+            application.state.curriculum_content_provider,
+        )
+        assert evaluate.execute(attempt_id, evaluation.run_id) is True
+        # A repeated run applies no second effect.
+        assert evaluate.execute(attempt_id, evaluation.run_id) is False
+        with database.transaction() as repositories:
+            completed = repositories.activity_evaluations.find_by_attempt_id(attempt_id)
+            saved_after = repositories.activity_attempts.find_by_id(attempt_id)
+        assert completed is not None
+        assert completed.status is ActivityEvaluationStatus.COMPLETED
+        assert saved_after is not None
+        assert saved_after.answers == saved_before.answers
+        with postgres_database.engine.connect() as connection:
+            attempts = connection.scalar(
+                select(func.count()).select_from(ActivityAttemptModel)
+            )
+            evaluated = connection.scalar(
+                select(func.count())
+                .select_from(EventModel)
+                .where(EventModel.name == 'learning/activity-evaluated')
+            )
+        seeded_attempts = len(build_development_seed().activity_attempts)
+        assert attempts == seeded_attempts + 1
+        assert evaluated == 1
 
     def test_does_not_reveal_attempt_from_another_goal(
         self,

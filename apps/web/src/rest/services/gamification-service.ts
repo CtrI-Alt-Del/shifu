@@ -2,6 +2,7 @@ import type { ActivityXpReward } from '@/core/gamification/activity-xp-reward'
 import type { AchievementsOverview } from '@/core/gamification/achievements-overview'
 import type { GamificationOverview } from '@/core/gamification/overview'
 import type { PracticeCalendar } from '@/core/gamification/practice-calendar'
+import type { StreakReminder } from '@/core/gamification/streak-reminder'
 import type { XpHistory } from '@/core/gamification/xp-history'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 
@@ -55,6 +56,38 @@ export const GamificationService = (restClient: RestClient) => {
     ): Promise<ActivityXpReward> {
       const response = await restClient.get<ActivityXpReward>(
         `/gamification/activities/${activityId}/attempts/${attemptId}/xp-reward`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async getStreakReminder(accessToken: string): Promise<StreakReminder> {
+      const response = await restClient.get<StreakReminder>(
+        '/gamification/streak-reminder',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async changeStreakReminderHour(
+      accessToken: string,
+      hour: number,
+    ): Promise<StreakReminder> {
+      const response = await restClient.put<StreakReminder>(
+        '/gamification/streak-reminder/hour',
+        { hour },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async answerStreakReminderInvite(accessToken: string): Promise<StreakReminder> {
+      const response = await restClient.post<StreakReminder>(
+        '/gamification/streak-reminder/invite-answer',
+        undefined,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()

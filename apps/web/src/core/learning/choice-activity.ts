@@ -19,6 +19,26 @@ export type ChoiceQuestion = {
   options: readonly ChoiceOption[]
 }
 
+export type OrderingQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  initialOrderedStepKeys: readonly string[]
+  verified: null | {
+    orderedStepKeys: readonly string[]
+    score: number
+    isCorrect: boolean
+    explanation: string
+  }
+}
+
+export type OrderingAnswer = {
+  kind: 'ordering'
+  questionKey: string
+  orderedStepKeys: readonly string[]
+}
+
 export type CodeQuestion = {
   key: string
   kind: 'javascript_stdin'
@@ -129,14 +149,31 @@ export type TranslationQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
+export type PairMatchingItem = {
+  key: string
+  text: string
+}
+
+export type PairMatchingQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  sourceLanguage: string
+  targetLanguage: string
+  words: readonly PairMatchingItem[]
+  translations: readonly PairMatchingItem[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
   | ReactQuestion
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
+  | OrderingQuestion
   | FillBlanksQuestion
   | TranslationQuestion
+  | PairMatchingQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -148,6 +185,7 @@ export type ChoiceActivityDetail = {
   latestAttemptId: string | null
   unresolvedAttemptId: string | null
   isDiagnostic?: boolean
+  orderingPassageKey?: string | null
 }
 
 export type ChoiceAnswer = {
@@ -179,11 +217,26 @@ export type TranslationAnswer = {
   text: string
 }
 
+export type PairMatchingPair = {
+  wordKey: string
+  translationKey: string
+}
+
+export type PairMatchingAnswer = {
+  kind: 'pair_matching'
+  questionKey: string
+  pairs: readonly PairMatchingPair[]
+}
+
+export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
+
 export type ActivityAnswer =
   | ChoiceAnswer
   | CodeAnswer
+  | OrderingAnswer
   | FillBlanksAnswer
   | TranslationAnswer
+  | PairMatchingAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -201,11 +254,16 @@ export type PreliminaryQuestionResult = {
   correctBlankCount?: number
   blankCount?: number
   submittedText?: string
+  submittedPairs?: readonly PairMatchingPair[]
+  correctPairCount?: number
+  totalPairCount?: number
+  outcome?: PairMatchingOutcome
 }
 
 export type ChoiceSubmission = {
   submissionKey: string
   activityRevision?: string
+  passageKey?: string
   answers: readonly ActivityAnswer[]
 }
 
@@ -224,6 +282,18 @@ export type ChoiceResultQuestion = {
   isCorrect: boolean
   explanation: string
   correctOptionKeys?: readonly string[]
+}
+
+export type OrderingResultQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  submittedStepKeys: readonly string[]
+  score: number
+  isCorrect: boolean
+  explanation: string
+  acceptedOrders?: readonly (readonly string[])[]
 }
 
 export type CodeResultQuestion = {
@@ -282,11 +352,26 @@ export type TranslationResultQuestion = {
   }[]
 }
 
+export type PairMatchingResultQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  score: number
+  submittedPairs: readonly PairMatchingPair[]
+  correctPairCount: number
+  totalPairCount: number
+  outcome: PairMatchingOutcome
+  explanation: string
+  disclosedCorrectPairs?: readonly PairMatchingPair[]
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
+  | OrderingResultQuestion
   | FillBlanksResultQuestion
   | TranslationResultQuestion
+  | PairMatchingResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

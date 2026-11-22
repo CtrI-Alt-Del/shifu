@@ -12,6 +12,8 @@ from shifu.curriculum.core.domain.structures import (
     FillBlanksQuestion,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
+    OrderingQuestion,
+    PairMatchingQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
@@ -19,6 +21,7 @@ from shifu.curriculum.core.domain.structures import (
     TranslationQuestion,
     TranslationRubricEvaluationPart,
 )
+from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
     diagnostic_coverage_gaps,
 )
@@ -33,6 +36,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumJavascriptInitialFileSnapshot,
@@ -62,6 +67,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumContentItem,
     CurriculumMaterialContentSnapshot,
     CurriculumMaterialSnapshot,
+    CurriculumPairMatchingConceptCriterionSnapshot,
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
@@ -219,8 +228,6 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             def activity_snapshot(
                 activity: object, position: int
             ) -> CurriculumActivitySnapshot:
-                from shifu.curriculum.core.domain.entities import Activity
-
                 if not isinstance(activity, Activity):
                     raise TypeError('Expected Curriculum Activity')
 
@@ -237,8 +244,16 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             else tuple(
                                 score
                                 for score in (
-                                    criterion.correct_score,
-                                    criterion.incorrect_score,
+                                    (
+                                        criterion.full_score,
+                                        criterion.partial_score,
+                                        criterion.incorrect_score,
+                                    )
+                                    if isinstance(question, PairMatchingQuestion)
+                                    else (
+                                        criterion.correct_score,
+                                        criterion.incorrect_score,
+                                    )
                                 )
                                 if score is not None
                             )
@@ -251,45 +266,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     concept_id: sum(scores) // len(scores)
                     for concept_id, scores in possible_scores.items()
                 }
-                has_executable_evidence = (
-                    all(
-                        (
-                            isinstance(question, _FULL_SCALE_EVIDENCE_QUESTIONS)
-                            or (
-                                isinstance(
-                                    question,
-                                    (SingleChoiceQuestion, MultipleSelectionQuestion),
-                                )
-                                and all(
-                                    criterion.correct_score is not None
-                                    or criterion.incorrect_score is not None
-                                    for criterion in question.concept_criteria
-                                )
-                            )
-                        )
-                        and bool(question.concept_criteria)
-                        for question in activity.questions
-                    )
-                    and len(activity.evaluation_rule.parts) == len(activity.questions)
-                    and bool(maximum)
-                    and all(
-                        isinstance(
-                            part,
-                            (
-                                CorrectnessEvaluationPart,
-                                CodeRubricEvaluationPart,
-                                TranslationRubricEvaluationPart,
-                            ),
-                        )
-                        for part in activity.evaluation_rule.parts
-                    )
-                    and {part.question_key for part in activity.evaluation_rule.parts}
-                    == {question.key for question in activity.questions}
-                    and (
-                        activity.activity_type.value == 'diagnostic'
-                        or 3 <= len(activity.questions) <= 5
-                    )
-                )
+                executable_evidence = has_executable_evidence(activity, maximum)
                 return CurriculumActivitySnapshot(
                     id=activity.id,
                     title=activity.title,
@@ -300,7 +277,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     required_concept_ids=activity.required_concept_ids,
                     question_count_by_concept=tuple(sorted(counts.items())),
                     maximum_evidence_by_concept=tuple(sorted(maximum.items())),
-                    executable_concept_evidence=has_executable_evidence,
+                    executable_concept_evidence=executable_evidence,
                 )
 
             snapshot_competencies: list[CurriculumCompetencySnapshot] = []
@@ -555,12 +532,14 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             }
             questions: list[
                 CurriculumChoiceQuestionSnapshot
+                | CurriculumOrderingQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
                 | CurriculumReactQuestionSnapshot
                 | CurriculumHtmlCssJsQuestionSnapshot
                 | CurriculumReactFastifyQuestionSnapshot
                 | CurriculumFillBlanksQuestionSnapshot
                 | CurriculumTranslationQuestionSnapshot
+                | CurriculumPairMatchingQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot
@@ -568,7 +547,55 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumTranslationRubricPartSnapshot
             ] = []
             for question in activity.questions:
-                if isinstance(
+                if isinstance(question, OrderingQuestion):
+                    if (
+                        activity_type != 'learning'
+                        or not question.accepted_orders
+                        or not question.concept_criteria
+                        or not {
+                            criterion.concept_id
+                            for criterion in question.concept_criteria
+                        }.issubset(concept_ids)
+                    ):
+                        return None
+
+                    questions.append(
+                        CurriculumOrderingQuestionSnapshot(
+                            key=question.key,
+                            kind='ordering',
+                            prompt=question.prompt,
+                            steps=tuple(
+                                CurriculumOrderingStepSnapshot(
+                                    key=step.key,
+                                    text=step.text,
+                                )
+                                for step in question.steps
+                            ),
+                            accepted_orders=question.accepted_orders,
+                            correct_explanation=question.correct_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumChoiceConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    correct_score=(
+                                        Decimal(criterion.correct_score)
+                                        if criterion.correct_score is not None
+                                        else None
+                                    ),
+                                    incorrect_score=(
+                                        Decimal(criterion.incorrect_score)
+                                        if criterion.incorrect_score is not None
+                                        else None
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                elif isinstance(
                     question, (SingleChoiceQuestion, MultipleSelectionQuestion)
                 ):
                     if (
@@ -824,6 +851,66 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             ),
                         )
                     )
+                elif isinstance(question, PairMatchingQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    questions.append(
+                        CurriculumPairMatchingQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            source_language=question.source_language,
+                            target_language=question.target_language,
+                            words=tuple(
+                                CurriculumPairMatchingItemSnapshot(
+                                    key=item.key, text=item.text
+                                )
+                                for item in question.words
+                            ),
+                            translations=tuple(
+                                CurriculumPairMatchingItemSnapshot(
+                                    key=item.key, text=item.text
+                                )
+                                for item in question.translations
+                            ),
+                            correct_pairs=tuple(
+                                CurriculumPairMatchingPairSnapshot(
+                                    word_key=pair.word_key,
+                                    translation_key=pair.translation_key,
+                                )
+                                for pair in question.correct_pairs
+                            ),
+                            full_explanation=question.full_explanation,
+                            partial_explanation=question.partial_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumPairMatchingConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    full_score=(
+                                        None
+                                        if criterion.full_score is None
+                                        else Decimal(criterion.full_score)
+                                    ),
+                                    partial_score=(
+                                        None
+                                        if criterion.partial_score is None
+                                        else Decimal(criterion.partial_score)
+                                    ),
+                                    incorrect_score=(
+                                        None
+                                        if criterion.incorrect_score is None
+                                        else Decimal(criterion.incorrect_score)
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
                 elif isinstance(question, ReactFastifyQuestion):
                     if activity_type == 'diagnostic' or not {
                         criterion.concept_id for criterion in question.concept_criteria
@@ -1059,3 +1146,64 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 )
 
             return tuple(overviews)
+
+
+def has_executable_evidence(activity: Activity, maximum: dict[str, int]) -> bool:
+    return (
+        all(
+            (
+                isinstance(
+                    question,
+                    _FULL_SCALE_EVIDENCE_QUESTIONS,
+                )
+                or (
+                    isinstance(question, OrderingQuestion)
+                    and all(
+                        criterion.correct_score is not None
+                        and criterion.incorrect_score is not None
+                        for criterion in question.concept_criteria
+                    )
+                )
+                or (
+                    isinstance(question, PairMatchingQuestion)
+                    and all(
+                        criterion.full_score is not None
+                        or criterion.partial_score is not None
+                        or criterion.incorrect_score is not None
+                        for criterion in question.concept_criteria
+                    )
+                )
+                or (
+                    isinstance(
+                        question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                    )
+                    and all(
+                        criterion.correct_score is not None
+                        or criterion.incorrect_score is not None
+                        for criterion in question.concept_criteria
+                    )
+                )
+            )
+            and bool(question.concept_criteria)
+            for question in activity.questions
+        )
+        and len(activity.evaluation_rule.parts) == len(activity.questions)
+        and bool(maximum)
+        and all(
+            isinstance(
+                part,
+                (
+                    CorrectnessEvaluationPart,
+                    CodeRubricEvaluationPart,
+                    TranslationRubricEvaluationPart,
+                ),
+            )
+            for part in activity.evaluation_rule.parts
+        )
+        and {part.question_key for part in activity.evaluation_rule.parts}
+        == {question.key for question in activity.questions}
+        and (
+            activity.activity_type.value == 'diagnostic'
+            or 3 <= len(activity.questions) <= 5
+        )
+    )

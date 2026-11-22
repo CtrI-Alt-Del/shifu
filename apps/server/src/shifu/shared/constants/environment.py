@@ -27,6 +27,7 @@ DEFAULT_SMTP_PORT = 1026
 DEFAULT_EMAIL_FROM = 'no-reply@shifu.local'
 DEFAULT_CONFIRMATION_ACTION_ORIGIN = 'http://localhost:7000'
 DEFAULT_EMAIL_TIMEOUT_SECONDS = 10.0
+DEFAULT_WEB_PUSH_TIMEOUT_SECONDS = 10.0
 DEFAULT_LOCAL_BFF_SHARED_SECRET = 'shifu-local-bff-shared-secret-change-me'
 DEFAULT_BFF_BASE_URL = 'http://localhost:7000'
 DEFAULT_SERVER_LOG_LEVEL: TelemetryLevel = 'INFO'
@@ -73,6 +74,14 @@ class EnvironmentSettings(BaseModel):
     bff_base_url: str = DEFAULT_BFF_BASE_URL
     bff_shared_secret: str = DEFAULT_LOCAL_BFF_SHARED_SECRET
     communication_encryption_keys: tuple[str, ...] = ()
+    web_push_vapid_private_key: str | None = None
+    web_push_vapid_public_key: str | None = None
+    web_push_subject: str | None = None
+    web_push_timeout_seconds: float = Field(
+        default=DEFAULT_WEB_PUSH_TIMEOUT_SECONDS,
+        gt=0,
+        le=60,
+    )
 
     @field_validator('database_url')
     @classmethod
@@ -110,7 +119,25 @@ class EnvironmentSettings(BaseModel):
 
         if self.server_app_mode == 'production' and not self.resend_api_key:
             raise ValueError('Production Resend configuration is incomplete')
+
+        self._validate_web_push_configuration()
         return self
+
+    def _validate_web_push_configuration(self) -> None:
+        keys = (self.web_push_vapid_private_key, self.web_push_vapid_public_key)
+        if any(keys) and not all(keys):
+            raise ValueError('Web push requires both the VAPID private and public keys')
+
+        if self.server_app_mode in {'staging', 'production'}:
+            if not all(keys):
+                raise ValueError('Web push VAPID keys are required')
+            if not self.web_push_subject:
+                raise ValueError('Web push subject is required')
+
+        if self.web_push_subject is not None and not self.web_push_subject.startswith(
+            ('mailto:', 'https:')
+        ):
+            raise ValueError('Web push subject must be a mailto: or https: URI')
 
     @classmethod
     def from_environment(
@@ -185,6 +212,19 @@ class EnvironmentSettings(BaseModel):
                     DEFAULT_LOCAL_BFF_SHARED_SECRET,
                 ),
                 'communication_encryption_keys': encryption_keys,
+                'web_push_vapid_private_key': values.get(
+                    'SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY'
+                )
+                or None,
+                'web_push_vapid_public_key': values.get(
+                    'SHIFU_WEB_PUSH_VAPID_PUBLIC_KEY'
+                )
+                or None,
+                'web_push_subject': values.get('SHIFU_WEB_PUSH_SUBJECT') or None,
+                'web_push_timeout_seconds': values.get(
+                    'SHIFU_WEB_PUSH_TIMEOUT_SECONDS',
+                    str(DEFAULT_WEB_PUSH_TIMEOUT_SECONDS),
+                ),
             }
         )
 

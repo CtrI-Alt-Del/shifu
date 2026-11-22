@@ -3,10 +3,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type {
   CodeQuestion,
+  OrderingResultQuestion,
   ChoiceQuestion,
   CodeResultQuestion,
   HtmlCssJsQuestion,
   ChoiceResultQuestion,
+  PairMatchingQuestion,
+  PairMatchingResultQuestion,
   TranslationQuestion,
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
@@ -62,6 +65,99 @@ const TRANSLATION_QUESTION: TranslationQuestion = {
 
 describe('ChoiceResultDetail', () => {
   afterEach(cleanup)
+
+  it.each([undefined, []])(
+    'keeps an incorrect submitted order private until accepted sequences are disclosed (%s)',
+    (acceptedOrders) => {
+      const result: OrderingResultQuestion = {
+        key: 'ordering-history',
+        kind: 'ordering',
+        prompt: 'Organize o preparo.',
+        steps: [
+          { key: 'wash', text: 'Lavar os legumes' },
+          { key: 'cut', text: 'Cortar os legumes' },
+          { key: 'cook', text: 'Cozinhar os legumes' },
+        ],
+        submittedStepKeys: ['cook', 'wash', 'cut'],
+        score: 0,
+        isCorrect: false,
+        explanation: 'Revise a sequência do preparo.',
+        acceptedOrders,
+      }
+      render(
+        <ChoiceResultDetail question={undefined} questionNumber={2} result={result} />,
+      )
+      const submittedOrder = screen.getByRole('region', {
+        name: 'Sua ordem na questão 2',
+        hidden: true,
+      })
+      expect(submittedOrder).not.toBeVisible()
+      fireEvent.click(screen.getByText('Questão 2 · ordenação · incorreta'))
+
+      expect(screen.getByLabelText('Nota 0 de 100')).toBeVisible()
+      expect(submittedOrder).toBeVisible()
+      const rows = within(submittedOrder).getAllByRole('listitem')
+      expect(rows[0]).toHaveTextContent('Cozinhar os legumes')
+      expect(rows[1]).toHaveTextContent('Lavar os legumes')
+      expect(rows[2]).toHaveTextContent('Cortar os legumes')
+      expect(screen.getByText('Revise a sequência do preparo.')).toBeVisible()
+      expect(screen.getByText('Sua ordem · somente leitura')).toBeVisible()
+      expect(screen.queryByText('Sequências aceitas')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    },
+  )
+
+  it('shows the historical correct order and every sequence explicitly released by Learning', () => {
+    const result: OrderingResultQuestion = {
+      key: 'ordering-history',
+      kind: 'ordering',
+      prompt: 'Prepare a refeição.',
+      steps: [
+        { key: 'wash', text: 'Lavar' },
+        { key: 'cut', text: 'Cortar' },
+        { key: 'cook', text: 'Cozinhar' },
+      ],
+      submittedStepKeys: ['wash', 'cut', 'cook'],
+      score: 100,
+      isCorrect: true,
+      explanation: 'Sequência concluída corretamente.',
+      acceptedOrders: [
+        ['wash', 'cut', 'cook'],
+        ['cut', 'wash', 'cook'],
+      ],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={1} result={result} />)
+    fireEvent.click(screen.getByText('Questão 1 · ordenação · correta'))
+
+    expect(screen.getByLabelText('Nota 100 de 100')).toBeVisible()
+    const accepted = screen.getByRole('region', { name: 'Ordens aceitas da questão 1' })
+    expect(accepted).toBeVisible()
+    const orders = within(accepted).getAllByRole('list')
+    expect(orders).toHaveLength(2)
+    expect(within(orders[0]).getAllByRole('listitem')[0]).toHaveTextContent('Lavar')
+    expect(within(orders[1]).getAllByRole('listitem')[0]).toHaveTextContent('Cortar')
+    expect(screen.getByText('Sequência concluída corretamente.')).toBeVisible()
+  })
+
+  it('labels unavailable historical steps without exposing their private identifiers', () => {
+    const result: OrderingResultQuestion = {
+      key: 'ordering-history',
+      kind: 'ordering',
+      prompt: 'Prepare a refeição.',
+      steps: [{ key: 'known', text: 'Etapa preservada' }],
+      submittedStepKeys: ['private-removed-step'],
+      score: 0,
+      isCorrect: false,
+      explanation: 'Conteúdo histórico parcialmente indisponível.',
+      acceptedOrders: [['private-accepted-step']],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={3} result={result} />)
+    fireEvent.click(screen.getByText('Questão 3 · ordenação · incorreta'))
+
+    expect(screen.getAllByText('Etapa indisponível')).toHaveLength(2)
+    expect(screen.queryByText('private-removed-step')).not.toBeInTheDocument()
+    expect(screen.queryByText('private-accepted-step')).not.toBeInTheDocument()
+  })
 
   it('shows only the submitted selection and safe feedback when disclosure is protected', () => {
     const result: ChoiceResultQuestion = {
@@ -487,5 +583,96 @@ describe('ChoiceResultDetail', () => {
 
     expect(screen.getByText(/Questão 5 · Tradução$/)).toBeVisible()
     expect(screen.getByLabelText('Nota — de 100')).toBeVisible()
+  })
+
+  describe('pair matching', () => {
+    const PAIR_QUESTION: PairMatchingQuestion = {
+      key: 'pairs-1',
+      kind: 'pair_matching',
+      prompt: 'Associe as palavras.',
+      sourceLanguage: 'en',
+      targetLanguage: 'pt-BR',
+      words: [
+        { key: 'w0', text: 'dog' },
+        { key: 'w1', text: 'house' },
+      ],
+      translations: [
+        { key: 't1', text: 'casa' },
+        { key: 't0', text: 'cachorro' },
+      ],
+    }
+    const result = (
+      overrides: Partial<PairMatchingResultQuestion>,
+    ): PairMatchingResultQuestion => ({
+      key: 'pairs-1',
+      kind: 'pair_matching',
+      prompt: 'Associe as palavras.',
+      score: 50,
+      submittedPairs: [
+        { wordKey: 'w0', translationKey: 't0' },
+        { wordKey: 'w1', translationKey: 't0' },
+      ],
+      correctPairCount: 1,
+      totalPairCount: 2,
+      outcome: 'partial',
+      explanation: 'Alguns pares estão corretos.',
+      ...overrides,
+    })
+
+    it.each([
+      ['full', 100, 'Resposta correta'],
+      ['partial', 50, 'Parcialmente correta'],
+      ['incorrect', 0, 'Resposta incorreta'],
+    ] as const)(
+      'labels a %s outcome with text, count and grade',
+      (outcome, score, label) => {
+        render(
+          <ChoiceResultDetail
+            question={PAIR_QUESTION}
+            questionNumber={3}
+            result={result({ outcome, score })}
+          />,
+        )
+
+        expect(
+          screen.getByText(new RegExp(`Questão 3 · Associação · ${label}`)),
+        ).toBeVisible()
+        expect(screen.getByLabelText(`Nota ${score} de 100`)).toBeVisible()
+        expect(screen.getByText('Alguns pares estão corretos.')).toBeInTheDocument()
+      },
+    )
+
+    it('shows the submitted pairs and hides the expected pairs until released', () => {
+      render(
+        <ChoiceResultDetail
+          question={PAIR_QUESTION}
+          questionNumber={3}
+          result={result({})}
+        />,
+      )
+
+      const submitted = screen.getByRole('list', { name: 'Pares enviados' })
+      expect(within(submitted).getAllByRole('listitem')).toHaveLength(2)
+      expect(within(submitted).getByText('dog — cachorro')).toBeInTheDocument()
+      expect(screen.queryByText('Pares esperados')).not.toBeInTheDocument()
+    })
+
+    it('shows the expected pairs when the key was released', () => {
+      render(
+        <ChoiceResultDetail
+          question={PAIR_QUESTION}
+          questionNumber={3}
+          result={result({
+            disclosedCorrectPairs: [
+              { wordKey: 'w0', translationKey: 't0' },
+              { wordKey: 'w1', translationKey: 't1' },
+            ],
+          })}
+        />,
+      )
+
+      const expected = screen.getByRole('list', { name: 'Pares esperados' })
+      expect(within(expected).getByText('house — casa')).toBeInTheDocument()
+    })
   })
 })

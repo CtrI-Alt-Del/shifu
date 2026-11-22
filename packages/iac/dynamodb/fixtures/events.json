@@ -1,0 +1,225 @@
+[
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-001",
+    "event_type": "login",
+    "occurred_at": "2026-11-17T09:00:00Z",
+    "attributes": { "method": "password", "device": "desktop", "success": true }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-002",
+    "event_type": "lesson_started",
+    "occurred_at": "2026-11-17T09:05:00Z",
+    "attributes": {
+      "course_id": "course-cloud-01",
+      "lesson_id": "lesson-01",
+      "position": 1
+    }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-003",
+    "event_type": "quiz_answer",
+    "occurred_at": "2026-11-17T09:12:00Z",
+    "attributes": {
+      "question_id": "question-01",
+      "correct": true,
+      "score": 1.0,
+      "answer": "A"
+    }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-004",
+    "event_type": "mentor_message",
+    "occurred_at": "2026-11-17T09:18:00Z",
+    "attributes": {
+      "conversation_id": "conversation-001",
+      "characters": 48,
+      "attachment_count": 0
+    }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-005",
+    "event_type": "xp_granted",
+    "occurred_at": "2026-11-17T09:20:00Z",
+    "attributes": { "amount": 10, "source": "activity", "reference_id": "activity-001" }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-006",
+    "event_type": "lesson_started",
+    "occurred_at": "2026-11-18T10:00:00Z",
+    "attributes": {
+      "course_id": "course-cloud-01",
+      "lesson_id": "lesson-02",
+      "position": 2,
+      "resumed": true
+    }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-007",
+    "event_type": "quiz_answer",
+    "occurred_at": "2026-11-18T10:11:00Z",
+    "attributes": {
+      "question_id": "question-02",
+      "correct": false,
+      "score": 0.0,
+      "answer": "C",
+      "attempt": 2
+    }
+  },
+  {
+    "learner_id": "learner-001",
+    "event_id": "evt-008",
+    "event_type": "xp_granted",
+    "occurred_at": "2026-11-18T10:13:00Z",
+    "attributes": {
+      "amount": 4,
+      "source": "skill_completion",
+      "reference_id": "skill-010"
+    }
+  },
+  {
+    "learner_id": "learner-002",
+    "event_id": "evt-009",
+    "event_type": "login",
+    "occurred_at": "2026-11-17T11:02:00Z",
+    "attributes": { "method": "google", "device": "mobile", "success": true }
+  },
+  {
+    "learner_id": "learner-002",
+    "event_id": "evt-010",
+    "event_type": "lesson_started",
+    "occurred_at": "2026-11-17T11:08:00Z",
+    "attributes": {
+      "course_id": "course-cloud-02",
+      "lesson_id": "lesson-03",
+      "position": 1
+    }
+  },
+  {
+    "learner_id": "learner-002",
+    "event_id": "evt-011",
+    "event_type": "quiz_answer",
+    "occurred_at": "2026-11-17T11:16:00Z",
+    "attributes": {
+      "question_id": "question-04",
+      "correct": true,
+      "score": 0.8,
+      "answer": "B",
+      "duration_seconds": 32
+    }
+  },
+  {
+    "learner_id": "learner-002",
+    "event_id": "evt-012",
+    "event_type": "mentor_message",
+    "occurred_at": "2026-11-18T12:22:00Z",
+    "attributes": {
+      "conversation_id": "conversation-002",
+      "characters": 112,
+      "attachment_count": 1,
+      "language": "pt-BR"
+    }
+  },
+  {
+    "learner_id": "learner-002",
+    "event_id": "evt-013",
+    "event_type": "xp_granted",
+    "occurred_at": "2026-11-18T12:25:00Z",
+    "attributes": {
+      "amount": 15,
+      "source": "activity",
+      "reference_id": "activity-009",
+      "multiplier": 1.5
+    }
+  },
+  {
+    "learner_id": "learner-003",
+    "event_id": "evt-014",
+    "event_type": "login",
+    "occurred_at": "2026-11-18T08:31:00Z",
+    "attributes": {
+      "method": "password",
+      "device": "tablet",
+      "success": false,
+      "failure_code": "invalid_password"
+    }
+  },
+  {
+    "learner_id": "learner-003",
+    "event_id": "evt-015",
+    "event_type": "lesson_started",
+    "occurred_at": "2026-11-18T08:40:00Z",
+    "attributes": {
+      "course_id": "course-cloud-03",
+      "lesson_id": "lesson-01",
+      "position": 1,
+      "locale": "pt-BR"
+    }
+  },
+  {
+    "learner_id": "learner-003",
+    "event_id": "evt-016",
+    "event_type": "mentor_message",
+    "occurred_at": "2026-11-18T08:58:00Z",
+    "attributes": {
+      "conversation_id": "conversation-003",
+      "characters": 205,
+      "attachment_count": 2,
+      "channel": "text"
+    }
+  },
+  {
+    "learner_id": "learner-003",
+    "event_id": "evt-017",
+    "event_type": "quiz_answer",
+    "occurred_at": "2026-11-19T09:15:00Z",
+    "attributes": {
+      "question_id": "question-09",
+      "correct": true,
+      "score": 1.0,
+      "answer": "D",
+      "duration_seconds": 18
+    }
+  },
+  {
+    "learner_id": "learner-003",
+    "event_id": "evt-018",
+    "event_type": "xp_granted",
+    "occurred_at": "2026-11-19T09:18:00Z",
+    "attributes": {
+      "amount": 8,
+      "source": "diagnostic",
+      "reference_id": "diagnostic-003"
+    }
+  },
+  {
+    "learner_id": "learner-004",
+    "event_id": "evt-019",
+    "event_type": "login",
+    "occurred_at": "2026-11-19T14:04:00Z",
+    "attributes": {
+      "method": "password",
+      "device": "desktop",
+      "success": true,
+      "ip_class": "private-fixture"
+    }
+  },
+  {
+    "learner_id": "learner-004",
+    "event_id": "evt-020",
+    "event_type": "mentor_message",
+    "occurred_at": "2026-11-19T14:19:00Z",
+    "attributes": {
+      "conversation_id": "conversation-004",
+      "characters": 76,
+      "attachment_count": 0,
+      "feedback": "helpful"
+    }
+  }
+]

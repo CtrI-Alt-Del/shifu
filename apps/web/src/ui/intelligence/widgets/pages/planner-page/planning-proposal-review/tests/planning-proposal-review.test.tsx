@@ -68,9 +68,10 @@ vi.mock('@xyflow/react', () => ({
 
 const elkMocks = vi.hoisted(() => ({ layout: vi.fn() }))
 
-vi.mock('elkjs/lib/elk.bundled.js', () => ({
+vi.mock('elkjs/lib/elk-api.js', () => ({
   default: class {
     layout = elkMocks.layout
+    terminateWorker = vi.fn()
   },
 }))
 

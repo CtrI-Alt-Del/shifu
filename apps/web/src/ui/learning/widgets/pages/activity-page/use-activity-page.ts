@@ -16,12 +16,16 @@ import type {
   ChoiceActivityDetail,
   ActivityAnswer,
   CodeAnswer,
+  OrderingQuestion as OrderingQuestionData,
   FillBlanksAnswer,
   FillBlanksPlacement,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  PairMatchingAnswer,
+  PairMatchingPair,
+  PairMatchingQuestion,
   TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
@@ -81,6 +85,7 @@ type InjectedActivityProps = {
     questionKey: string,
     revision: string,
     answer: ActivityAnswer,
+    passageKey?: string,
   ) => Promise<PreliminaryQuestionResult>
   onUnsentAnswersChange?: (hasUnsentAnswers: boolean) => void
 }
@@ -383,6 +388,7 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
           questionKey: string
           activityRevision: string
           answer: ActivityAnswer
+          passageKey?: string
         }
       | { kind: 'invalid-request' } => {
       if (
@@ -391,7 +397,8 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
         !isQuestionKey(input.questionKey) ||
         typeof input.activityRevision !== 'string' ||
         !input.activityRevision ||
-        !isActivityAnswer(input.answer, input.questionKey)
+        !isActivityAnswer(input.answer, input.questionKey) ||
+        (input.answer.kind === 'ordering' && !isDiagnosticRunId(input.passageKey))
       ) {
         return { kind: 'invalid-request' }
       }
@@ -405,6 +412,7 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
         questionKey: input.questionKey,
         activityRevision: input.activityRevision,
         answer: input.answer,
+        ...(typeof input.passageKey === 'string' ? { passageKey: input.passageKey } : {}),
       }
     },
   )
@@ -419,6 +427,7 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
             questionKey: string
             activityRevision: string
             answer: ActivityAnswer
+            passageKey?: string
           }
         | { kind: 'invalid-request' }
       context: RequestTelemetryContext
@@ -439,6 +448,7 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
           data.questionKey,
           data.activityRevision,
           data.answer,
+          data.passageKey,
         )
       } catch (error) {
         return actionFailure(error)
@@ -483,6 +493,13 @@ export function useActivityPage(props: ActivityPageProps) {
   const [isBrowserOnline, setIsBrowserOnline] = useState(true)
   const [needsAuthorityRefresh, setNeedsAuthorityRefresh] = useState(false)
   const [answers, setAnswers] = useState<readonly ActivityAnswer[]>([])
+  const [verifiedOrderingQuestionKeys, setVerifiedOrderingQuestionKeys] = useState<
+    ReadonlySet<string>
+  >(() => new Set())
+  const [orderingOrders, setOrderingOrders] = useState<Record<string, readonly string[]>>(
+    {},
+  )
+  const orderingPassageKeyRef = useRef<string | null>(null)
   const [feedback, setFeedback] = useState<PreliminaryQuestionResult | null>(null)
   const [isAssessing, setIsAssessing] = useState(false)
   const [hasFeedbackError, setHasFeedbackError] = useState(false)
@@ -549,6 +566,9 @@ export function useActivityPage(props: ActivityPageProps) {
     : activityQuery.data && !('kind' in activityQuery.data)
       ? activityQuery.data
       : null
+  const hasOrderingQuestion = Boolean(
+    activity?.questions.some(({ kind }) => kind === 'ordering'),
+  )
   const routeActivity =
     !injected && activityQuery.data && !('kind' in activityQuery.data)
       ? activityQuery.data
@@ -765,6 +785,32 @@ export function useActivityPage(props: ActivityPageProps) {
         ? props.onUnsentAnswersChange
         : undefined
   const currentQuestion = activity?.questions[currentQuestionIndex] ?? null
+  useEffect(() => {
+    if (currentQuestion?.kind !== 'ordering' || !currentQuestion.verified) return
+    const answer: ActivityAnswer = {
+      kind: 'ordering',
+      questionKey: currentQuestion.key,
+      orderedStepKeys: currentQuestion.verified.orderedStepKeys,
+    }
+    setOrderingOrders((current) => ({
+      ...current,
+      [currentQuestion.key]: currentQuestion.verified?.orderedStepKeys ?? [],
+    }))
+    setAnswers((current) => [
+      ...current.filter(({ questionKey }) => questionKey !== currentQuestion.key),
+      answer,
+    ])
+    setVerifiedOrderingQuestionKeys(
+      (current) => new Set([...current, currentQuestion.key]),
+    )
+    setFrozenAnswer(answer)
+    setFeedback({
+      status: 'conclusive',
+      score: currentQuestion.verified.score,
+      explanation: currentQuestion.verified.explanation,
+      isCorrect: currentQuestion.verified.isCorrect,
+    })
+  }, [currentQuestion])
   const currentAnswer = answers.find(
     (answer) => answer.questionKey === currentQuestion?.key,
   )
@@ -772,8 +818,25 @@ export function useActivityPage(props: ActivityPageProps) {
     currentAnswer && 'selectedOptionKeys' in currentAnswer
       ? currentAnswer.selectedOptionKeys
       : []
+  const currentOrderingOrder =
+    currentQuestion?.kind === 'ordering'
+      ? (orderingOrders[currentQuestion.key] ??
+        currentQuestion.verified?.orderedStepKeys ??
+        currentQuestion.initialOrderedStepKeys)
+      : []
+  const hasValidOrdering = Boolean(
+    currentQuestion?.kind === 'ordering' &&
+      activity?.canSubmit &&
+      currentOrderingOrder.length === currentQuestion.steps.length &&
+      new Set(currentOrderingOrder).size === currentQuestion.steps.length &&
+      currentOrderingOrder.every((key) =>
+        currentQuestion.steps.some((step) => step.key === key),
+      ),
+  )
   const translationAnswerText =
     currentAnswer && 'text' in currentAnswer ? currentAnswer.text : ''
+  const pairMatchingPairs: readonly PairMatchingPair[] =
+    currentAnswer && 'pairs' in currentAnswer ? currentAnswer.pairs : []
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
@@ -804,15 +867,24 @@ export function useActivityPage(props: ActivityPageProps) {
       'text' in currentAnswer &&
       currentAnswer.text.trim().length > 0,
   )
+  const hasValidPairs = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'pair_matching' &&
+      isCompletePairing(currentQuestion, pairMatchingPairs),
+  )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
       ('files' in currentAnswer
         ? currentAnswer.files.length > 0
-        : 'placements' in currentAnswer
-          ? currentAnswer.placements.length > 0
-          : 'text' in currentAnswer
-            ? currentAnswer.text.trim().length > 0
-            : currentAnswer.selectedOptionKeys.length > 0),
+        : 'orderedStepKeys' in currentAnswer
+          ? currentAnswer.orderedStepKeys.length > 0
+          : 'placements' in currentAnswer
+            ? currentAnswer.placements.length > 0
+            : 'text' in currentAnswer
+              ? currentAnswer.text.trim().length > 0
+              : 'pairs' in currentAnswer
+                ? currentAnswer.pairs.length > 0
+                : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -879,6 +951,31 @@ export function useActivityPage(props: ActivityPageProps) {
     ])
     setUnsentAnswers(true)
     setHasFeedbackError(false)
+  }
+
+  function handleOrderingOrderChange(orderedStepKeys: readonly string[]) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'ordering' ||
+      isSubmitting ||
+      isAssessing ||
+      feedback ||
+      frozenAnswer ||
+      isSubmissionLocked
+    )
+      return
+    setOrderingOrders((current) => ({
+      ...current,
+      [currentQuestion.key]: [...orderedStepKeys],
+    }))
+    setUnsentAnswers(true)
+  }
+
+  function getOrderingPassageKey() {
+    if (activity?.orderingPassageKey) return activity.orderingPassageKey
+    if (!orderingPassageKeyRef.current)
+      orderingPassageKeyRef.current = globalThis.crypto.randomUUID()
+    return orderingPassageKeyRef.current
   }
 
   function handleFillBlanksChange(placements: readonly FillBlanksPlacement[]) {
@@ -971,6 +1068,30 @@ export function useActivityPage(props: ActivityPageProps) {
     setHasFeedbackError(false)
   }
 
+  function handlePairMatchingAnswerChange(pairs: readonly PairMatchingPair[]) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'pair_matching' ||
+      isSubmitting ||
+      isSubmissionLocked ||
+      isAssessing ||
+      feedback ||
+      frozenAnswer
+    )
+      return
+    const answer: PairMatchingAnswer = {
+      kind: 'pair_matching',
+      questionKey: currentQuestion.key,
+      pairs: pairs.map((pair) => ({ ...pair })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setHasFeedbackError(false)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -1008,30 +1129,43 @@ export function useActivityPage(props: ActivityPageProps) {
     const snapshot: ActivityAnswer =
       'files' in answer
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
-        : 'placements' in answer
-          ? {
-              ...answer,
-              placements: answer.placements.map((placement) => ({ ...placement })),
-            }
-          : 'text' in answer
-            ? { ...answer }
-            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+        : 'orderedStepKeys' in answer
+          ? { ...answer, orderedStepKeys: [...answer.orderedStepKeys] }
+          : 'placements' in answer
+            ? {
+                ...answer,
+                placements: answer.placements.map((placement) => ({ ...placement })),
+              }
+            : 'text' in answer
+              ? { ...answer }
+              : 'pairs' in answer
+                ? { ...answer, pairs: answer.pairs.map((pair) => ({ ...pair })) }
+                : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+    const passageKey = snapshot.kind === 'ordering' ? getOrderingPassageKey() : undefined
     setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
     try {
       const result = injected
-        ? await props.onPreview?.(
-            currentQuestion.key,
-            activity.activityRevision,
-            snapshot,
-          )
+        ? passageKey
+          ? await props.onPreview?.(
+              currentQuestion.key,
+              activity.activityRevision,
+              snapshot,
+              passageKey,
+            )
+          : await props.onPreview?.(
+              currentQuestion.key,
+              activity.activityRevision,
+              snapshot,
+            )
         : await previewActivityQuestionAction({
             data: {
               ...routeIds,
               questionKey: currentQuestion.key,
               activityRevision: activity.activityRevision,
               answer: snapshot,
+              ...(passageKey ? { passageKey } : {}),
             },
           })
       if (!result || isActionFailure(result))
@@ -1039,11 +1173,26 @@ export function useActivityPage(props: ActivityPageProps) {
       if (request !== feedbackRequestRef.current) return
 
       setFeedback(result)
-      setAnswers((current) => [
-        ...current.filter((item) => item.questionKey !== snapshot.questionKey),
+      const updatedAnswers = [
+        ...answers.filter((item) => item.questionKey !== snapshot.questionKey),
         snapshot,
-      ])
-      setUnsentAnswers(true)
+      ]
+      setAnswers(updatedAnswers)
+      const persistedOrderingQuestionKeys =
+        snapshot.kind === 'ordering'
+          ? new Set([...verifiedOrderingQuestionKeys, snapshot.questionKey])
+          : verifiedOrderingQuestionKeys
+      if (snapshot.kind === 'ordering')
+        setVerifiedOrderingQuestionKeys(persistedOrderingQuestionKeys)
+      setUnsentAnswers(
+        updatedAnswers.some((item) => {
+          const question = activity.questions.find(({ key }) => key === item.questionKey)
+          return (
+            question?.kind !== 'ordering' ||
+            !persistedOrderingQuestionKeys.has(item.questionKey)
+          )
+        }),
+      )
     } catch {
       if (request === feedbackRequestRef.current) setHasFeedbackError(true)
     } finally {
@@ -1154,6 +1303,7 @@ export function useActivityPage(props: ActivityPageProps) {
           ? { activityRevision: activity.activityRevision }
           : {}),
         submissionKey: submissionKeyRef.current,
+        ...(hasOrderingQuestion ? { passageKey: getOrderingPassageKey() } : {}),
       }
       const result = injected
         ? await props.onSubmit(submission)
@@ -1226,6 +1376,15 @@ export function useActivityPage(props: ActivityPageProps) {
       return
     }
     if (!isMixedActivity) {
+      if (currentQuestion.kind === 'ordering') {
+        if (hasValidOrdering)
+          void assess({
+            kind: 'ordering',
+            questionKey: currentQuestion.key,
+            orderedStepKeys: currentOrderingOrder,
+          })
+        return
+      }
       if (!hasValidSelection) return
       if (isLastQuestion) void handleSubmit()
       else {
@@ -1248,12 +1407,22 @@ export function useActivityPage(props: ActivityPageProps) {
         void assess(frozenAnswer, true)
         return
       }
+      if (currentQuestion.kind === 'ordering' && hasValidOrdering) {
+        void assess({
+          kind: 'ordering',
+          questionKey: currentQuestion.key,
+          orderedStepKeys: currentOrderingOrder,
+        })
+        return
+      }
       if (
         currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'ordering' &&
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
         currentQuestion.kind !== 'translation' &&
+        currentQuestion.kind !== 'pair_matching' &&
         hasValidSelection
       ) {
         void assess({
@@ -1263,6 +1432,8 @@ export function useActivityPage(props: ActivityPageProps) {
         })
       } else if (currentQuestion.kind === 'translation' && hasValidTranslationText) {
         void assess(currentAnswer as TranslationAnswer)
+      } else if (currentQuestion.kind === 'pair_matching' && hasValidPairs) {
+        void assess(currentAnswer as PairMatchingAnswer)
       }
       return
     }
@@ -1311,16 +1482,21 @@ export function useActivityPage(props: ActivityPageProps) {
               currentQuestion?.kind === 'react' ||
               currentQuestion?.kind === 'react_fastify'
             ? hasDiagnosticAnswer
-            : hasValidSelection
-        : currentQuestion?.kind === 'react' ||
-            currentQuestion?.kind === 'html_css_js' ||
-            currentQuestion?.kind === 'react_fastify'
-          ? isReactAnswerValid && (injected || isOnlineAuthority)
-          : feedback !== null ||
-            frozenAnswer !== null ||
-            hasValidSelection ||
-            hasCompleteFillBlanks ||
-            hasValidTranslationText),
+            : currentQuestion?.kind === 'ordering'
+              ? false
+              : hasValidSelection
+        : currentQuestion?.kind === 'ordering'
+          ? hasValidOrdering || feedback !== null || frozenAnswer !== null
+          : currentQuestion?.kind === 'react' ||
+              currentQuestion?.kind === 'html_css_js' ||
+              currentQuestion?.kind === 'react_fastify'
+            ? isReactAnswerValid && (injected || isOnlineAuthority)
+            : feedback !== null ||
+              frozenAnswer !== null ||
+              hasValidSelection ||
+              hasValidTranslationText ||
+              hasCompleteFillBlanks ||
+              hasValidPairs),
     feedback,
     frozenAnswer,
     isAssessing,
@@ -1331,6 +1507,8 @@ export function useActivityPage(props: ActivityPageProps) {
     fillBlanksPlacements,
     isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
     handleTranslationAnswerChange,
+    handlePairMatchingAnswerChange,
+    pairMatchingPairs,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
@@ -1338,6 +1516,12 @@ export function useActivityPage(props: ActivityPageProps) {
     handleRetryLoad: () => activityQuery.refetch(),
     handleReturnToSkill,
     handleToggleOption,
+    currentOrderingOrder,
+    handleOrderingOrderChange,
+    isOrderingVerified:
+      currentQuestion?.kind === 'ordering'
+        ? currentQuestion.verified !== null || feedback !== null
+        : false,
     hasSubmissionError,
     hasUnsentAnswers,
     isLoading: !injected && activityQuery.isPending,
@@ -1448,6 +1632,7 @@ function isSubmissionInput(value: Record<string, unknown>): value is Record<
       submission.activityRevision === null ||
       (typeof submission.activityRevision === 'string' &&
         submission.activityRevision.length > 0)) &&
+    (submission.passageKey === undefined || isDiagnosticRunId(submission.passageKey)) &&
     Array.isArray(submission.answers) &&
     submission.answers.every(
       (answer: unknown) =>
@@ -1456,6 +1641,24 @@ function isSubmissionInput(value: Record<string, unknown>): value is Record<
         (submission.activityRevision
           ? isActivityAnswer(answer, answer.questionKey)
           : isLegacyChoiceAnswer(answer, answer.questionKey)),
+    )
+  )
+}
+
+function isCompletePairing(
+  question: PairMatchingQuestion,
+  pairs: readonly PairMatchingPair[],
+): boolean {
+  const wordKeys = new Set(question.words.map((word) => word.key))
+  const translationKeys = new Set(
+    question.translations.map((translation) => translation.key),
+  )
+  return (
+    pairs.length === question.words.length &&
+    new Set(pairs.map((pair) => pair.wordKey)).size === pairs.length &&
+    new Set(pairs.map((pair) => pair.translationKey)).size === pairs.length &&
+    pairs.every(
+      (pair) => wordKeys.has(pair.wordKey) && translationKeys.has(pair.translationKey),
     )
   )
 }
@@ -1474,6 +1677,11 @@ function isLegacyChoiceAnswer(
 
 function isActivityAnswer(value: unknown, questionKey: string): value is ActivityAnswer {
   if (!isRecord(value) || value.questionKey !== questionKey) return false
+  if (value.kind === 'ordering')
+    return (
+      Array.isArray(value.orderedStepKeys) &&
+      value.orderedStepKeys.every((key: unknown) => typeof key === 'string')
+    )
   if (
     value.kind === 'javascript_stdin' ||
     value.kind === 'react' ||
@@ -1503,6 +1711,18 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
   }
   if (value.kind === 'translation') {
     return typeof value.text === 'string' && value.text.trim().length > 0
+  }
+  if (value.kind === 'pair_matching') {
+    return (
+      Array.isArray(value.pairs) &&
+      value.pairs.length > 0 &&
+      value.pairs.every(
+        (pair: unknown) =>
+          isRecord(pair) &&
+          typeof pair.wordKey === 'string' &&
+          typeof pair.translationKey === 'string',
+      )
+    )
   }
   return (
     (value.kind === 'single_choice' || value.kind === 'multiple_selection') &&
@@ -1542,4 +1762,15 @@ export type ChoiceQuestionProps = {
   selectedOptionKeys: readonly string[]
   onToggleOption: (optionKey: string) => void
   disabled?: boolean
+}
+
+export type OrderingQuestionProps = {
+  question: OrderingQuestionData
+  questionNumber: number
+  totalQuestions: number
+  orderedStepKeys: readonly string[]
+  isVerified: boolean
+  onOrderChange: (orderedStepKeys: readonly string[]) => void
+  disabled?: boolean
+  activityTitle?: string
 }

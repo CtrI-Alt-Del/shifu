@@ -1,9 +1,12 @@
 from fastapi import APIRouter
 
 from shifu.gamification.rest.controllers import (
+    AnswerStreakReminderInviteController,
+    ChangeStreakReminderHourController,
     GetActivityXpRewardController,
     GetGamificationOverviewController,
     GetPracticeCalendarController,
+    GetStreakReminderController,
     GetXpHistoryController,
     ListAchievementsController,
 )
@@ -18,4 +21,7 @@ class GamificationRouter:
         GetPracticeCalendarController.handle(router)
         GetXpHistoryController.handle(router)
         GetActivityXpRewardController.handle(router)
+        GetStreakReminderController.handle(router)
+        ChangeStreakReminderHourController.handle(router)
+        AnswerStreakReminderInviteController.handle(router)
         return router

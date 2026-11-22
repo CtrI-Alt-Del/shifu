@@ -5,13 +5,17 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 from unittest.mock import create_autospec
 
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
+
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.learning.core.domain.entities import CompetencyProgress, OrderingPassage
 from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
     CurriculumFillBlanksActivitySnapshotFaker,
 )
-from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     FillBlanksQuestionDetail,
@@ -20,6 +24,9 @@ from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
+    OrderingQuestionDetail,
+    VerifiedOrdering,
+    PairMatchingQuestionDetail,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -41,6 +48,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricCriterionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactDependencySnapshot,
     CurriculumReactInitialFileSnapshot,
@@ -108,6 +117,51 @@ def snapshot(
             for index, weight in enumerate(('34', '33', '33'), 1)
         ),
         required_concept_ids=('concept-1', 'concept-2', 'concept-3'),
+    )
+
+
+def ordering_snapshot() -> CurriculumLearningActivitySnapshot:
+    original = snapshot()
+    question = CurriculumOrderingQuestionSnapshot(
+        key='q3',
+        kind='ordering',
+        prompt='Organize as etapas.',
+        steps=tuple(
+            CurriculumOrderingStepSnapshot(key=key, text=text)
+            for key, text in (
+                ('prepare', 'Preparar'),
+                ('cook', 'Cozinhar'),
+                ('serve', 'Servir'),
+            )
+        ),
+        accepted_orders=(
+            ('prepare', 'cook', 'serve'),
+            ('prepare', 'serve', 'cook'),
+        ),
+        correct_explanation='Sequência aceita.',
+        incorrect_explanation='Revise a sequência.',
+        concept_criteria=(
+            CurriculumChoiceConceptCriterionSnapshot(
+                concept_id='concept-3',
+                criterion='Ordem do processo',
+                examples='Preparar antes de cozinhar.',
+                limits='A apresentação pode variar.',
+                correct_score=Decimal(100),
+                incorrect_score=Decimal(0),
+            ),
+        ),
+    )
+    return CurriculumLearningActivitySnapshot(
+        id=original.id,
+        competency_id=original.competency_id,
+        difficulty=original.difficulty,
+        title=original.title,
+        questions=(*original.questions[:2], question),
+        parts=original.parts,
+        required_concept_ids=(),
+        activity_type='learning',
+        schema_version=1,
+        revision='ordering-revision',
     )
 
 
@@ -184,6 +238,7 @@ class TestGetChoiceActivityUseCase:
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -301,6 +356,7 @@ class TestGetChoiceActivityUseCase:
         self,
     ) -> None:
         self._configure_diagnostic()
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = None
 
         detail = self.subject.execute(
             ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, 'diagnostic-run'
@@ -654,3 +710,106 @@ class TestGetChoiceActivityUseCase:
 
         self.provider.get_choice_activity.assert_not_called()
         self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.assert_not_called()
+
+    def test_should_project_ordering_without_answer_key_and_resume_verified_state(
+        self,
+    ) -> None:
+        curriculum = ordering_snapshot()
+        self.provider.get_learning_activity.return_value = curriculum
+
+        initial = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        question = initial.questions[-1]
+        assert isinstance(question, OrderingQuestionDetail)
+        curriculum_question = curriculum.questions[-1]
+        assert isinstance(curriculum_question, CurriculumOrderingQuestionSnapshot)
+        assert (
+            question.initial_ordered_step_keys
+            not in curriculum_question.accepted_orders
+        )
+        assert question.verified is None
+        assert initial.ordering_passage_key is None
+        assert not hasattr(question, 'accepted_orders')
+        assert not hasattr(question, 'correct_explanation')
+
+        passage = OrderingPassage.create(
+            id='01JSHIFU000000000000000001',
+            skill_experience_id=EXPERIENCE_ID,
+            activity_id=ACTIVITY_ID,
+            passage_key='00000000-0000-4000-8000-000000000001',
+            activity_revision=curriculum.revision,
+            grading_snapshot=curriculum,
+        )
+        passage.add_verified(
+            VerifiedOrdering(
+                question_key='q3',
+                ordered_step_keys=('cook', 'prepare', 'serve'),
+                score=Decimal(0),
+                is_correct=False,
+                explanation='Revise a sequência.',
+            )
+        )
+        self.repositories.ordering_passages.find_active.return_value = passage
+        resumed = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        resumed_question = resumed.questions[-1]
+        assert isinstance(resumed_question, OrderingQuestionDetail)
+        assert resumed.ordering_passage_key == passage.passage_key
+        assert resumed.activity_revision == passage.activity_revision
+        assert resumed_question.verified is not None
+        assert resumed_question.verified.ordered_step_keys == (
+            'cook',
+            'prepare',
+            'serve',
+        )
+        assert resumed_question.verified.is_correct is False
+
+    def test_should_project_pair_matching_items_in_display_order_without_the_key(
+        self,
+    ) -> None:
+        original = react_snapshot()
+        question = CurriculumPairMatchingQuestionSnapshotFaker.fake(
+            'q3', concept_ids=('concept-1',)
+        )
+        mixed = replace(
+            original,
+            questions=(original.questions[0], original.questions[1], question),
+            parts=(
+                original.parts[0],
+                original.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(33)
+                ),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = mixed
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        projected = detail.questions[2]
+        assert isinstance(projected, PairMatchingQuestionDetail)
+        assert projected.kind == 'pair_matching'
+        assert projected.source_language == 'en'
+        assert projected.target_language == 'pt-BR'
+        assert tuple((item.key, item.text) for item in projected.words) == tuple(
+            (item.key, item.text) for item in question.words
+        )
+        assert tuple((item.key, item.text) for item in projected.translations) == tuple(
+            (item.key, item.text) for item in question.translations
+        )
+        # The display order never mirrors the answer key by position.
+        assert tuple(item.key for item in projected.translations) != tuple(
+            f'translation-{index}' for index in range(3)
+        )
+        serialized = repr(projected)
+        assert 'Todos os pares' not in serialized
+        assert 'correct_pairs' not in serialized
+        assert 'Associa vocabulario' not in serialized
+        self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
+        self.provider.get_choice_activity.assert_not_called()

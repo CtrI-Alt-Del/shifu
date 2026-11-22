@@ -106,10 +106,14 @@ export const MentorActionCard = ({
         tabIndex={-1}
       >
         {result ? (
-          <p className='break-words text-sm text-secondary-foreground'>{result}</p>
+          <span className='block break-words text-sm text-secondary-foreground'>
+            {result}
+          </span>
         ) : null}
         {statusText ? (
-          <p className='break-words text-[13px] text-muted-foreground'>{statusText}</p>
+          <span className='block break-words text-[13px] text-muted-foreground'>
+            {statusText}
+          </span>
         ) : null}
       </output>
       {actions.length > 0 ? (

@@ -34,6 +34,7 @@ pytest_plugins = (
     'tests.fixtures.inngest_fixture',
     'tests.fixtures.intelligence_fixture',
     'tests.fixtures.learning_fixture',
+    'tests.fixtures.push_service_stub_fixture',
     'tests.fixtures.redis_fixture',
 )
 

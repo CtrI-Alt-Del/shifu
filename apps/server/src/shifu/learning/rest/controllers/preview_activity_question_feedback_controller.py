@@ -6,16 +6,20 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
+    OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     FillBlanksAnswer,
     FillBlanksPlacement,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreliminaryQuestionResult,
     PreviewActivityQuestionFeedbackUseCase,
+    PreviewAnswer,
 )
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.rest.controllers.answer_request_shape import (
@@ -26,6 +30,7 @@ from shifu.shared.core.interfaces import (
     AccountActivityProvider,
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
     TranslationRubricAssessorProvider,
 )
 from shifu.shared.pipes import AuthenticationPipe
@@ -46,6 +51,12 @@ class PlacementRequest(BaseModel):
     word_key: str = Field(min_length=1, max_length=128)
 
 
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     kind: Literal[
@@ -55,14 +66,18 @@ class AnswerRequest(BaseModel):
         'react',
         'html_css_js',
         'react_fastify',
+        'ordering',
         'fill_blanks',
         'translation',
+        'pair_matching',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    ordered_step_keys: tuple[str, ...] | None = None
     placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
@@ -71,7 +86,9 @@ class AnswerRequest(BaseModel):
             self.text,
             self.files,
             self.selected_option_keys,
+            self.ordered_step_keys,
             self.placements,
+            self.pairs,
         )
         return self
 
@@ -79,6 +96,7 @@ class AnswerRequest(BaseModel):
 class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     activity_revision: str = Field(min_length=1, max_length=128)
+    passage_key: str | None = Field(default=None, min_length=1, max_length=36)
     answer: AnswerRequest
 
 
@@ -94,6 +112,11 @@ class ConceptResponse(BaseModel):
     concept_id: str
     level: int | str
     observation_id: str
+
+
+class PairResponse(BaseModel):
+    word_key: str
+    translation_key: str
 
 
 class SubmittedFileResponse(BaseModel):
@@ -112,6 +135,10 @@ class Response(BaseModel):
     correct_blank_count: int | None = None
     blank_count: int | None = None
     submitted_text: str | None = None
+    submitted_pairs: tuple[PairResponse, ...] | None = None
+    correct_pair_count: int | None = None
+    total_pair_count: int | None = None
+    outcome: Literal['full', 'partial', 'incorrect'] | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -146,6 +173,9 @@ class PreviewActivityQuestionFeedbackController:
                 CodeRubricAssessorProvider,
                 Depends(LearningPipe.get_code_rubric_assessor_provider),
             ],
+            identifiers: Annotated[
+                IdentifierProvider, Depends(LearningPipe.get_identifier_provider)
+            ],
             translation_assessor: Annotated[
                 TranslationRubricAssessorProvider,
                 Depends(LearningPipe.get_translation_rubric_assessor_provider),
@@ -159,13 +189,13 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind == 'fill_blanks':
-                answer: (
-                    ChoiceAnswerSubmission
-                    | CodeAnswer
-                    | FillBlanksAnswer
-                    | TranslationAnswer
-                ) = FillBlanksAnswer(
+            if payload.kind == 'ordering':
+                answer: PreviewAnswer = OrderingAnswerSubmission(
+                    question_key=payload.question_key,
+                    ordered_step_keys=payload.ordered_step_keys or (),
+                )
+            elif payload.kind == 'fill_blanks':
+                answer = FillBlanksAnswer(
                     question_key=payload.question_key,
                     placements=tuple(
                         FillBlanksPlacement(
@@ -193,6 +223,17 @@ class PreviewActivityQuestionFeedbackController:
                     question_key=payload.question_key,
                     text=payload.text or '',
                 )
+            elif payload.kind == 'pair_matching':
+                answer = PairMatchingAnswer(
+                    question_key=payload.question_key,
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=item.word_key,
+                            translation_key=item.translation_key,
+                        )
+                        for item in (payload.pairs or ())
+                    ),
+                )
             else:
                 answer = ChoiceAnswerSubmission(
                     question_key=payload.question_key,
@@ -202,9 +243,10 @@ class PreviewActivityQuestionFeedbackController:
                 database,
                 provider,
                 assessor,
-                translation_assessor,
-                account_activity_provider,
-                max_assessment_bytes,
+                max_code_assessment_input_bytes=max_assessment_bytes,
+                identifier_provider=identifiers,
+                translation_rubric_assessor_provider=translation_assessor,
+                account_activity_provider=account_activity_provider,
             ).execute(
                 user.account_id,
                 goal_id,
@@ -214,5 +256,6 @@ class PreviewActivityQuestionFeedbackController:
                 question_key,
                 request.activity_revision,
                 answer,
+                request.passage_key,
             )
             return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

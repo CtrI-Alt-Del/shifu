@@ -1,3 +1,6 @@
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from shifu.learning.core.domain.enums import ActivityDifficulty, SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
@@ -8,13 +11,16 @@ from shifu.learning.core.domain.structures import (
     FillBlanksSegmentDetail,
     FillBlanksWordDetail,
     CodeQuestionCriterionDetail,
+    OrderingQuestionDetail,
+    OrderingStepDetail,
+    VerifiedOrderingDetail,
+    VerifiedOrdering,
+    PairMatchingItemDetail,
+    PairMatchingQuestionDetail,
     TranslationQuestionCriterionDetail,
     TranslationQuestionDetail,
 )
 from shifu.learning.core.interfaces import LearningDatabase
-from shifu.learning.core.use_cases.mixed_question_snapshots import (
-    MixedQuestionSnapshots,
-)
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
@@ -28,11 +34,16 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
+from shifu.learning.core.use_cases.ordering_answer_validation import (
+    OrderingAnswerValidation,
+)
 
 
 class GetChoiceActivityUseCase:
@@ -68,16 +79,6 @@ class GetChoiceActivityUseCase:
             ):
                 raise NotFoundError
 
-            progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
-                experience.id, competency_id
-            )
-            if (
-                progress is None
-                or progress.skill_experience_id != experience.id
-                or progress.competency_id != competency_id
-            ):
-                raise NotFoundError
-
             diagnostic = experience.status is SkillExperienceStatus.DIAGNOSING
             if diagnostic and (
                 diagnostic_run_id is None
@@ -85,24 +86,44 @@ class GetChoiceActivityUseCase:
             ):
                 raise ConflictError
 
-            if not diagnostic and not progress.content_released:
-                raise NotFoundError
+            if not diagnostic:
+                progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
+                    experience.id, competency_id
+                )
+                if (
+                    progress is None
+                    or progress.skill_experience_id != experience.id
+                    or progress.competency_id != competency_id
+                    or not progress.content_released
+                ):
+                    raise NotFoundError
+
+            active_passage = (
+                repositories.ordering_passages.find_active(experience.id, activity_id)
+                if not diagnostic
+                else None
+            )
 
         if diagnostic:
             snapshot = self._curriculum_content_provider.get_diagnostic_activity(
                 activity_id
             )
         else:
-            mixed_getter = getattr(
-                self._curriculum_content_provider, 'get_learning_activity', None
-            )
-            snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-            if not isinstance(
-                snapshot, CurriculumLearningActivitySnapshot
-            ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
-                snapshot = self._curriculum_content_provider.get_choice_activity(
-                    activity_id
+            if active_passage is not None:
+                snapshot = active_passage.grading_snapshot
+            else:
+                mixed_getter = getattr(
+                    self._curriculum_content_provider, 'get_learning_activity', None
                 )
+                snapshot = (
+                    mixed_getter(activity_id) if mixed_getter is not None else None
+                )
+                if not isinstance(
+                    snapshot, CurriculumLearningActivitySnapshot
+                ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
+                    snapshot = self._curriculum_content_provider.get_choice_activity(
+                        activity_id
+                    )
 
         if (
             snapshot is None
@@ -162,6 +183,18 @@ class GetChoiceActivityUseCase:
                     unresolved_attempt_id = None
             else:
                 unresolved_attempt_id = None
+            active_passage = (
+                repositories.ordering_passages.find_active(experience.id, activity_id)
+                if not diagnostic
+                else None
+            )
+            verified_by_question = (
+                {item.question_key: item for item in active_passage.verified_orderings}
+                if active_passage is not None
+                else {}
+            )
+            if active_passage is not None:
+                snapshot = active_passage.grading_snapshot
             attempts = (
                 [
                     item
@@ -181,7 +214,15 @@ class GetChoiceActivityUseCase:
                 title=snapshot.title,
                 difficulty=ActivityDifficulty(snapshot.difficulty),
                 questions=tuple(
-                    self.fill_blanks_question_detail(question)
+                    self._ordering_question_detail(
+                        question,
+                        active_passage.activity_revision
+                        if active_passage is not None
+                        else snapshot.revision or snapshot.id,
+                        verified_by_question.get(question.key),
+                    )
+                    if isinstance(question, CurriculumOrderingQuestionSnapshot)
+                    else self.fill_blanks_question_detail(question)
                     if isinstance(question, CurriculumFillBlanksQuestionSnapshot)
                     else CodeQuestionDetail(
                         key=question.key,
@@ -289,6 +330,21 @@ class GetChoiceActivityUseCase:
                         ),
                     )
                     if isinstance(question, CurriculumTranslationQuestionSnapshot)
+                    else PairMatchingQuestionDetail(
+                        key=question.key,
+                        prompt=question.prompt,
+                        source_language=question.source_language,
+                        target_language=question.target_language,
+                        words=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.words
+                        ),
+                        translations=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.translations
+                        ),
+                    )
+                    if isinstance(question, CurriculumPairMatchingQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -305,9 +361,45 @@ class GetChoiceActivityUseCase:
                 unresolved_attempt_id=unresolved_attempt_id,
                 is_diagnostic=diagnostic,
                 activity_revision=(
-                    snapshot.diagnostic_revision if diagnostic else snapshot.revision
+                    snapshot.diagnostic_revision
+                    if diagnostic
+                    else active_passage.activity_revision
+                    if active_passage is not None
+                    else snapshot.revision
+                ),
+                ordering_passage_key=(
+                    active_passage.passage_key if active_passage is not None else None
                 ),
             )
+
+    @staticmethod
+    def _ordering_question_detail(
+        question: CurriculumOrderingQuestionSnapshot,
+        revision: str,
+        verified: VerifiedOrdering | None,
+    ) -> OrderingQuestionDetail:
+        return OrderingQuestionDetail(
+            key=question.key,
+            kind='ordering',
+            prompt=question.prompt,
+            steps=tuple(
+                OrderingStepDetail(key=step.key, text=step.text)
+                for step in question.steps
+            ),
+            initial_ordered_step_keys=OrderingAnswerValidation.initial_order(
+                question, revision
+            ),
+            verified=(
+                VerifiedOrderingDetail(
+                    ordered_step_keys=verified.ordered_step_keys,
+                    score=verified.score,
+                    is_correct=verified.is_correct,
+                    explanation=verified.explanation,
+                )
+                if verified is not None
+                else None
+            ),
+        )
 
     @staticmethod
     def fill_blanks_question_detail(

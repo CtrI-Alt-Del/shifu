@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { ActivityDifficulty } from '@/core/learning/competency-detail'
 import type { TranslationQuestion } from '@/core/learning/choice-activity'
+import { languageLabel } from '@/core/learning/language-label'
 import { useSpeechRecognition } from '@/ui/shared/hooks/use-speech-recognition'
 
 export type TranslationQuestionProps = {
@@ -141,6 +142,8 @@ export function useTranslationQuestion(props: TranslationQuestionProps) {
     error,
     elapsedSeconds,
     languageAvailability,
+    sourceLanguageLabel: languageLabel(question.sourceLanguage),
+    targetLanguageLabel: languageLabel(question.targetLanguage),
     pendingTranscript,
     handleChangeText,
     handleStartDictation,

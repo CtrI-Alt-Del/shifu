@@ -32,7 +32,9 @@ class TestRecognizePracticeDayUseCase:
         self.profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, created_at=datetime(2026, 1, 1, tzinfo=UTC)
         )
-        self.repositories.profiles.find_by_account_id.return_value = self.profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = (
+            self.profile
+        )
         self.repositories.practice_days.try_add.return_value = True
         self.repositories.practice_days.find_many_dates_by_account_id.return_value = ()
         self.subject = RecognizePracticeDayUseCase(self.database, self.identifiers)
@@ -70,6 +72,12 @@ class TestRecognizePracticeDayUseCase:
         assert stored.practice_date == date(2026, 9, 10)
         assert stored.account_id == ACCOUNT_ID
 
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
+
     def test_should_recognize_practice_even_when_no_xp_was_granted(self) -> None:
         """A score of 0 still counts: practice is independent of reward."""
         practiced_at = datetime(2026, 9, 10, 15, 0, tzinfo=UTC)
@@ -83,7 +91,7 @@ class TestRecognizePracticeDayUseCase:
         assert self._stored_streak().current == 1
 
     def test_should_write_nothing_when_the_account_has_no_profile(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self._recognize(
             practiced_at=datetime(2026, 9, 10, 15, 0, tzinfo=UTC),
@@ -326,7 +334,7 @@ class TestRecognizePracticeDayUseCase:
 
         self._recognize(practiced_at=now, time_zone='UTC', now=now)
 
-        self.repositories.profiles.find_by_account_id.assert_called_once_with(
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_once_with(
             ACCOUNT_ID
         )
         self.repositories.practice_days.find_many_dates_by_account_id.assert_called_once_with(

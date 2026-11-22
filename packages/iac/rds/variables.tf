@@ -1,7 +1,12 @@
 variable "aws_region" {
-  description = "Região AWS do laboratório. Ajuste conforme a conta e a região escolhida pelo grupo."
+  description = "Região AWS do laboratório RDS do Shifu."
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
+
+  validation {
+    condition     = var.aws_region == "us-east-2"
+    error_message = "O laboratório RDS do Shifu usa a região us-east-2."
+  }
 }
 
 variable "project_name" {
@@ -31,18 +36,35 @@ variable "allowed_cidr" {
 }
 
 variable "engine_version" {
-  description = "Versão do PostgreSQL. Use '16' para a versão menor padrão do RDS ou fixe uma versão listada pela AWS CLI, como '16.x'."
+  description = "Versão principal do PostgreSQL usada pelo staging do Shifu."
   type        = string
-  default     = "16"
+  default     = "17"
 
   validation {
-    condition     = can(regex("^16(\\.[0-9]+)?$", var.engine_version))
-    error_message = "O laboratório usa PostgreSQL 16: informe '16' ou '16.<menor>'."
+    condition     = can(regex("^17(\\.[0-9]+)?$", var.engine_version))
+    error_message = "O laboratório usa PostgreSQL 17: informe '17' ou '17.<menor>'."
   }
 }
 
 variable "instance_class" {
-  description = "Classe da instância. O laboratório usa db.t3.micro; confirme a elegibilidade e o custo na conta do grupo."
+  description = "Classe da instância usada pelo staging do Shifu."
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t4g.micro"
+
+  validation {
+    condition     = var.instance_class == "db.t4g.micro"
+    error_message = "O laboratório usa a classe db.t4g.micro, igual ao staging."
+  }
+}
+
+variable "db_master_password" {
+  description = "Senha efêmera do usuário mestre. Forneça por TF_VAR_db_master_password no processo local."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+
+  validation {
+    condition     = length(var.db_master_password) >= 16 && length(var.db_master_password) <= 41
+    error_message = "A senha temporária deve ter entre 16 e 41 caracteres."
+  }
 }

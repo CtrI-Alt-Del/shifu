@@ -38,6 +38,15 @@ from .choice_evaluation_result import (
 )
 from .choice_option_detail import ChoiceOptionDetail as ChoiceOptionDetail
 from .choice_question_detail import ChoiceQuestionDetail as ChoiceQuestionDetail
+from .ordering_question_detail import OrderingQuestionDetail as OrderingQuestionDetail
+from .ordering_question_detail import OrderingStepDetail as OrderingStepDetail
+from .ordering_answer import OrderingAnswer as OrderingAnswer
+from .ordering_answer_submission import (
+    OrderingAnswerSubmission as OrderingAnswerSubmission,
+)
+from .ordering_question_detail import VerifiedOrderingDetail as VerifiedOrderingDetail
+from .ordering_result_detail import OrderingResultDetail as OrderingResultDetail
+from .verified_ordering import VerifiedOrdering as VerifiedOrdering
 from .fill_blanks_answer import FillBlanksAnswer as FillBlanksAnswer
 from .fill_blanks_evaluation_result import (
     FillBlanksEvaluationResult as FillBlanksEvaluationResult,
@@ -164,3 +173,17 @@ from .translation_result_detail import (
 from .translation_rubric_result import (
     TranslationRubricResult as TranslationRubricResult,
 )
+from .pair_matching_answer import PairMatchingAnswer as PairMatchingAnswer
+from .pair_matching_evaluation_result import (
+    PairMatchingEvaluationResult as PairMatchingEvaluationResult,
+)
+from .pair_matching_item_detail import (
+    PairMatchingItemDetail as PairMatchingItemDetail,
+)
+from .pair_matching_question_detail import (
+    PairMatchingQuestionDetail as PairMatchingQuestionDetail,
+)
+from .pair_matching_result_detail import (
+    PairMatchingResultDetail as PairMatchingResultDetail,
+)
+from .pair_matching_selection import PairMatchingSelection as PairMatchingSelection

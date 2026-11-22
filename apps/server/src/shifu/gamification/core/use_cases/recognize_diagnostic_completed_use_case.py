@@ -40,7 +40,7 @@ class RecognizeDiagnosticCompletedUseCase:
         now: datetime,
     ) -> None:
         with self._database.transaction() as repositories:
-            profile = repositories.profiles.find_by_account_id(account_id)
+            profile = repositories.profiles.find_by_account_id_for_update(account_id)
             if profile is None:
                 return
             skill = self._curriculum_content_provider.get_skill_content(skill_id)

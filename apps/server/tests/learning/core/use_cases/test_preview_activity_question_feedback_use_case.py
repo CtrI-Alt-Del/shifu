@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from contextlib import AbstractContextManager, contextmanager, nullcontext
-from decimal import Decimal
+from dataclasses import fields, replace
+from decimal import ROUND_HALF_UP, Decimal
+from itertools import permutations
+from typing import Any
 from unittest.mock import create_autospec
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -20,14 +22,18 @@ from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
-from shifu.learning.core.domain.entities import CompetencyProgress
+from shifu.learning.core.domain.entities import CompetencyProgress, OrderingPassage
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     FillBlanksAnswer,
     FillBlanksPlacement,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
+    VerifiedOrdering,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -44,10 +50,11 @@ from shifu.shared.core.domain.errors import (
     ServiceUnavailableError,
     ValidationError,
 )
-from shifu.shared.core.interfaces import AccountActivityProvider
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
     TranslationRubricAssessorProvider,
 )
 from shifu.shared.core.domain.structures import (
@@ -74,14 +81,15 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactPermittedCommandSnapshot,
     CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricCommentSnapshot,
     CurriculumTranslationRubricCriterionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
-
-
 if TYPE_CHECKING:
     from collections.abc import Generator
     from shifu.shared.core.domain.structures.code_rubric_decisions import (
@@ -94,6 +102,21 @@ def _admit_external_effect(
     _account_id: str, _effect_id: UUID, _operation: str
 ) -> Generator[bool]:
     yield True
+from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
+from shifu.shared.core.domain.structures import (
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
+)
+
+
+def _grade(correct: int, total: int) -> Decimal:
+    """100 x correct / total, rounded half up to two decimals."""
+    return (Decimal(100) * correct / Decimal(total)).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP
+    )
 
 
 def mixed_snapshot(*, react: bool | str = False) -> CurriculumLearningActivitySnapshot:
@@ -287,6 +310,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -1333,3 +1357,601 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         assert result.status == 'inconclusive'
         assert result.score is None
         assert result.submitted_text == 'Good morning'
+
+    def _use_pair_snapshot(self, size: int = 3) -> None:
+        base = mixed_snapshot()
+        self.provider.get_learning_activity.return_value = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('qp', size=size),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='qp', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+
+    @staticmethod
+    def _pair_answer(*translation_indexes: int) -> PairMatchingAnswer:
+        return PairMatchingAnswer(
+            question_key='qp',
+            pairs=tuple(
+                PairMatchingSelection(
+                    word_key=f'word-{word_index}',
+                    translation_key=f'translation-{translation_index}',
+                )
+                for word_index, translation_index in enumerate(translation_indexes)
+            ),
+        )
+
+    def _execute_pair(
+        self, answer: PairMatchingAnswer, revision: str = 'revision-1'
+    ) -> PreliminaryQuestionResult:
+        return self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qp',
+            revision,
+            answer,
+        )
+
+    @pytest.mark.parametrize('size', (2, 3))
+    def test_should_grade_every_permutation_of_a_small_pair_question(
+        self, size: int
+    ) -> None:
+        self._use_pair_snapshot(size)
+
+        for order in permutations(range(size)):
+            correct = sum(index == value for index, value in enumerate(order))
+            expected_outcome = (
+                'full'
+                if correct == size
+                else 'incorrect'
+                if correct == 0
+                else 'partial'
+            )
+            expected_explanation = {
+                'full': 'Todos os pares estao corretos.',
+                'partial': 'Alguns pares estao corretos.',
+                'incorrect': 'Nenhum par esta correto.',
+            }[expected_outcome]
+
+            result = self._execute_pair(self._pair_answer(*order))
+
+            assert result.status == 'conclusive'
+            assert result.score == _grade(correct, size)
+            assert result.correct_pair_count == correct
+            assert result.total_pair_count == size
+            assert result.outcome == expected_outcome
+            assert result.explanation == expected_explanation
+            assert result.is_correct is (expected_outcome == 'full')
+            assert result.submitted_pairs == self._pair_answer(*order).pairs
+
+    @pytest.mark.parametrize(
+        ('order', 'correct'),
+        (
+            ((0, 1, 2, 3, 4, 5, 6, 7), 8),
+            ((1, 2, 3, 4, 5, 6, 7, 0), 0),
+            ((1, 0, 2, 3, 4, 5, 6, 7), 6),
+            ((0, 1, 2, 3, 4, 5, 7, 6), 6),
+            ((7, 1, 2, 3, 4, 5, 6, 0), 6),
+        ),
+    )
+    def test_should_grade_the_largest_pair_question(
+        self, order: tuple[int, ...], correct: int
+    ) -> None:
+        self._use_pair_snapshot(8)
+
+        result = self._execute_pair(self._pair_answer(*order))
+
+        assert result.correct_pair_count == correct
+        assert result.total_pair_count == 8
+        assert result.score == _grade(correct, 8)
+
+    def test_should_not_create_attempts_or_expose_the_answer_key(self) -> None:
+        self._use_pair_snapshot()
+
+        result = self._execute_pair(self._pair_answer(1, 0, 2))
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        self.assessor.assess.assert_not_called()
+        self.translation_assessor.assess.assert_not_called()
+        assert not hasattr(result, 'correct_pairs')
+        assert result.submitted_pairs == self._pair_answer(1, 0, 2).pairs
+        assert result.criteria == ()
+        assert result.concept_observations == ()
+
+    @pytest.mark.parametrize(
+        'order', ((1, 2, 0), (2, 0, 1), (1, 0, 2), (0, 2, 1), (2, 1, 0))
+    )
+    def test_should_reveal_only_counts_for_wrong_and_partial_answers(
+        self, order: tuple[int, ...]
+    ) -> None:
+        self._use_pair_snapshot()
+
+        result = self._execute_pair(self._pair_answer(*order))
+
+        assert result.outcome in {'partial', 'incorrect'}
+        assert {field.name for field in fields(result)} == {
+            'status',
+            'score',
+            'explanation',
+            'is_correct',
+            'criteria',
+            'concept_observations',
+            'submitted_files',
+            'submitted_text',
+            'correct_blank_count',
+            'blank_count',
+            'submitted_pairs',
+            'correct_pair_count',
+            'total_pair_count',
+            'outcome',
+        }
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-9', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-9'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='other',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            ChoiceAnswerSubmission(question_key='qp', selected_option_keys=('a',)),
+        ),
+        ids=(
+            'missing-pair',
+            'unknown-word',
+            'unknown-translation',
+            'wrong-question-key',
+            'wrong-answer-type',
+        ),
+    )
+    def test_should_reject_invalid_pair_answers_without_writes(
+        self, answer: PairMatchingAnswer | ChoiceAnswerSubmission
+    ) -> None:
+        self._use_pair_snapshot()
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                'qp',
+                'revision-1',
+                answer,  # type: ignore[arg-type]
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_repeated_words_and_translations_in_the_answer(
+        self,
+    ) -> None:
+        with pytest.raises(ValidationError):
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-1'
+                    ),
+                ),
+            )
+        with pytest.raises(ValidationError):
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-0'
+                    ),
+                ),
+            )
+
+    def test_should_reject_a_stale_activity_revision_for_pair_feedback(
+        self,
+    ) -> None:
+        self._use_pair_snapshot()
+
+        with pytest.raises(ConflictError):
+            self._execute_pair(self._pair_answer(0, 1, 2), revision='old-revision')
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'case',
+        (
+            'too-few-pairs',
+            'too-many-pairs',
+            'repeated-word-key',
+            'repeated-translation-text',
+            'key-skips-a-word',
+            'key-uses-unknown-translation',
+            'key-order-aligned-with-display',
+        ),
+    )
+    def test_should_reject_an_invalid_pair_matching_snapshot(self, case: str) -> None:
+        question = CurriculumPairMatchingQuestionSnapshotFaker.fake('qp', size=3)
+        words, translations, pairs = (
+            question.words,
+            question.translations,
+            question.correct_pairs,
+        )
+        changes: dict[str, dict[str, Any]] = {
+            'too-few-pairs': {
+                'words': words[:1],
+                'translations': translations[:1],
+                'correct_pairs': pairs[:1],
+            },
+            'too-many-pairs': {
+                'words': tuple(
+                    CurriculumPairMatchingItemSnapshot(key=f'w{i}', text=f'w{i}')
+                    for i in range(9)
+                ),
+                'translations': tuple(
+                    CurriculumPairMatchingItemSnapshot(key=f't{i}', text=f't{i}')
+                    for i in range(9)
+                ),
+                'correct_pairs': tuple(
+                    CurriculumPairMatchingPairSnapshot(
+                        word_key=f'w{i}', translation_key=f't{(i + 1) % 9}'
+                    )
+                    for i in range(9)
+                ),
+            },
+            'repeated-word-key': {
+                'words': (words[0], replace(words[1], key=words[0].key), words[2])
+            },
+            'repeated-translation-text': {
+                'translations': (
+                    translations[0],
+                    replace(translations[1], text=translations[0].text),
+                    translations[2],
+                )
+            },
+            'key-skips-a-word': {
+                'correct_pairs': (pairs[0], pairs[0], pairs[2]),
+            },
+            'key-uses-unknown-translation': {
+                'correct_pairs': (
+                    pairs[0],
+                    pairs[1],
+                    CurriculumPairMatchingPairSnapshot(
+                        word_key=pairs[2].word_key, translation_key='missing'
+                    ),
+                ),
+            },
+            'key-order-aligned-with-display': {
+                'translations': tuple(sorted(translations, key=lambda item: item.key)),
+            },
+        }
+
+        with pytest.raises(ValidationError):
+            replace(question, **changes[case])
+
+    @pytest.mark.parametrize('catalog_present', (True, False))
+    def test_should_preview_translation_from_pinned_ordering_passage_after_catalog_change(
+        self, catalog_present: bool
+    ) -> None:
+        self._use_translation_snapshot()
+        snapshot = self.provider.get_learning_activity.return_value
+        assert isinstance(snapshot, CurriculumLearningActivitySnapshot)
+        ordering = CurriculumOrderingQuestionSnapshot(
+            key='q2',
+            kind='ordering',
+            prompt='Order the steps',
+            steps=tuple(
+                CurriculumOrderingStepSnapshot(key=key, text=key)
+                for key in ('prepare', 'cook', 'serve')
+            ),
+            accepted_orders=(('prepare', 'cook', 'serve'),),
+            correct_explanation='Correct',
+            incorrect_explanation='Wrong',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id='concept-order',
+                    criterion='Orders steps',
+                    examples='Prepare first',
+                    limits='No practical execution',
+                    correct_score=Decimal(100),
+                    incorrect_score=Decimal(0),
+                ),
+            ),
+        )
+        pinned = replace(
+            snapshot, questions=(snapshot.questions[0], ordering, snapshot.questions[2])
+        )
+        passage = OrderingPassage.create(
+            id='passage-1',
+            skill_experience_id='experience-1',
+            activity_id='activity-1',
+            passage_key='passage-key',
+            activity_revision='revision-1',
+            grading_snapshot=pinned,
+        )
+        passage.add_verified(
+            VerifiedOrdering(
+                question_key='q2',
+                ordered_step_keys=('prepare', 'cook', 'serve'),
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            )
+        )
+        self.repositories.ordering_passages.find_active.return_value = passage
+        self.provider.get_learning_activity.return_value = (
+            replace(snapshot, revision='revision-2') if catalog_present else None
+        )
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+                CodeCriterionDecision(key='grammatical_adequacy', level=100),
+            ),
+            concept_levels=(),
+        )
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            TranslationAnswer(question_key='qt', text='Good morning'),
+        )
+
+        assert result.status == 'conclusive'
+        assert result.score == Decimal(100)
+        assert result.submitted_text == 'Good morning'
+        self.provider.get_learning_activity.assert_not_called()
+        request = self.translation_assessor.assess.call_args.args[0]
+        assert request.reference_translations == ('Good morning',)
+        assert request.submitted_text == 'Good morning'
+        assert passage.status == 'active'
+        assert len(passage.verified_orderings) == 1
+        self.repositories.activity_attempts.add.assert_not_called()
+
+
+class TestPreviewOrderingQuestion:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.database = create_autospec(LearningDatabase, instance=True)
+        self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        self.account_activity_provider = create_autospec(
+            AccountActivityProvider, instance=True
+        )
+        self.account_activity_provider.activity.side_effect = (
+            lambda _account_id: nullcontext()
+        )
+        base = mixed_snapshot()
+        self.snapshot = replace(
+            base,
+            questions=(
+                *base.questions[:2],
+                CurriculumOrderingQuestionSnapshot(
+                    key='q3',
+                    kind='ordering',
+                    prompt='Organize as etapas.',
+                    steps=tuple(
+                        CurriculumOrderingStepSnapshot(key=key, text=text)
+                        for key, text in (
+                            ('prepare', 'Preparar'),
+                            ('cook', 'Cozinhar'),
+                            ('serve', 'Servir'),
+                        )
+                    ),
+                    accepted_orders=(
+                        ('prepare', 'cook', 'serve'),
+                        ('prepare', 'serve', 'cook'),
+                    ),
+                    correct_explanation='Sequência aceita.',
+                    incorrect_explanation='Revise a sequência.',
+                    concept_criteria=(
+                        CurriculumChoiceConceptCriterionSnapshot(
+                            concept_id='concept-order',
+                            criterion='Ordem do processo',
+                            examples='Preparar antes de cozinhar.',
+                            limits='A apresentação pode variar.',
+                            correct_score=Decimal(100),
+                            incorrect_score=Decimal(0),
+                        ),
+                    ),
+                ),
+            ),
+            parts=tuple(
+                CurriculumChoicePartSnapshot(
+                    question_key=f'q{index}', weight_percentage=Decimal(weight)
+                )
+                for index, weight in ((1, 30), (2, 30), (3, 40))
+            ),
+        )
+        self.provider.get_learning_activity.return_value = self.snapshot
+        self.assessor = create_autospec(CodeRubricAssessorProvider, instance=True)
+        self.identifiers = create_autospec(IdentifierProvider, instance=True)
+        self.identifiers.generate.return_value = '01JSHIFU129ORDERINGPASS'
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id='goal-1', account_id='account-1'
+        )
+        experience = SkillExperienceFaker.fake(
+            id='experience-1',
+            goal_id='goal-1',
+            skill_id='skill-1',
+            status=SkillExperienceStatus.LEARNING,
+        )
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = experience
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            experience
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = CompetencyProgress(
+            id='progress-1',
+            skill_experience_id='experience-1',
+            competency_id='competency-1',
+            content_released=True,
+            created_at=experience.created_at,
+            updated_at=experience.updated_at,
+        )
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.return_value = []
+        self.passages: list[OrderingPassage] = []
+
+        def find_active(
+            _skill_experience_id: str,
+            _activity_id: str,
+        ) -> OrderingPassage | None:
+            return self.passages[0] if self.passages else None
+
+        def find_by_key(
+            _skill_experience_id: str,
+            _activity_id: str,
+            _passage_key: str,
+        ) -> OrderingPassage | None:
+            return self.passages[0] if self.passages else None
+
+        def add_passage(passage: OrderingPassage) -> None:
+            self.passages.append(passage)
+
+        def update_passage(_passage: OrderingPassage) -> None:
+            return None
+
+        self.repositories.ordering_passages.find_active.side_effect = find_active
+        self.repositories.ordering_passages.find_by_key.side_effect = find_by_key
+        self.repositories.ordering_passages.add.side_effect = add_passage
+        self.repositories.ordering_passages.update.side_effect = update_passage
+        self.subject = PreviewActivityQuestionFeedbackUseCase(
+            self.database,
+            self.provider,
+            self.assessor,
+            translation_rubric_assessor_provider=create_autospec(
+                TranslationRubricAssessorProvider, instance=True
+            ),
+            account_activity_provider=self.account_activity_provider,
+            identifier_provider=self.identifiers,
+        )
+
+    def _verify(self, ordered: tuple[str, ...]) -> PreliminaryQuestionResult:
+        from shifu.learning.core.domain.structures import OrderingAnswerSubmission
+
+        return self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'q3',
+            'revision-1',
+            OrderingAnswerSubmission(question_key='q3', ordered_step_keys=ordered),
+            'passage-uuid',
+        )
+
+    def test_should_persist_verified_order_and_replay_immutable_result(self) -> None:
+        first = self._verify(('prepare', 'cook', 'serve'))
+        replay = self._verify(('prepare', 'cook', 'serve'))
+
+        assert first == replay
+        assert first.score == Decimal(100)
+        assert first.is_correct is True
+        assert first.explanation == 'Sequência aceita.'
+        assert len(self.passages) == 1
+        assert len(self.passages[0].verified_orderings) == 1
+        self.repositories.ordering_passages.update.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_different_order_after_first_verification(self) -> None:
+        self._verify(('prepare', 'cook', 'serve'))
+
+        with pytest.raises(ConflictError):
+            self._verify(('cook', 'prepare', 'serve'))
+
+        assert len(self.passages[0].verified_orderings) == 1
+        self.repositories.ordering_passages.update.assert_not_called()
+
+    def test_should_reject_route_and_ordering_question_key_mismatch(self) -> None:
+        from shifu.learning.core.domain.structures import OrderingAnswerSubmission
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                'q1',
+                'revision-1',
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+                'passage-uuid',
+            )
+
+        assert not self.passages
+        self.repositories.ordering_passages.add.assert_not_called()

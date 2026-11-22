@@ -12,6 +12,7 @@ from shifu.learning.core.domain.structures import (
     CodeRubricResult,
     FillBlanksEvaluationResult,
     EvaluationPartResult,
+    PairMatchingEvaluationResult,
     QualitativeEvaluationResult,
     TranslationRubricResult,
 )
@@ -53,6 +54,8 @@ class ActivityEvaluationMapper:
                 part_type = FillBlanksEvaluationResult
             elif 'is_correct' in serialized_part:
                 part_type = ChoiceEvaluationResult
+            elif 'correct_pair_count' in serialized_part:
+                part_type = PairMatchingEvaluationResult
             elif 'cases' in serialized_part:
                 part_type = CodeEvaluationResult
             elif (

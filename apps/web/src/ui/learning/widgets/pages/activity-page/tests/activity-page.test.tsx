@@ -16,6 +16,7 @@ import { CodeQuestion } from '../code-question'
 import { HtmlCssJsQuestion } from '../html-css-js-question'
 import type { ActivityPageController } from '../use-activity-page'
 import { useActivityPage } from '../use-activity-page'
+import { PairMatchingQuestion } from '../pair-matching-question'
 import { createReactDraftStoreMock } from './react-draft-store-mock'
 import type { CodeEditorProps } from '@/ui/learning/widgets/components/code-editor'
 
@@ -23,6 +24,9 @@ vi.mock('../use-activity-page', () => ({
   useActivityPage: vi.fn(),
 }))
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
+vi.mock('../pair-matching-question', () => ({
+  PairMatchingQuestion: vi.fn(() => <div data-testid='pair-matching-question' />),
+}))
 vi.mock('../html-css-js-question', () => ({
   HtmlCssJsQuestion: vi.fn(() => <div data-testid='html-css-js-question' />),
 }))
@@ -85,6 +89,19 @@ const HTML_CSS_JS_QUESTION: HtmlQuestion = {
   criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
 }
 
+const ORDERING_QUESTION = {
+  key: 'ordering-question-1',
+  kind: 'ordering',
+  prompt: 'Organize as etapas.',
+  steps: [
+    { key: 'wash', text: 'Lavar' },
+    { key: 'cut', text: 'Cortar' },
+    { key: 'cook', text: 'Cozinhar' },
+  ],
+  initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+  verified: null,
+} as const
+
 function createControllerMock(
   overrides: Partial<ActivityPageController> = {},
 ): ActivityPageController {
@@ -110,6 +127,8 @@ function createControllerMock(
     fillBlanksPlacements: [],
     isFillBlanksLocked: false,
     handleTranslationAnswerChange: vi.fn(),
+    handlePairMatchingAnswerChange: vi.fn(),
+    pairMatchingPairs: [],
     translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
     currentQuestionIndex: 0,
@@ -118,6 +137,9 @@ function createControllerMock(
     handleRetryLoad: vi.fn(),
     handleReturnToSkill: vi.fn(),
     handleToggleOption: vi.fn(),
+    currentOrderingOrder: [],
+    handleOrderingOrderChange: vi.fn(),
+    isOrderingVerified: false,
     hasSubmissionError: false,
     hasUnsentAnswers: true,
     isSubmissionLocked: false,
@@ -164,6 +186,126 @@ describe('ActivityPage', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     clearDiagnosticRun('goal-test', 'skill-test')
+  })
+
+  it('renders the ordering controls and the verify action', () => {
+    const handleOrderingOrderChangeMock = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'revision-1',
+          questions: [ORDERING_QUESTION],
+        },
+        currentQuestion: ORDERING_QUESTION,
+        currentOrderingOrder: ['wash', 'cut', 'cook'],
+        handleOrderingOrderChange: handleOrderingOrderChangeMock,
+        feedback: null,
+        frozenAnswer: null,
+        isOrderingVerified: false,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mover para baixo: Lavar' }))
+    expect(handleOrderingOrderChangeMock).toHaveBeenCalledWith(['cut', 'wash', 'cook'])
+    expect(screen.getByRole('button', { name: 'Verificar' })).toBeEnabled()
+  })
+
+  it.each([
+    {
+      isCorrect: true,
+      score: 100,
+      label: 'Ordem correta',
+      isLastQuestion: true,
+      action: 'Enviar atividade',
+    },
+    {
+      isCorrect: false,
+      score: 0,
+      label: 'Ordem incorreta',
+      isLastQuestion: false,
+      action: 'Próxima questão',
+    },
+  ])(
+    'shows the provisional ordering outcome and delegates $action without reopening the sequence',
+    ({ isCorrect, score, label, isLastQuestion, action }) => {
+      const handleContinue = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: { ...ACTIVITY, questions: [ORDERING_QUESTION] },
+          isMixedActivity: true,
+          currentQuestion: ORDERING_QUESTION,
+          currentOrderingOrder: ['wash', 'cut', 'cook'],
+          isOrderingVerified: true,
+          feedback: {
+            status: 'conclusive',
+            score,
+            isCorrect,
+            explanation: 'Comentário sobre a sequência enviada.',
+          },
+          frozenAnswer: {
+            kind: 'ordering',
+            questionKey: ORDERING_QUESTION.key,
+            orderedStepKeys: ['wash', 'cut', 'cook'],
+          },
+          isLastQuestion,
+          handleContinue,
+        }),
+      )
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+      expect(screen.getByText(`${score}%`)).toBeVisible()
+      expect(
+        screen.getByText(/a nota final da Atividade será calculada após o envio/),
+      ).toBeVisible()
+      expect(screen.getByText('Comentário sobre a sequência enviada.')).toBeVisible()
+      expect(screen.queryByRole('button', { name: /Mover para/ })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      expect(handleContinue).toHaveBeenCalledOnce()
+    },
+  )
+
+  it.each([
+    { feedback: null, label: 'Tentar avaliação novamente' },
+    { feedback: { status: 'inconclusive' as const, score: null }, label: 'Reverificar' },
+  ])('keeps an unconfirmed order frozen and offers $label', ({ feedback, label }) => {
+    const handleContinue = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, questions: [ORDERING_QUESTION] },
+        isMixedActivity: true,
+        currentQuestion: ORDERING_QUESTION,
+        currentOrderingOrder: ['cut', 'wash', 'cook'],
+        frozenAnswer: {
+          kind: 'ordering',
+          questionKey: ORDERING_QUESTION.key,
+          orderedStepKeys: ['cut', 'wash', 'cook'],
+        },
+        feedback,
+        handleContinue,
+        hasFeedbackError: feedback === null,
+      }),
+    )
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Mover para cima: Cortar' })).toBeDisabled()
+    if (feedback === null) {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Não foi possível avaliar. Tente novamente.',
+      )
+    } else {
+      expect(
+        screen.getByText(
+          'Não foi possível concluir esta avaliação. Reavalie a mesma resposta.',
+        ),
+      ).toBeVisible()
+      expect(screen.queryByText('Pontuação:')).not.toBeInTheDocument()
+    }
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    expect(handleContinue).toHaveBeenCalledOnce()
   })
 
   it('announces loading without exposing stale question controls', () => {
@@ -896,5 +1038,80 @@ describe('ActivityPage', () => {
         expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeVisible()
       },
     )
+  })
+
+  describe('pair matching question', () => {
+    const PAIR_QUESTION = {
+      key: 'pairs-1',
+      kind: 'pair_matching',
+      prompt: 'Associe as palavras.',
+      sourceLanguage: 'en',
+      targetLanguage: 'pt-BR',
+      words: [{ key: 'w0', text: 'dog' }],
+      translations: [{ key: 't0', text: 'cachorro' }],
+    } satisfies NonNullable<ActivityPageController['currentQuestion']>
+    const PAIRS = [{ wordKey: 'w0', translationKey: 't0' }]
+
+    it('renders the pair widget with the formed pairs and the change handler', () => {
+      const handlePairMatchingAnswerChange = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          handlePairMatchingAnswerChange,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByTestId('pair-matching-question')).toBeVisible()
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: false,
+        onChange: handlePairMatchingAnswerChange,
+        pairs: PAIRS,
+        question: PAIR_QUESTION,
+      })
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeEnabled()
+    })
+
+    it('locks the widget and offers the next step after verification', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: { status: 'conclusive', score: 100, outcome: 'full' },
+          frozenAnswer: { kind: 'pair_matching', questionKey: 'pairs-1', pairs: PAIRS },
+          isLastQuestion: false,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: true,
+      })
+      expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeEnabled()
+    })
+
+    it('disables Evaluate while the pairs are incomplete', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          canContinue: false,
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          isMixedActivity: true,
+          pairMatchingPairs: [],
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+    })
   })
 })

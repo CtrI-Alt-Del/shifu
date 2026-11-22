@@ -89,6 +89,287 @@ describe('useActivityPage', () => {
     expect(result.current.runnerFactory).toBe(runnerFactory)
   })
 
+  it('verifies an ordering and submits the same frozen sequence with its passage key', async () => {
+    const orderingActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'order-1',
+          kind: 'ordering',
+          prompt: 'Organize as etapas.',
+          steps: [
+            { key: 'wash', text: 'Lavar' },
+            { key: 'cut', text: 'Cortar' },
+            { key: 'cook', text: 'Cozinhar' },
+          ],
+          initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+          verified: null,
+        },
+      ],
+    }
+    const uuidMock = vi
+      .fn()
+      .mockReturnValueOnce('passage-key')
+      .mockReturnValueOnce('submission-key')
+    vi.stubGlobal('crypto', { randomUUID: uuidMock })
+    const onPreviewMock = vi.fn().mockResolvedValue({
+      status: 'conclusive',
+      score: 100,
+      isCorrect: true,
+      explanation: 'Correto.',
+    })
+    const onSubmitMock = vi.fn().mockResolvedValue(submitted)
+    const { result } = renderHook(
+      () =>
+        useActivityPage({
+          activity: orderingActivity,
+          onPreview: onPreviewMock,
+          onSubmit: onSubmitMock,
+        }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleOrderingOrderChange(['cut', 'wash', 'cook']))
+    await act(async () => result.current.handleContinue())
+
+    expect(onPreviewMock).toHaveBeenCalledWith(
+      'order-1',
+      'revision-1',
+      {
+        kind: 'ordering',
+        questionKey: 'order-1',
+        orderedStepKeys: ['cut', 'wash', 'cook'],
+      },
+      'passage-key',
+    )
+    expect(result.current.feedback?.score).toBe(100)
+    await act(async () => result.current.handleContinue())
+    expect(onSubmitMock).toHaveBeenCalledWith({
+      activityRevision: 'revision-1',
+      answers: [
+        {
+          kind: 'ordering',
+          questionKey: 'order-1',
+          orderedStepKeys: ['cut', 'wash', 'cook'],
+        },
+      ],
+      passageKey: 'passage-key',
+      submissionKey: 'submission-key',
+    })
+  })
+
+  it('submits ordering and translation together while preserving their distinct verification rules', async () => {
+    const mixedActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'order-1',
+          kind: 'ordering',
+          prompt: 'Organize as etapas.',
+          steps: [
+            { key: 'wash', text: 'Lavar' },
+            { key: 'cut', text: 'Cortar' },
+            { key: 'cook', text: 'Cozinhar' },
+          ],
+          initialOrderedStepKeys: ['cut', 'wash', 'cook'],
+          verified: null,
+        },
+        {
+          key: 'translation-1',
+          kind: 'translation',
+          prompt: 'Traduza o texto.',
+          sourceLanguage: 'pt-BR',
+          targetLanguage: 'en-US',
+          sourceText: 'Bom dia',
+          criteria: [
+            { key: 'semantic_preservation', name: 'Sentido', weightPercentage: 70 },
+            { key: 'grammatical_adequacy', name: 'Gramática', weightPercentage: 30 },
+          ],
+        },
+        activity.questions[0],
+      ],
+    }
+    vi.stubGlobal('crypto', {
+      randomUUID: vi
+        .fn()
+        .mockReturnValueOnce('passage-key')
+        .mockReturnValueOnce('submission-key'),
+    })
+    const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 100 })
+    const onSubmit = vi.fn().mockResolvedValue(submitted)
+    const { result } = renderHook(
+      () => useActivityPage({ activity: mixedActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleOrderingOrderChange(['wash', 'cut', 'cook']))
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+    expect(result.current.currentOrderingOrder).toEqual(['wash', 'cut', 'cook'])
+    await act(async () => result.current.handleContinue())
+    expect(result.current.currentQuestion?.kind).toBe('translation')
+
+    act(() => result.current.handleTranslationAnswerChange('Good moorning'))
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleTranslationAnswerChange('Good morning'))
+    expect(result.current.feedback).toBeNull()
+    await act(async () => result.current.handleContinue())
+    expect(onPreview).toHaveBeenLastCalledWith('translation-1', 'revision-1', {
+      kind: 'translation',
+      questionKey: 'translation-1',
+      text: 'Good morning',
+    })
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleToggleOption('a'))
+    await act(async () => result.current.handleContinue())
+    await act(async () => result.current.handleContinue())
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      activityRevision: 'revision-1',
+      passageKey: 'passage-key',
+      submissionKey: 'submission-key',
+      answers: [
+        {
+          kind: 'ordering',
+          questionKey: 'order-1',
+          orderedStepKeys: ['wash', 'cut', 'cook'],
+        },
+        { kind: 'translation', questionKey: 'translation-1', text: 'Good morning' },
+        { kind: 'single_choice', questionKey: 'single-1', selectedOptionKeys: ['a'] },
+      ],
+    })
+  })
+
+  describe('ordering recovery and immutable passage', () => {
+    function makeActivity(
+      overrides: Partial<ChoiceActivityDetail> = {},
+    ): ChoiceActivityDetail {
+      return {
+        ...activity,
+        questions: [
+          {
+            key: 'order-1',
+            kind: 'ordering',
+            prompt: 'Organize as etapas.',
+            steps: [
+              { key: 'wash', text: 'Lavar' },
+              { key: 'cut', text: 'Cortar' },
+              { key: 'cook', text: 'Cozinhar' },
+            ],
+            initialOrderedStepKeys: ['cut', 'wash', 'cook'],
+            verified: null,
+          },
+        ],
+        ...overrides,
+      }
+    }
+
+    it('restores verified feedback after reload and submits the persisted passage without another preview', async () => {
+      const base = makeActivity()
+      const question = base.questions[0]
+      if (question.kind !== 'ordering') throw new Error('Expected ordering fixture')
+      const saved = {
+        orderedStepKeys: ['wash', 'cut', 'cook'],
+        score: 100,
+        isCorrect: true,
+        explanation: 'Sequência verificada.',
+      }
+      const restored = makeActivity({
+        orderingPassageKey: 'persisted-passage',
+        questions: [{ ...question, verified: saved }],
+      })
+      const onPreview = vi.fn()
+      const onSubmit = vi.fn().mockResolvedValue(submitted)
+      vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValue('new-submission') })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: restored, onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+
+      expect(result.current.currentOrderingOrder).toEqual(saved.orderedStepKeys)
+      expect(result.current.feedback).toEqual({
+        status: 'conclusive',
+        ...saved,
+        orderedStepKeys: undefined,
+      })
+      expect(result.current.isOrderingVerified).toBe(true)
+      expect(result.current.hasUnsentAnswers).toBe(false)
+      act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+      expect(result.current.currentOrderingOrder).toEqual(saved.orderedStepKeys)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+      expect(onSubmit).toHaveBeenCalledWith({
+        activityRevision: 'revision-1',
+        answers: [
+          {
+            kind: 'ordering',
+            questionKey: 'order-1',
+            orderedStepKeys: saved.orderedStepKeys,
+          },
+        ],
+        passageKey: 'persisted-passage',
+        submissionKey: 'new-submission',
+      })
+    })
+
+    it('retries a failed verification with its frozen order and original passage, then retries submission idempotently', async () => {
+      const onPreview = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({
+          status: 'conclusive',
+          score: 0,
+          isCorrect: false,
+          explanation: 'Revise a sequência.',
+        })
+      const onSubmit = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue(submitted)
+      const randomUUID = vi
+        .fn()
+        .mockReturnValueOnce('same-passage')
+        .mockReturnValueOnce('same-submission')
+      vi.stubGlobal('crypto', { randomUUID })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: makeActivity(), onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+      act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasFeedbackError).toBe(true)
+      expect(result.current.hasUnsentAnswers).toBe(true)
+      act(() => result.current.handleOrderingOrderChange(['wash', 'cut', 'cook']))
+      expect(result.current.currentOrderingOrder).toEqual(['cook', 'cut', 'wash'])
+      await act(async () => result.current.handleContinue())
+      expect(onPreview.mock.calls[1]).toEqual(onPreview.mock.calls[0])
+      expect(result.current.feedback?.isCorrect).toBe(false)
+      expect(result.current.hasUnsentAnswers).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasSubmissionError).toBe(true)
+      await act(async () => result.current.handleContinue())
+      expect(onSubmit.mock.calls[1]).toEqual(onSubmit.mock.calls[0])
+      expect(randomUUID).toHaveBeenCalledTimes(2)
+      expect(result.current.hasSubmissionError).toBe(false)
+    })
+
+    it.each([
+      ['missing', ['wash', 'cut']],
+      ['duplicate', ['wash', 'wash', 'cook']],
+      ['unknown', ['wash', 'cut', 'unknown']],
+    ])('does not preview an invalid %s permutation', async (_name, order) => {
+      const onPreview = vi.fn()
+      const { result } = renderHook(
+        () => useActivityPage({ activity: makeActivity(), onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+      act(() => result.current.handleOrderingOrderChange(order))
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+    })
+  })
+
   it('preserves direct choice-only advance and submission without preliminary or revision', async () => {
     const legacyActivity = {
       ...activity,
@@ -634,6 +915,154 @@ describe('useActivityPage', () => {
       activityRevision: 'revision-1',
       submissionKey: 'react-key',
       answers: [{ kind: 'react', questionKey: 'code-1', files }],
+    })
+  })
+
+  describe('pair matching', () => {
+    const pairActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'pairs-1',
+          kind: 'pair_matching',
+          prompt: 'Associe as palavras.',
+          sourceLanguage: 'en',
+          targetLanguage: 'pt-BR',
+          words: [
+            { key: 'word-0', text: 'dog' },
+            { key: 'word-1', text: 'house' },
+          ],
+          translations: [
+            { key: 'translation-1', text: 'casa' },
+            { key: 'translation-0', text: 'cachorro' },
+          ],
+        },
+      ],
+    }
+    const allPairs = [
+      { wordKey: 'word-0', translationKey: 'translation-0' },
+      { wordKey: 'word-1', translationKey: 'translation-1' },
+    ]
+
+    it('allows verifying only when every pair is formed, even if wrong', async () => {
+      const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 0 })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+
+      expect(result.current.canContinue).toBe(false)
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(true)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).toHaveBeenCalledWith('pairs-1', 'revision-1', {
+        kind: 'pair_matching',
+        questionKey: 'pairs-1',
+        pairs: [
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ],
+      })
+    })
+
+    it('rejects pairs that repeat an item or use unknown keys', () => {
+      const { result } = renderHook(
+        () =>
+          useActivityPage({
+            activity: pairActivity,
+            onPreview: vi.fn(),
+            onSubmit: vi.fn(),
+          }),
+        { wrapper: wrapper() },
+      )
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+          { wordKey: 'word-9', translationKey: 'translation-1' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+    })
+
+    it('keeps the verified answer read-only and submits exactly those pairs', async () => {
+      const onPreview = vi.fn().mockResolvedValue({
+        status: 'conclusive',
+        score: 100,
+        outcome: 'full',
+        correctPairCount: 2,
+        totalPairCount: 2,
+      })
+      const onSubmit = vi.fn().mockResolvedValue(submitted)
+      vi.stubGlobal('crypto', { randomUUID: () => 'pairs-key' })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+
+      act(() => result.current.handlePairMatchingAnswerChange(allPairs))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.feedback?.outcome).toBe('full')
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.pairMatchingPairs).toEqual(allPairs)
+      expect(result.current.feedback?.outcome).toBe('full')
+      expect(onPreview).toHaveBeenCalledTimes(1)
+
+      await act(async () => result.current.handleContinue())
+      expect(onSubmit).toHaveBeenCalledWith({
+        submissionKey: 'pairs-key',
+        activityRevision: 'revision-1',
+        answers: [{ kind: 'pair_matching', questionKey: 'pairs-1', pairs: allPairs }],
+      })
+    })
+
+    it('keeps the formed pairs after a preliminary transport failure and retries them', async () => {
+      const onPreview = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce({ status: 'conclusive', score: 100, outcome: 'full' })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+
+      act(() => result.current.handlePairMatchingAnswerChange(allPairs))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasFeedbackError).toBe(true)
+      expect(result.current.feedback).toBeNull()
+      expect(result.current.pairMatchingPairs).toEqual(allPairs)
+
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).toHaveBeenCalledTimes(2)
+      expect(onPreview.mock.calls[1]).toEqual(onPreview.mock.calls[0])
+      expect(result.current.feedback?.outcome).toBe('full')
     })
   })
 })

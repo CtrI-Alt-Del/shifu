@@ -2,6 +2,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -21,6 +23,8 @@ class MixedQuestionSnapshots:
         *CODE,
         CurriculumFillBlanksQuestionSnapshot,
         CurriculumTranslationQuestionSnapshot,
+        CurriculumPairMatchingQuestionSnapshot,
+        CurriculumOrderingQuestionSnapshot,
     )
 
     @staticmethod

@@ -1,0 +1,24 @@
+E09 — Remoção do laboratório DynamoDB
+
+Data: 20/11/2026 (UTC)
+Responsável: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Conta: 565725315792
+Perfil: shifu-lab
+Região: us-east-2
+Tabela: shifu-dynamodb-lab-83b2c3605a
+
+O plano revisado indicou 0 criações, 0 alterações e 2 remoções: a tabela
+`aws_dynamodb_table.activity` e o sufixo aleatório `random_id.execution`.
+O comando `terraform destroy -input=false -auto-approve -no-color
+-var="aws_region=us-east-2"` concluiu com `Resources: 2 destroyed`.
+
+Verificações posteriores:
+- `terraform.tfstate` local: serial 6, 0 recursos gerenciados; o arquivo é
+  ignorado pelo Git.
+- `aws dynamodb describe-table --profile shifu-lab --region us-east-2
+  --table-name shifu-dynamodb-lab-83b2c3605a`: AWS retornou
+  `ResourceNotFoundException` (`Table ... not found`).
+
+A ausência foi confirmada na conta AWS. State, planos e credenciais não foram
+incluídos nas evidências versionadas.

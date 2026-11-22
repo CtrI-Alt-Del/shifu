@@ -1,13 +1,36 @@
+import type { Page } from '@playwright/test'
+
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { INITIAL_PROFILE, installAccountBackend } from '../support/account-backend'
+import {
+  collectApplicationErrors,
+  installBrowserPushStub,
+  installPushManagerSubscribeStub,
+  installStreakReminderBackend,
+  pushStubCalls,
+  STUB_SUBSCRIPTION,
+} from '../support/streak-reminder-backend'
+
+// The reminders card reads its own state, which the profile scenarios do not
+// depend on, so they answer it with a disabled preference.
+async function installReminderDefaults(page: Page) {
+  await installStreakReminderBackend(page)
+  await installBrowserPushStub(page)
+}
 
 // Browser integration with mocked transport: proves the profile page's rendered
 // contract and outgoing requests, not server persistence.
+// Full Chromium instead of the headless shell: the shell denies notifications, which
+// the real service worker scenario at the end of this suite needs. Playwright allows
+// the `channel` option only at the top of a file.
+test.use({ channel: 'chromium' })
+
 test.describe('AccountProfilePage', () => {
   test('edits the canonical profile at mobile width and keeps the privacy destinations', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     const backend = await installAccountBackend(authenticatedPage)
     await authenticatedPage.setViewportSize({ width: 390, height: 844 })
     await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
@@ -19,9 +42,9 @@ test.describe('AccountProfilePage', () => {
       'readonly',
       '',
     )
-    await expect(authenticatedPage.getByRole('combobox')).toContainText(
-      'Tempo universal coordenado',
-    )
+    await expect(
+      authenticatedPage.getByRole('combobox', { name: 'Fuso horário' }),
+    ).toContainText('Tempo universal coordenado')
     await authenticatedPage.getByLabel('Nome de exibição').fill('  Nome atualizado  ')
     await authenticatedPage.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(authenticatedPage.getByRole('status')).toHaveText('Perfil salvo.')
@@ -33,10 +56,12 @@ test.describe('AccountProfilePage', () => {
       authenticatedPage.getByRole('menu').getByText('Nome atualizado'),
     ).toBeVisible()
     await authenticatedPage.keyboard.press('Escape')
-    await authenticatedPage.getByRole('combobox').focus()
+    await authenticatedPage.getByRole('combobox', { name: 'Fuso horário' }).focus()
     await authenticatedPage.keyboard.press('Enter')
     await authenticatedPage.keyboard.press('Escape')
-    await expect(authenticatedPage.getByRole('combobox')).toBeFocused()
+    await expect(
+      authenticatedPage.getByRole('combobox', { name: 'Fuso horário' }),
+    ).toBeFocused()
     expect(
       await authenticatedPage.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(390)
@@ -54,6 +79,7 @@ test.describe('AccountProfilePage', () => {
   test('identifies the browser timezone suggestion without persisting on read', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     const backend = await installAccountBackend(authenticatedPage, { timeZone: null })
     await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
     await expect(
@@ -66,6 +92,7 @@ test.describe('AccountProfilePage', () => {
   test('validates an invalid name before sending a request', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     const backend = await installAccountBackend(authenticatedPage)
     await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
     await authenticatedPage.getByLabel('Nome de exibição').fill(' ')
@@ -76,6 +103,7 @@ test.describe('AccountProfilePage', () => {
   test('recovers from a profile outage without rendering fictitious data', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     const backend = await installAccountBackend(authenticatedPage, {
       profileFailure: 503,
     })
@@ -91,6 +119,7 @@ test.describe('AccountProfilePage', () => {
   test('keeps a non-sensitive draft after a server validation rejection and recovers explicitly', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     await installAccountBackend(authenticatedPage)
     let failSave = true
     const bodies: unknown[] = []
@@ -126,6 +155,7 @@ test.describe('AccountProfilePage', () => {
   test('announces the profile load while the read is pending', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     await installAccountBackend(authenticatedPage)
     let releaseRead: () => void = () => undefined
     const pendingRead = new Promise<void>((resolve) => {
@@ -151,6 +181,7 @@ test.describe('AccountProfilePage', () => {
   test('renders malformed profile responses as recoverable failures', async ({
     authenticatedPage,
   }) => {
+    await installReminderDefaults(authenticatedPage)
     await installAccountBackend(authenticatedPage, { malformed: true })
     await navigateAuthenticatedPage(authenticatedPage, ROUTES.accountProfile)
     await expect(authenticatedPage.getByRole('alert')).toBeVisible()
@@ -164,5 +195,358 @@ test.describe('AccountProfilePage', () => {
     await page.goto(ROUTES.accountProfile)
     await expect(page).toHaveURL(/\/login\/?$/)
     await expect(page.getByRole('heading', { name: 'Sua conta' })).not.toBeVisible()
+  })
+
+  test('shows the reminders card between the form and the privacy card and keeps its controls working by keyboard at 1440 x 900', async ({
+    authenticatedPage: page,
+  }) => {
+    const errors = collectApplicationErrors(page)
+    const backend = await installStreakReminderBackend(page, { enabled: true })
+    await installBrowserPushStub(page, { permission: 'granted' })
+    await installAccountBackend(page)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+    await expect(card).toBeVisible()
+    await expect(
+      card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+    ).toBeChecked()
+    await expect(
+      card.getByRole('combobox', { name: 'Horário do lembrete' }),
+    ).toContainText('18:00')
+    await expect(card.getByRole('status')).toHaveCount(0)
+    const [formBox, cardBox, privacyBox] = await Promise.all([
+      page.getByLabel('Nome de exibição').boundingBox(),
+      card.boundingBox(),
+      page.getByRole('region', { name: 'Seus dados e privacidade' }).boundingBox(),
+    ])
+    expect(formBox?.y).toBeLessThan(cardBox?.y ?? 0)
+    expect(cardBox?.y).toBeLessThan(privacyBox?.y ?? 0)
+
+    // Enabled and allowed: this browser is registered again once, silently.
+    await expect.poll(() => backend.callsNamed('subscription').length).toBe(1)
+    expect(backend.callsNamed('public-key')).toHaveLength(1)
+    expect(backend.callsNamed('subscription')[0].data).toMatchObject(STUB_SUBSCRIPTION)
+
+    const switchControl = card.getByRole('switch', {
+      name: 'Lembrete de sequência Ativados',
+      exact: true,
+    })
+    await switchControl.focus()
+    await page.keyboard.press('Space')
+    await expect(
+      card.getByRole('switch', {
+        name: 'Lembrete de sequência Desativados',
+        exact: true,
+      }),
+    ).not.toBeChecked()
+    expect(backend.callsNamed('preference').map((call) => call.data.enabled)).toEqual([
+      false,
+    ])
+    expect(backend.callsNamed('subscription')).toHaveLength(1)
+
+    await card
+      .getByRole('switch', { name: 'Lembrete de sequência Desativados', exact: true })
+      .focus()
+    await page.keyboard.press('Space')
+    await expect(
+      card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+    ).toBeChecked()
+    expect(backend.callsNamed('preference').map((call) => call.data.enabled)).toEqual([
+      false,
+      true,
+    ])
+    expect(backend.callsNamed('subscription')).toHaveLength(2)
+
+    const hourField = card.getByRole('combobox', { name: 'Horário do lembrete' })
+    await hourField.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('option', { name: '20:00' }).click()
+    await expect(hourField).toContainText('20:00')
+    await expect(hourField).toBeFocused()
+    expect(backend.callsNamed('hour').map((call) => call.data.hour)).toEqual([20])
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(1440)
+    expect(errors).toEqual([])
+  })
+
+  test('reaches the switch and the hour by keyboard and avoids horizontal overflow at 390 x 844', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installStreakReminderBackend(page, { enabled: true })
+    await installBrowserPushStub(page, { permission: 'granted' })
+    await installAccountBackend(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+    await expect(card).toBeVisible()
+    await card
+      .getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true })
+      .focus()
+    await page.keyboard.press('Tab')
+    await expect(
+      card.getByRole('combobox', { name: 'Horário do lembrete' }),
+    ).toBeFocused()
+    await page.keyboard.press('Enter')
+    await page.getByRole('option', { name: '07:00' }).click()
+    await expect(
+      card.getByRole('combobox', { name: 'Horário do lembrete' }),
+    ).toContainText('07:00')
+    expect(backend.callsNamed('hour').map((call) => call.data.hour)).toEqual([7])
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390)
+  })
+
+  test('enrolls this browser before turning the reminders on from the card', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installStreakReminderBackend(page, { enabled: false })
+    await installBrowserPushStub(page, {
+      permission: 'default',
+      requestResult: 'granted',
+    })
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+    await card
+      .getByRole('switch', { name: 'Lembrete de sequência Desativados', exact: true })
+      .click()
+
+    await expect(
+      card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+    ).toBeChecked()
+    expect(backend.writeOrder()).toEqual(['public-key', 'subscription', 'preference'])
+    expect(await pushStubCalls(page)).toEqual([
+      'requestPermission',
+      'register /service-worker.js',
+      'subscribe',
+    ])
+  })
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`explains in text that notifications are blocked and keeps the preference on at ${viewport.width} x ${viewport.height}`, async ({
+      authenticatedPage: page,
+    }) => {
+      const backend = await installStreakReminderBackend(page, { enabled: true })
+      await installBrowserPushStub(page, { permission: 'denied' })
+      await installAccountBackend(page)
+      await page.setViewportSize(viewport)
+      await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+      const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+      const notice = card.getByRole('status')
+      await expect(notice).toContainText('Notificações bloqueadas neste navegador')
+      await expect(notice).toContainText(
+        'permita notificações do Shifu nas configurações do navegador',
+      )
+      await expect(
+        card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+      ).toBeChecked()
+      // A blocked browser is never registered, not even silently.
+      expect(backend.callsNamed('subscription')).toHaveLength(0)
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width)
+
+      await card
+        .getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true })
+        .click()
+      await expect(
+        card.getByRole('switch', {
+          name: 'Lembrete de sequência Desativados',
+          exact: true,
+        }),
+      ).not.toBeChecked()
+      expect(backend.writeOrder()).toEqual(['preference'])
+    })
+  }
+
+  test('explains in text that this browser cannot receive notifications', async ({
+    authenticatedPage: page,
+  }) => {
+    await installStreakReminderBackend(page, { enabled: true })
+    await installBrowserPushStub(page, { supported: false })
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const notice = page
+      .getByRole('region', { name: 'Lembrete de sequência' })
+      .getByRole('status')
+    await expect(notice).toContainText('Este navegador não recebe notificações')
+  })
+
+  test('reverts the hour when saving fails', async ({ authenticatedPage: page }) => {
+    const backend = await installStreakReminderBackend(page, {
+      enabled: true,
+      hourFailure: true,
+    })
+    await installBrowserPushStub(page, { permission: 'granted' })
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const hourField = page
+      .getByRole('region', { name: 'Lembrete de sequência' })
+      .getByRole('combobox', { name: 'Horário do lembrete' })
+    await hourField.click()
+    await page.getByRole('option', { name: '21:00' }).click()
+
+    await expect.poll(() => backend.callsNamed('hour').length).toBe(1)
+    await expect(
+      page.getByText('Não foi possível salvar o horário. Tente novamente.'),
+    ).toBeVisible()
+    await expect(hourField).toContainText('18:00')
+    await expect(hourField).toBeEnabled()
+    await expect(hourField).toBeFocused()
+  })
+
+  test('shows a recoverable card error without hiding the profile form', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installStreakReminderBackend(page, {
+      preferenceReadFailure: true,
+    })
+    await installBrowserPushStub(page)
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+    await expect(card.getByRole('alert')).toContainText(
+      'Não foi possível carregar os lembretes agora.',
+    )
+    await expect(page.getByLabel('Nome de exibição')).toHaveValue('Playwright Learner')
+
+    backend.recoverPreferenceRead()
+    await card.getByRole('button', { name: 'Tentar novamente' }).click()
+
+    await expect(
+      card.getByRole('switch', {
+        name: 'Lembrete de sequência Desativados',
+        exact: true,
+      }),
+    ).toBeVisible()
+  })
+
+  test('replaces a browser subscription made for another server key during the silent refresh', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installStreakReminderBackend(page, { enabled: true })
+    await installBrowserPushStub(page, {
+      permission: 'granted',
+      existingSubscription: 'other-key',
+    })
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    await expect.poll(() => backend.callsNamed('subscription').length).toBe(1)
+    expect(await pushStubCalls(page)).toEqual([
+      'register /service-worker.js',
+      'unsubscribe',
+      'subscribe',
+    ])
+  })
+
+  test('keeps a browser subscription made for the current server key during the silent refresh', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installStreakReminderBackend(page, { enabled: true })
+    await installBrowserPushStub(page, {
+      permission: 'granted',
+      existingSubscription: 'current-key',
+    })
+    await installAccountBackend(page)
+    await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+    await expect.poll(() => backend.callsNamed('subscription').length).toBe(1)
+    expect(await pushStubCalls(page)).toEqual(['register /service-worker.js'])
+  })
+
+  // The browser stub above replaces `navigator.serviceWorker`, so it cannot show what
+  // the real `/service-worker.js` does with a push. This scenario runs the real worker
+  // after enrolling from the card and delivers pushes through the DevTools Protocol.
+  // The notification click cannot be driven from a test and is proven by the manual
+  // run instead.
+  test.describe('real service worker', () => {
+    test('shows the pushed reminder and falls back to the default notification for a malformed payload', async ({
+      authenticatedPage: page,
+      context,
+    }) => {
+      await context.grantPermissions(['notifications'])
+      const errors = collectApplicationErrors(page)
+      await installStreakReminderBackend(page, { enabled: false })
+      await installPushManagerSubscribeStub(page)
+      await installAccountBackend(page)
+      const cdp = await context.newCDPSession(page)
+      const registrationId = new Promise<string>((resolve) => {
+        cdp.on('ServiceWorker.workerRegistrationUpdated', ({ registrations }) => {
+          const registered = registrations.find(({ scopeURL }) => scopeURL.endsWith('/'))
+          if (registered) resolve(registered.registrationId)
+        })
+      })
+      await cdp.send('ServiceWorker.enable')
+      await navigateAuthenticatedPage(page, ROUTES.accountProfile)
+
+      const card = page.getByRole('region', { name: 'Lembrete de sequência' })
+      await card
+        .getByRole('switch', { name: 'Lembrete de sequência Desativados', exact: true })
+        .click()
+      await expect(
+        card.getByRole('switch', { name: 'Lembrete de sequência Ativados', exact: true }),
+      ).toBeChecked()
+      await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
+
+      const origin = new URL(page.url()).origin
+      const shownNotifications = () =>
+        page.evaluate(async () => {
+          const registration = await navigator.serviceWorker.ready
+          const shown = await registration.getNotifications()
+          return shown.map(({ title, body, tag, icon, data }) => ({
+            title,
+            body,
+            tag,
+            icon,
+            data,
+          }))
+        })
+      const deliver = async (data: string) =>
+        cdp.send('ServiceWorker.deliverPushMessage', {
+          origin,
+          registrationId: await registrationId,
+          data,
+        })
+
+      const reminder = {
+        title: 'Shifu',
+        body: 'Sua sequência de 7 dias termina hoje — pratique para mantê-la',
+        tag: 'shifu-streak-reminder',
+        icon: `${origin}/favicon.svg`,
+        data: { url: '/' },
+      }
+      await deliver(JSON.stringify({ ...reminder, url: '/' }))
+      await expect.poll(shownNotifications).toEqual([reminder])
+
+      await deliver('this is not json')
+      await expect.poll(shownNotifications).toEqual(
+        expect.arrayContaining([
+          reminder,
+          {
+            title: 'Shifu',
+            body: '',
+            tag: '',
+            icon: `${origin}/favicon.svg`,
+            data: { url: '/' },
+          },
+        ]),
+      )
+      expect(await shownNotifications()).toHaveLength(2)
+      expect(errors).toEqual([])
+    })
   })
 })
