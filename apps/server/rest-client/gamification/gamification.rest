@@ -2,6 +2,9 @@
 @accessToken = replace-with-local-test-token
 
 ### Visão geral tab: level progress, constância and the achievements summary
+# streak.currentMonth lists every day of the current local month with its state.
+# achievements.nextAchievement is the closest locked achievement, or null when none is locked.
+# weeklyXp lists twelve local Monday weeks of XP by fact date, oldest first.
 GET {{baseUrl}}/gamification/overview
 Authorization: Bearer {{accessToken}}
 

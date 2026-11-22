@@ -28,6 +28,10 @@ class SkillExperiencesRepository(Protocol):
 
     def find_many_by_goal_id(self, goal_id: str) -> list[SkillExperience]: ...
 
+    def find_many_by_account_id(self, account_id: str) -> list[SkillExperience]:
+        """Return every experience inside the account's Goals."""
+        ...
+
     def find_many_by_goal_ids_and_skill_id(
         self,
         goal_ids: list[str],

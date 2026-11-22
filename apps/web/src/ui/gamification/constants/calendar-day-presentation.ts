@@ -47,3 +47,16 @@ export const CALENDAR_DAY_STATE_LABEL: Record<CalendarDayState, string> = {
   missed: 'dia encerrado sem prática',
   'today-pending': 'hoje, prática ainda pendente',
 }
+
+// The panel's compact month cell tells the five states apart by fill, border and
+// dash only, with no glyph inside the 40 px cell. Practice days keep a thin latão
+// border because their tint is nearly the card colour in the light theme. The
+// `!` borders win over the global `border-color` reset.
+export const COMPACT_CALENDAR_DAY_PRESENTATION: Record<CalendarDayState, string> = {
+  neutral: 'text-muted-foreground',
+  practiced: 'border border-latao-solid/50! bg-latao-tint font-semibold text-latao-text',
+  'current-streak': 'bg-latao-fill font-semibold text-on-latao',
+  missed: 'border border-control-border! text-muted-foreground',
+  'today-pending':
+    'border border-dashed border-latao-solid! font-semibold text-foreground',
+}

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 from shifu.learning.core.domain.entities import ActivityAttempt
@@ -41,6 +42,23 @@ class ActivityAttemptsRepository(Protocol):
         activity_id: str,
     ) -> list[ActivityAttempt]:
         """Return activity attempts in submission order."""
+        ...
+
+    def find_many_latest_submitted_at_by_skill_experience_ids(
+        self,
+        skill_experience_ids: list[str],
+    ) -> dict[str, datetime]:
+        """Latest submission of any kind per experience; absent keys have none."""
+        ...
+
+    def find_many_evaluated_submitted_at_by_skill_experience_ids(
+        self,
+        skill_experience_ids: list[str],
+        *,
+        since: datetime,
+    ) -> list[datetime]:
+        """Submission instants of LEARNING and REVIEW attempts at or after
+        ``since`` whose evaluation status is COMPLETED."""
         ...
 
     def add(self, attempt: ActivityAttempt) -> None: ...

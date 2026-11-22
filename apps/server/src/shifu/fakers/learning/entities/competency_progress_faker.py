@@ -31,6 +31,7 @@ class CompetencyProgressFaker:
         status: CompetencyProgressStatus | None = None,
         mastered_at: datetime | None = None,
         hard_activity_score: Decimal | None = None,
+        verification_cause: str | None = None,
     ) -> CompetencyProgress:
         created = created_at or cls._faker.date_time(tzinfo=UTC)
         initial = initial_progress if initial_progress is not None else Decimal('35')
@@ -59,6 +60,7 @@ class CompetencyProgressFaker:
             status=progress_status,
             mastered_at=mastered,
             hard_activity_score=hard_activity_score,
+            verification_cause=verification_cause,
         )
 
     @classmethod
