@@ -137,6 +137,7 @@ class PreviewActivityQuestionFeedbackUseCase:
                 question_key,
                 activity_revision,
                 answer,
+                passage_key,
                 uuid4(),
             )
 
@@ -150,6 +151,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         question_key: str,
         activity_revision: str,
         answer: PreviewAnswer,
+        passage_key: str | None,
         effect_id: UUID,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(

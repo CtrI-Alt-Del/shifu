@@ -4,9 +4,8 @@ from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import fields, replace
 from decimal import ROUND_HALF_UP, Decimal
 from itertools import permutations
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import create_autospec
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 import httpx
@@ -18,6 +17,9 @@ from shifu.fakers.shared.curriculum_fill_blanks_question_snapshot_faker import (
 )
 from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
     CurriculumFillBlanksActivitySnapshotFaker,
+)
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
 )
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
@@ -83,6 +85,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumOrderingStepSnapshot,
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
     CurriculumChoiceConceptCriterionSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -102,14 +106,6 @@ def _admit_external_effect(
     _account_id: str, _effect_id: UUID, _operation: str
 ) -> Generator[bool]:
     yield True
-from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
-from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
-    CurriculumPairMatchingQuestionSnapshotFaker,
-)
-from shifu.shared.core.domain.structures import (
-    CurriculumPairMatchingItemSnapshot,
-    CurriculumPairMatchingPairSnapshot,
-)
 
 
 def _grade(correct: int, total: int) -> Decimal:
@@ -1789,9 +1785,10 @@ class TestPreviewOrderingQuestion:
         self.account_activity_provider = create_autospec(
             AccountActivityProvider, instance=True
         )
-        self.account_activity_provider.activity.side_effect = (
-            lambda _account_id: nullcontext()
-        )
+        def activity_scope(_account_id: str) -> AbstractContextManager[None]:
+            return nullcontext()
+
+        self.account_activity_provider.activity.side_effect = activity_scope
         base = mixed_snapshot()
         self.snapshot = replace(
             base,
