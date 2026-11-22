@@ -12,6 +12,7 @@ export class ChoiceAttemptDetailFaker {
         .recent({ refDate: new Date('2026-09-23T12:00:00Z') })
         .toISOString(),
       retryAllowed: false,
+      completesSkill: false,
       ...overrides,
     }
   }

@@ -92,6 +92,7 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
     },
     recommendationGap: null,
     evaluation: null,
+    completion: null,
     ...overrides,
   }
 }

@@ -131,6 +131,7 @@ const experience: SkillExperienceDetail = {
   },
   recommendationGap: null,
   evaluation: null,
+  completion: null,
 }
 
 const props = { goalId: IDS.goalId, skillId: IDS.skillId }
