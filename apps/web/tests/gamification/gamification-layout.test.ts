@@ -180,6 +180,35 @@ const overview: AchievementsOverview = {
 
 // Mirrors the real `GET /gamification/overview` contract. `Visão geral` is the
 // area's default tab, so this query runs on load for every test in this file.
+// September 2026: a 30-day month and twelve Monday weeks ending 2026-09-14.
+const septemberDays: GamificationOverview['streak']['currentMonth'] = Array.from(
+  { length: 30 },
+  (_, index) => {
+    const day = index + 1
+    const state =
+      day <= 9
+        ? 'neutral'
+        : day === 10
+          ? 'missed'
+          : day === 11
+            ? 'practiced'
+            : day <= 14
+              ? 'current-streak'
+              : day === 15
+                ? 'today-pending'
+                : 'neutral'
+    return { day: `2026-09-${String(day).padStart(2, '0')}`, state }
+  },
+)
+
+const weeklyXp: GamificationOverview['weeklyXp'] = Array.from(
+  { length: 12 },
+  (_, index) => {
+    const monday = new Date(Date.UTC(2026, 5, 29 + index * 7))
+    return { weekStart: monday.toISOString().slice(0, 10), xp: (index % 4) * 40 }
+  },
+)
+
 const gamificationOverview: GamificationOverview = {
   level: 5,
   totalXp: 1240,
@@ -189,17 +218,8 @@ const gamificationOverview: GamificationOverview = {
   levelPercentage: 48,
   streak: {
     streak: { current: 3, longest: 9 },
-    lastSevenDays: [
-      { day: '2026-09-09', state: 'neutral' },
-      { day: '2026-09-10', state: 'missed' },
-      { day: '2026-09-11', state: 'practiced' },
-      { day: '2026-09-12', state: 'current-streak' },
-      { day: '2026-09-13', state: 'current-streak' },
-      { day: '2026-09-14', state: 'current-streak' },
-      { day: '2026-09-15', state: 'today-pending' },
-    ],
+    currentMonth: septemberDays,
     today: '2026-09-15',
-    isTodayPending: true,
   },
   achievements: {
     recent: [
@@ -213,7 +233,17 @@ const gamificationOverview: GamificationOverview = {
     ],
     obtainedCount: 3,
     catalogCount: 12,
+    nextAchievement: {
+      achievementId: 'consistencia-iii',
+      name: 'Consistência III',
+      criterionLabel: '30 dias consecutivos',
+      criterionKind: 'longest_streak',
+      xpReward: 150,
+      progressCurrent: 9,
+      progressTarget: 30,
+    },
   },
+  weeklyXp,
 }
 
 const overviewPayload = JSON.stringify({
@@ -316,11 +346,11 @@ test('protects gamification and redirects its root to Visão geral', async ({
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
-      name: 'Gamificação',
+      name: 'Progresso',
     }),
   ).toBeVisible()
   const navigation = authenticatedPage.getByRole('navigation', {
-    name: 'Seções da gamificação',
+    name: 'Seções do progresso',
   })
   await expect(navigation.getByRole('link')).toHaveText([
     'Visão geral',
@@ -370,12 +400,12 @@ test('renders the catalog header and the achievement grid grouped by family', as
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
-      name: 'Gamificação',
+      name: 'Progresso',
     }),
   ).toBeVisible()
 
   const achievementsLink = authenticatedPage
-    .getByRole('navigation', { name: 'Seções da gamificação' })
+    .getByRole('navigation', { name: 'Seções do progresso' })
     .getByRole('link', { name: 'Conquistas' })
   await achievementsLink.click()
 
@@ -420,7 +450,7 @@ test('renders the catalog header and the achievement grid grouped by family', as
   expect(achievementsRequests).toBe(1)
 })
 
-test('lands on Visão geral, renders the overview and opens Conquistas from its shortcut', async ({
+test('lands on Visão geral with both panel sections and opens Conquistas from the tabs', async ({
   authenticatedPage,
 }) => {
   const overviewRequests: string[] = []
@@ -436,7 +466,7 @@ test('lands on Visão geral, renders the overview and opens Conquistas from its 
       return
     }
     if (fn?.startsWith('getAchievements_')) {
-      // The shortcut below opens the Conquistas page, which runs this query;
+      // The tab below opens the Conquistas page, which runs this query;
       // leaving it live lets a real auth failure bounce the session to /login.
       await route.fulfill({
         body: JSON.stringify({ result: { kind: 'success', overview } }),
@@ -450,49 +480,30 @@ test('lands on Visão geral, renders the overview and opens Conquistas from its 
 
   await navigateAuthenticatedPage(authenticatedPage, ROUTES.gamificationOverview)
 
-  await expect(
-    authenticatedPage
-      .getByRole('navigation', { name: 'Seções da gamificação' })
-      .getByRole('link', { name: 'Visão geral' }),
-  ).toHaveAttribute('aria-current', 'page')
+  const navigation = authenticatedPage.getByRole('navigation', {
+    name: 'Seções do progresso',
+  })
+  await expect(navigation.getByRole('link', { name: 'Visão geral' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
 
+  // Smoke only: the panel's behavior belongs to the routed panel suite.
   await expect(
-    authenticatedPage.getByRole('heading', { level: 3, name: 'Nível 5' }),
+    authenticatedPage.getByRole('heading', { level: 2, name: 'Aprendizagem' }),
   ).toBeVisible()
-  await expect(authenticatedPage.getByText('1.240 XP', { exact: true })).toBeVisible()
   await expect(
-    authenticatedPage.getByText('260 XP para alcançar o nível 6'),
+    authenticatedPage.getByRole('heading', { level: 2, name: 'Engajamento' }),
   ).toBeVisible()
-  await expect(
-    authenticatedPage.getByRole('progressbar', { name: 'Progresso para o nível 6' }),
-  ).toHaveAttribute('aria-valuenow', '48')
-
-  await expect(authenticatedPage.getByText('Recorde: 9 dias')).toBeVisible()
-  await expect(
-    authenticatedPage
-      .getByRole('list', { name: 'Últimos sete dias' })
-      .getByRole('listitem'),
-  ).toHaveCount(7)
-  await expect(authenticatedPage.getByText('3 de 12 obtidas')).toBeVisible()
-  await expect(authenticatedPage.getByText('Primeira Jornada')).toBeVisible()
-
-  // The upstream GET /gamification/overview is issued inside the SSR process
-  // and is not observable here; the server-function export is.
   await expect.poll(() => overviewRequests.length, { timeout: 10_000 }).toBe(1)
 
-  // Keyboard activation of the shortcut, per RP-13.
-  const shortcut = authenticatedPage.getByRole('link', {
-    name: 'Ver todas as conquistas',
-  })
-  await shortcut.focus()
-  await authenticatedPage.keyboard.press('Enter')
+  await navigation.getByRole('link', { name: 'Conquistas' }).click()
 
   await expect(authenticatedPage).toHaveURL(/\/gamification\/achievements\/?$/)
-  await expect(
-    authenticatedPage
-      .getByRole('navigation', { name: 'Seções da gamificação' })
-      .getByRole('link', { name: 'Conquistas' }),
-  ).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('link', { name: 'Conquistas' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
   await expect(
     authenticatedPage.getByRole('heading', { name: 'Diagnóstico', exact: true }),
   ).toBeVisible()
@@ -509,7 +520,7 @@ test('requests the practice calendar for the viewed month and blocks future mont
 
   await expect(
     authenticatedPage
-      .getByRole('navigation', { name: 'Seções da gamificação' })
+      .getByRole('navigation', { name: 'Seções do progresso' })
       .getByRole('link', { name: 'Calendário' }),
   ).toHaveAttribute('aria-current', 'page')
   await expect(authenticatedPage.getByText('Maior sequência: 3 dias')).toBeVisible()
@@ -601,7 +612,7 @@ test('invokes the XP history server function and renders its records newest firs
 
   // Keyboard activation, per RP-13.
   const historyLink = authenticatedPage
-    .getByRole('navigation', { name: 'Seções da gamificação' })
+    .getByRole('navigation', { name: 'Seções do progresso' })
     .getByRole('link', { name: 'Histórico de XP' })
   await historyLink.focus()
   await authenticatedPage.keyboard.press('Enter')
@@ -641,8 +652,8 @@ test.describe('Gamification routed REST transport', () => {
     {
       path: ROUTES.gamificationOverview,
       endpoint: '/gamification/overview',
-      visible: '260 XP para alcançar o nível 6',
-      error: 'Não foi possível carregar sua visão geral',
+      visible: 'Sequência atual · recorde de 9 dias',
+      error: 'Não foi possível carregar seu engajamento',
     },
     {
       path: ROUTES.gamificationAchievements,
@@ -710,7 +721,7 @@ test.describe('Gamification routed REST transport', () => {
           await expect(page).toHaveURL(new RegExp(`${operation.path}/?$`))
           if (fails)
             await expect(
-              page.getByRole('heading', { name: operation.error }),
+              page.getByRole('heading', { name: operation.error }).first(),
             ).toBeVisible()
           else
             await expect(

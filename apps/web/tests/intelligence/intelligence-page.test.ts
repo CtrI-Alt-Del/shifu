@@ -411,7 +411,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
     new RegExp(`${ROUTES.gamificationOverview}/?$`),
   )
   await expect(
-    authenticatedPage.getByRole('main').filter({ hasText: 'Gamificação' }),
+    authenticatedPage.getByRole('main').filter({ hasText: 'Progresso' }),
   ).toBeVisible()
   // Visão geral is the landing page and fetches on mount; this suite does not
   // mock that request. Let it settle before navigating forward, or the in-flight
