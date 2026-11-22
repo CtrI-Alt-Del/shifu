@@ -9,7 +9,7 @@ from shifu.gamification.core.domain.events import (
 from shifu.gamification.core.domain.reminder_slot_start import (
     require_reminder_slot_start,
 )
-from shifu.gamification.core.domain.resolved_time_zone import resolved_time_zone
+from shifu.shared.core.domain.resolved_time_zone import resolved_time_zone
 from shifu.gamification.core.interfaces import GamificationDatabase
 from shifu.shared.core.interfaces import ActiveAccountProvider
 
