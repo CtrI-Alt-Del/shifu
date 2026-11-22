@@ -1,3 +1,4 @@
+import type { AccountAppearance } from '@/core/identity/account-appearance'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 
 export type IdentityProfile = {
@@ -5,6 +6,7 @@ export type IdentityProfile = {
   display_name: string
   email: string
   time_zone: string | null
+  appearance: AccountAppearance
   status: string
   created_at: string
   confirmed_at: string | null
@@ -21,6 +23,7 @@ export type CurrentIdentitySession = {
   account_id: string
   display_name: string
   time_zone: string | null
+  appearance: AccountAppearance
 }
 
 export type PendingConfirmationStatus = {
@@ -103,13 +106,14 @@ export const IdentityService = (restClient: RestClient) => {
     },
     async updateAccountProfile(
       accessToken: string,
-      input: { displayName: string; timeZone: string },
+      input: { displayName: string; timeZone: string; appearance: AccountAppearance },
     ): Promise<IdentityProfile> {
       const response = await restClient.patch<IdentityProfile>(
         '/identity/accounts/me',
         {
           display_name: input.displayName,
           time_zone: input.timeZone,
+          appearance: input.appearance,
         },
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )

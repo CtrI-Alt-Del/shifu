@@ -56,7 +56,7 @@ export const RestartPlanningDialog = (props: RestartPlanningDialogProps) => {
             </AlertDialogTitle>
             <button
               aria-label='Fechar'
-              className='grid size-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-colors hover:bg-white/5 hover:text-foreground sm:size-9'
+              className='grid size-11 shrink-0 place-items-center rounded-md text-secondary-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-9'
               disabled={isSubmitting}
               onClick={onClose}
               type='button'

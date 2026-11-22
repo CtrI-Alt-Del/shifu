@@ -14,6 +14,7 @@ describe('useAccountProfilePage', () => {
       displayName: 'Maria',
       email: 'm@example.com',
       timeZone: null,
+      appearance: 'system' as const,
     }
     useAccountProfileQueryMock.mockReturnValue({
       accountProfile: profile,

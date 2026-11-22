@@ -41,7 +41,7 @@ const OUTLINE_CLASS = 'border border-control-border! text-foreground!'
 const LINK_CLASS: Record<MentorActionCardAction['variant'], string> = {
   primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
   danger: 'bg-danger text-white hover:bg-danger/90',
-  outline: `${OUTLINE_CLASS} bg-transparent hover:bg-white/5`,
+  outline: `${OUTLINE_CLASS} bg-transparent hover:bg-muted`,
 }
 
 const LINK_BASE_CLASS =

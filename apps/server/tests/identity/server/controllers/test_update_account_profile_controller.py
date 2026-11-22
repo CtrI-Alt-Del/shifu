@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from sqlalchemy import select
 
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.pipes import IdentityPipe
 from shifu.fakers.gamification.entities import GamificationProfileFaker
 from shifu.gamification.core.domain.entities import PracticeDay
@@ -25,16 +26,23 @@ class TestUpdateAccountProfileController:
         response = fixture.client.patch(
             '/identity/accounts/me',
             headers=fixture.headers(),
-            json={'display_name': '  ' + name + '  ', 'time_zone': 'Asia/Tokyo'},
+            json={
+                'display_name': '  ' + name + '  ',
+                'time_zone': 'Asia/Tokyo',
+                'appearance': 'light',
+            },
         )
         assert response.status_code == 200, response.text
         assert response.json()['display_name'] == name
         assert response.json()['time_zone'] == 'Asia/Tokyo'
+        assert response.json()['appearance'] == 'light'
         with fixture.database.transaction() as repositories:
             actual = repositories.accounts.find_by_id(before.id)
             assert actual is not None
             assert actual.display_name == name
             assert actual.time_zone == 'Asia/Tokyo'
+            assert actual.appearance is AccountAppearance.LIGHT
+            assert actual.status is AccountStatus.ACTIVE
             assert actual.email == before.email
             assert actual.password_hash == before.password_hash
             assert actual.access_version == before.access_version
@@ -43,21 +51,53 @@ class TestUpdateAccountProfileController:
     @pytest.mark.parametrize(
         ('payload', 'code', 'status'),
         [
-            ({'display_name': '', 'time_zone': 'UTC'}, 'invalid_display_name', 400),
-            ({'display_name': '  ', 'time_zone': 'UTC'}, 'invalid_display_name', 400),
             (
-                {'display_name': 'a' * 161, 'time_zone': 'UTC'},
+                {'display_name': '', 'time_zone': 'UTC', 'appearance': 'dark'},
                 'invalid_display_name',
                 400,
             ),
             (
-                {'display_name': 'Name', 'time_zone': 'bad/zone'},
+                {'display_name': '  ', 'time_zone': 'UTC', 'appearance': 'dark'},
+                'invalid_display_name',
+                400,
+            ),
+            (
+                {'display_name': 'a' * 161, 'time_zone': 'UTC', 'appearance': 'dark'},
+                'invalid_display_name',
+                400,
+            ),
+            (
+                {'display_name': 'Name', 'time_zone': 'bad/zone', 'appearance': 'dark'},
                 'invalid_time_zone',
                 400,
             ),
-            ({'display_name': 'Name', 'time_zone': None}, 'validation_error', 422),
             (
-                {'display_name': 'Name', 'time_zone': 'UTC', 'account_id': 'other'},
+                {'display_name': 'Name', 'time_zone': 'UTC', 'appearance': 'sepia'},
+                'invalid_appearance',
+                400,
+            ),
+            (
+                {'display_name': 'Name', 'time_zone': None, 'appearance': 'dark'},
+                'validation_error',
+                422,
+            ),
+            (
+                {'display_name': 'Name', 'time_zone': 'UTC'},
+                'validation_error',
+                422,
+            ),
+            (
+                {'display_name': 'Name', 'time_zone': 'UTC', 'appearance': None},
+                'validation_error',
+                422,
+            ),
+            (
+                {
+                    'display_name': 'Name',
+                    'time_zone': 'UTC',
+                    'appearance': 'dark',
+                    'account_id': 'other',
+                },
                 'validation_error',
                 422,
             ),
@@ -81,6 +121,54 @@ class TestUpdateAccountProfileController:
             assert actual is not None
             assert actual.display_name == fixture.account.display_name
             assert actual.time_zone == fixture.account.time_zone
+            assert actual.appearance is AccountAppearance.SYSTEM
+
+    @pytest.mark.parametrize('appearance', list(AccountAppearance))
+    def test_should_persist_each_appearance_without_current_password(
+        self, account_security: AccountSecurityFixture, appearance: AccountAppearance
+    ) -> None:
+        fixture = account_security
+        response = fixture.client.patch(
+            '/identity/accounts/me',
+            headers=fixture.headers(),
+            json={
+                'display_name': 'Name',
+                'time_zone': 'UTC',
+                'appearance': appearance.value,
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()['appearance'] == appearance.value
+        with fixture.database.transaction() as repositories:
+            actual = repositories.accounts.find_by_id(fixture.account.id)
+            assert actual is not None
+            assert actual.appearance is appearance
+
+    @pytest.mark.parametrize('kind', ['revoked', 'pending', 'deleted'])
+    def test_should_reject_inactive_or_stale_access_without_mutation(
+        self, account_security: AccountSecurityFixture, kind: str
+    ) -> None:
+        fixture = account_security
+        headers = fixture.headers()
+        if kind == 'revoked':
+            headers = fixture.headers(version=3)
+        elif kind == 'deleted':
+            fixture.account.delete(datetime.now(UTC))
+        else:
+            fixture.account.status = AccountStatus.PENDING_CONFIRMATION
+            fixture.account.confirmed_at = None
+        with fixture.database.transaction() as repositories:
+            repositories.accounts.update(fixture.account)
+        response = fixture.client.patch(
+            '/identity/accounts/me',
+            headers=headers,
+            json={'display_name': 'Name', 'time_zone': 'UTC', 'appearance': 'light'},
+        )
+        assert response.status_code == 401, response.text
+        with fixture.database.transaction() as repositories:
+            actual = repositories.accounts.find_by_id(fixture.account.id)
+            assert actual is not None
+            assert actual.appearance is AccountAppearance.SYSTEM
 
     def test_should_preserve_recognized_history_for_both_owners(
         self, account_security: AccountSecurityFixture
@@ -121,7 +209,11 @@ class TestUpdateAccountProfileController:
         response = fixture.client.patch(
             '/identity/accounts/me',
             headers=fixture.headers(),
-            json={'display_name': 'Updated', 'time_zone': 'Asia/Tokyo'},
+            json={
+                'display_name': 'Updated',
+                'time_zone': 'Asia/Tokyo',
+                'appearance': 'dark',
+            },
         )
         assert response.status_code == 200, response.text
         with fixture.engine.connect() as connection:
@@ -155,7 +247,11 @@ class TestUpdateAccountProfileController:
         response = fixture.client.patch(
             '/identity/accounts/me',
             headers=fixture.headers(),
-            json={'display_name': 'Updated', 'time_zone': 'UTC'},
+            json={
+                'display_name': 'Updated',
+                'time_zone': 'UTC',
+                'appearance': 'dark',
+            },
         )
         assert response.status_code == 503
         assert response.json()['code'] == 'service_unavailable'
@@ -165,3 +261,4 @@ class TestUpdateAccountProfileController:
             assert actual is not None
             assert actual.display_name == fixture.account.display_name
             assert actual.time_zone == fixture.account.time_zone
+            assert actual.appearance is AccountAppearance.SYSTEM

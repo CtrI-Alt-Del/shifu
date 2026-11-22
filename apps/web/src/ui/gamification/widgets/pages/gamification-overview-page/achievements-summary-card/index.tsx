@@ -33,7 +33,7 @@ export const AchievementsSummaryCard = ({
         </p>
       </div>
       <Anchor
-        className='inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground'
+        className='inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
         route='gamificationAchievements'
       >
         Ver todas as conquistas

@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from shifu.identity.core.domain.enums import AccountDeletionReason, AccountStatus
+from shifu.identity.core.domain.enums import (
+    AccountAppearance,
+    AccountDeletionReason,
+    AccountStatus,
+)
 from shifu.identity.core.domain.errors import (
     AccountConfirmationNotAllowedError,
     AccountDeletionNotAllowedError,
@@ -23,6 +27,7 @@ class Account:
     time_zone: str | None
     created_at: datetime
     updated_at: datetime
+    appearance: AccountAppearance = AccountAppearance.SYSTEM
     confirmed_at: datetime | None = None
     deleted_at: datetime | None = None
     deletion_reason: AccountDeletionReason | None = None
@@ -63,6 +68,7 @@ class Account:
         time_zone: str | None,
         created_at: datetime,
         updated_at: datetime,
+        appearance: AccountAppearance = AccountAppearance.SYSTEM,
         confirmed_at: datetime | None = None,
         deleted_at: datetime | None = None,
         deletion_reason: AccountDeletionReason | None = None,
@@ -79,6 +85,7 @@ class Account:
             time_zone=time_zone,
             created_at=created_at,
             updated_at=updated_at,
+            appearance=appearance,
             confirmed_at=confirmed_at,
             deleted_at=deleted_at,
             deletion_reason=deletion_reason,

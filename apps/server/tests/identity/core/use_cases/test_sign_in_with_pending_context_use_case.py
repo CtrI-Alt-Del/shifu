@@ -3,7 +3,11 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from shifu.identity.core.domain.enums import AccountAccess, AccountStatus
+from shifu.identity.core.domain.enums import (
+    AccountAccess,
+    AccountAppearance,
+    AccountStatus,
+)
 from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.identity.core.domain.structures import (
     AccountProfile,
@@ -48,6 +52,7 @@ class TestSignInWithPendingContextUseCase:
                 display_name='Pessoa Aprendente',
                 email='learner@example.com',
                 time_zone=None,
+                appearance=AccountAppearance.SYSTEM,
                 status=status,
                 created_at=datetime(2026, 1, 1, tzinfo=UTC),
                 confirmed_at=None,

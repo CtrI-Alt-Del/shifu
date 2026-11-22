@@ -1,5 +1,9 @@
 from shifu.identity.core.domain.entities import Account
-from shifu.identity.core.domain.enums import AccountDeletionReason, AccountStatus
+from shifu.identity.core.domain.enums import (
+    AccountAppearance,
+    AccountDeletionReason,
+    AccountStatus,
+)
 from shifu.identity.database.sqlalchemy.models import AccountModel
 
 
@@ -14,6 +18,7 @@ class AccountMapper:
             status=AccountStatus(model.status),
             access_version=model.access_version,
             time_zone=model.time_zone,
+            appearance=AccountAppearance(model.appearance),
             retained_session_id=model.retained_session_id,
             retained_session_access_version=model.retained_session_access_version,
             created_at=model.created_at,
@@ -37,6 +42,7 @@ class AccountMapper:
             status=account.status.value,
             access_version=account.access_version,
             time_zone=account.time_zone,
+            appearance=account.appearance.value,
             retained_session_id=account.retained_session_id,
             retained_session_access_version=account.retained_session_access_version,
             created_at=account.created_at,

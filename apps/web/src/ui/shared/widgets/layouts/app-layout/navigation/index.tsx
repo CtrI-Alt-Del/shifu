@@ -18,8 +18,8 @@ export const Navigation = ({ items, pathname, onNavigate }: NavigationProps) => 
             aria-current={isActive ? 'page' : undefined}
             className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-offset-2 ${
               isActive
-                ? 'bg-white/5 text-foreground'
-                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
             key={item.route}
             onClick={onNavigate}

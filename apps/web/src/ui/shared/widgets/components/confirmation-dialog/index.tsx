@@ -60,7 +60,7 @@ export const ConfirmationDialog = ({
           aria-label='Fechar'
           onClick={onCancel}
           disabled={isSubmitting}
-          className='absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
+          className='absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
         >
           <Icon name='x' className='h-4 w-4' />
         </button>

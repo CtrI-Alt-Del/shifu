@@ -1,3 +1,4 @@
+from shifu.identity.core.domain.enums import AccountAppearance
 from shifu.identity.core.interfaces import IdentityDatabase
 from shifu.identity.core.domain.structures import AccountProfile
 from shifu.shared.core.domain.errors import AuthorizationError
@@ -30,12 +31,14 @@ class UpdateAccountProfileUseCase:
                 raise AuthorizationError
             account.change_display_name(update.display_name, self._clock_provider.now())
             account.time_zone = update.time_zone
+            account.appearance = AccountAppearance(update.appearance)
             repositories.accounts.update(account)
             return AccountProfile(
                 account_id=account.id,
                 display_name=account.display_name,
                 email=account.email,
                 time_zone=account.time_zone,
+                appearance=account.appearance,
                 status=account.status,
                 created_at=account.created_at,
                 confirmed_at=account.confirmed_at,

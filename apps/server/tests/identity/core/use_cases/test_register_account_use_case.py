@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from shifu.identity.core.domain.enums import AccountStatus
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.core.domain.errors import (
     InvalidDisplayNameError,
     InvalidEmailError,
@@ -101,6 +101,7 @@ class TestRegisterAccountUseCase:
         assert account.status is AccountStatus.PENDING_CONFIRMATION
         assert account.created_at == self.now
         assert account.access_version == 1
+        assert account.appearance is AccountAppearance.SYSTEM
 
         confirmation_token = self.repositories.account_action_tokens.add.call_args.args[
             0
