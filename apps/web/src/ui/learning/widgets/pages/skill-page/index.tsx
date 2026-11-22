@@ -13,6 +13,7 @@ import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
+import { SkillCompletion } from './skill-completion'
 import { SkillExperience } from './skill-experience'
 import { SkillPageLoading } from './skill-page-loading'
 import { type SkillPageProps, useSkillPage } from './use-skill-page'
@@ -65,13 +66,23 @@ export const SkillPage = (props: SkillPageProps) => {
   if (isLearning && experience)
     return (
       <>
-        <SkillExperience
-          experience={experience}
-          isRetrying={isRetryingEvaluation}
-          onRetryEvaluation={() => void handleRetryEvaluation()}
-          retryFailed={retryFailed}
-          onRemove={handleOpenRemovalDialog}
-        />
+        {diagnostic?.status === 'completed' && experience.completion ? (
+          <SkillCompletion
+            completion={experience.completion}
+            goalId={props.goalId}
+            onRemove={handleOpenRemovalDialog}
+            skillId={props.skillId}
+            skillName={experience.skillName}
+          />
+        ) : (
+          <SkillExperience
+            experience={experience}
+            isRetrying={isRetryingEvaluation}
+            onRetryEvaluation={() => void handleRetryEvaluation()}
+            retryFailed={retryFailed}
+            onRemove={handleOpenRemovalDialog}
+          />
+        )}
         <ConfirmationDialog
           cancelLabel='Cancelar'
           confirmLabel='Remover habilidade'

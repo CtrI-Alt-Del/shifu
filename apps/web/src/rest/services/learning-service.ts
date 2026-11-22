@@ -1,6 +1,7 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
 import { AppError } from '@/core/errors/app-error'
 import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
+import type { SkillExperienceReference } from '@/core/learning/skill-experience-reference'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
@@ -332,6 +333,7 @@ type AttemptWire = {
   status: ChoiceAttemptDetail['status']
   submitted_at: string
   retry_allowed: boolean
+  completes_skill?: boolean
   failure_message?: string | null
   score?: number | null
   progress_before?: number | null
@@ -482,6 +484,7 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
     status: wire.status,
     submittedAt: wire.submitted_at,
     retryAllowed: wire.retry_allowed,
+    completesSkill: wire.completes_skill ?? false,
     failureMessage: wire.failure_message,
     score: wire.score,
     progressBefore: wire.progress_before,
@@ -834,6 +837,19 @@ export const LearningService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
 
       return response.body
+    },
+
+    async listSkillExperiencesOfSkill(
+      accessToken: string,
+      skillId: string,
+    ): Promise<SkillExperienceReference[]> {
+      const response = await restClient.get<{ experiences: SkillExperienceReference[] }>(
+        `/learning/skills/${encodeURIComponent(skillId)}/experiences`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+
+      return response.body.experiences
     },
 
     async getCompetencyDetail(

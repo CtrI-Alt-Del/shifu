@@ -28,4 +28,23 @@ describe('SkillActionsMenu', () => {
     expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
   })
+
+  // Class presence is asserted only because the surface size is visual-only,
+  // with no semantic equivalent to query.
+  it.each([
+    [undefined, 'inset-1', 'border-control-border'],
+    ['inset' as const, 'inset-1', 'border-control-border'],
+    ['full' as const, 'inset-0', 'border-control-border!'],
+  ])(
+    'draws the visible surface with %s as %s inside the 44 px target',
+    (surface, expectedClass, expectedBorderClass) => {
+      render(<SkillActionsMenu onRemove={vi.fn()} skillName='Lógica' surface={surface} />)
+      const trigger = screen.getByRole('button', { name: 'Mais ações de Lógica' })
+      const surfaceElement = trigger.querySelector('span[aria-hidden="true"]')
+
+      expect(trigger).toHaveClass('size-11')
+      expect(surfaceElement).toHaveClass(expectedClass)
+      expect(surfaceElement).toHaveClass(expectedBorderClass)
+    },
+  )
 })

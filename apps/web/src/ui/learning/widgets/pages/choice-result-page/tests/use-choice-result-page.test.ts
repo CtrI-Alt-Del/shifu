@@ -16,6 +16,7 @@ const ATTEMPT: ChoiceAttemptDetail = {
   status: 'failed',
   submittedAt: '2026-09-23T12:00:00Z',
   retryAllowed: true,
+  completesSkill: false,
 }
 
 function createWrapper() {

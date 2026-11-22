@@ -71,6 +71,35 @@ describe('DesktopHeader', () => {
     )
   })
 
+  it.each([ROUTES.root, ROUTES.learning, '/learning/goals/x'])(
+    'marks only Objetivos as active on %s',
+    (pathname) => {
+      render(<DesktopHeader items={APP_NAVIGATION_ITEMS} pathname={pathname} />)
+
+      expect(screen.getByRole('link', { name: 'Objetivos' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+      expect(screen.getByRole('link', { name: 'Progresso' })).not.toHaveAttribute(
+        'aria-current',
+      )
+      expect(screen.getByRole('link', { name: 'Mentor' })).not.toHaveAttribute(
+        'aria-current',
+      )
+    },
+  )
+
+  it.each([ROUTES.gamification, ROUTES.intelligence, ROUTES.account, '/learningx'])(
+    'does not mark Objetivos as active on %s',
+    (pathname) => {
+      render(<DesktopHeader items={APP_NAVIGATION_ITEMS} pathname={pathname} />)
+
+      expect(screen.getByRole('link', { name: 'Objetivos' })).not.toHaveAttribute(
+        'aria-current',
+      )
+    },
+  )
+
   it('renders the default account trigger and accepts a custom account menu', () => {
     const { rerender } = render(
       <DesktopHeader items={APP_NAVIGATION_ITEMS} pathname={ROUTES.root} />,

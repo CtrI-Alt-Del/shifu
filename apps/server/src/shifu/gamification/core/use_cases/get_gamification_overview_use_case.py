@@ -14,7 +14,7 @@ from shifu.gamification.core.domain.entities.gamification_profile import (
     GamificationProfile,
 )
 from shifu.gamification.core.domain.practice_day_state import practice_day_state
-from shifu.gamification.core.domain.resolved_time_zone import resolved_time_zone
+from shifu.shared.core.domain.resolved_time_zone import resolved_time_zone
 from shifu.gamification.core.domain.structures import (
     AchievementsSummary,
     CalendarDay,

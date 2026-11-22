@@ -20,19 +20,20 @@ export function SkillFoundationRow({
   onToggle,
 }: SkillFoundationRowProps): ReactNode {
   const statusLabel = status === 'present' ? '✓ Presente' : '○ Ausente'
-  const statusClass = status === 'present' ? 'text-green-600' : 'text-gray-500'
+  const statusClass = status === 'present' ? 'text-jade-text' : 'text-muted-foreground'
 
   if (isSelectable) {
     return (
-      <label className='flex items-center gap-3 p-3 rounded border hover:bg-gray-50 cursor-pointer'>
+      <label className='flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-control-border bg-muted p-3 transition-colors hover:bg-accent has-[:checked]:border-selo-text has-[:checked]:bg-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'>
         <input
-          type='checkbox'
           checked={isSelected}
+          className='size-4 accent-primary'
+          data-focus-ring='delegated'
           onChange={() => onToggle?.(skillId)}
-          className='w-4 h-4'
+          type='checkbox'
         />
         <div className='flex-1'>
-          <div className='font-medium'>{name}</div>
+          <div className='font-medium text-foreground'>{name}</div>
           <div className={`text-sm ${statusClass}`}>{statusLabel}</div>
         </div>
       </label>
@@ -40,7 +41,7 @@ export function SkillFoundationRow({
   }
 
   return (
-    <div className='flex items-center justify-between p-2 text-sm'>
+    <div className='flex items-center justify-between p-2 text-sm text-foreground'>
       <span>{name}</span>
       <span className={statusClass}>{statusLabel}</span>
     </div>

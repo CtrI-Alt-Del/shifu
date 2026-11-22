@@ -26,6 +26,7 @@ from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
@@ -239,6 +240,122 @@ class TestGetChoiceAttemptUseCase:
         )
         self.repositories.activity_evaluations.update.assert_not_called()
         self.provider.get_skill_content.assert_not_called()
+
+    def _complete_evaluation_and_experience(self) -> None:
+        self.evaluation.status = ActivityEvaluationStatus.COMPLETED
+        self.evaluation.score = Decimal(100)
+        self.evaluation.completed_at = NOW
+        self.experience.status = SkillExperienceStatus.COMPLETED
+
+    def _other_attempt(
+        self, attempt_id: str, kind: ActivityAttemptKind, submitted_at: datetime
+    ) -> ActivityAttempt:
+        return ActivityAttempt.create(
+            id=attempt_id,
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=kind,
+            answers=(SingleChoiceAnswer(question_key='q1', selected_option_key='a'),),
+            submitted_at=submitted_at,
+            submission_key=f'submission-{attempt_id}',
+            grading_snapshot=snapshot(),
+        )
+
+    def test_should_mark_the_latest_learning_attempt_of_a_completed_skill_as_completing(
+        self,
+    ) -> None:
+        self._complete_evaluation_and_experience()
+        earlier = self._other_attempt(
+            'attempt-earlier',
+            ActivityAttemptKind.LEARNING,
+            NOW - timedelta(minutes=30),
+        )
+        review = self._other_attempt(
+            'attempt-review',
+            ActivityAttemptKind.REVIEW,
+            NOW + timedelta(minutes=5),
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            earlier,
+            self.attempt,
+            review,
+        ]
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.completes_skill is True
+
+    def test_should_not_mark_an_earlier_learning_attempt_as_completing(self) -> None:
+        self._complete_evaluation_and_experience()
+        later = self._other_attempt(
+            'attempt-later',
+            ActivityAttemptKind.LEARNING,
+            NOW - timedelta(minutes=2),
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt,
+            later,
+        ]
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.completes_skill is False
+
+    def test_should_not_mark_a_review_attempt_as_completing(self) -> None:
+        self._complete_evaluation_and_experience()
+        review = self._other_attempt(
+            'attempt-review', ActivityAttemptKind.REVIEW, NOW - timedelta(minutes=1)
+        )
+        review_evaluation = ActivityEvaluation.create(
+            id='evaluation-review',
+            attempt_id=review.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW - timedelta(minutes=1),
+            run_id='run-review',
+        )
+        review_evaluation.status = ActivityEvaluationStatus.COMPLETED
+        review_evaluation.score = Decimal(80)
+        review_evaluation.completed_at = NOW
+        self.repositories.activity_attempts.find_by_id.return_value = review
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = review_evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt,
+            review,
+        ]
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, review.id
+        )
+
+        assert detail.completes_skill is False
+
+    def test_should_not_mark_a_learning_attempt_while_the_skill_is_still_learning(
+        self,
+    ) -> None:
+        self._complete_evaluation_and_experience()
+        self.experience.status = SkillExperienceStatus.LEARNING
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.completes_skill is False
+
+    def test_should_not_mark_an_attempt_whose_evaluation_is_pending(self) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.status is ActivityEvaluationStatus.PENDING
+        assert detail.completes_skill is False
 
     def test_should_mark_stale_pending_evaluation_failed_without_a_score(self) -> None:
         self.evaluation.started_at = NOW - timedelta(minutes=6)

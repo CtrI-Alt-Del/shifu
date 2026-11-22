@@ -48,6 +48,7 @@ from shifu.learning.core.domain.structures import (
     PairMatchingEvaluationResult,
     PairMatchingSelection,
     SingleChoiceAnswer,
+    SkillCompletionSummary,
     TranslationAnswer,
     TranslationQuestionAssessmentDecisions,
 )
@@ -276,6 +277,335 @@ class TestEvaluateChoiceActivityUseCase:
             self.clock,
             self.curriculum,
         )
+
+    @staticmethod
+    def _concept_states(
+        progress: Decimal | None = None,
+        observed: frozenset[ActivityDifficulty] = frozenset(),
+    ) -> dict[str, AdaptiveConceptState]:
+        return {
+            f'concept-{index}': AdaptiveConceptState(
+                concept_id=f'concept-{index}',
+                initial_progress=None,
+                progress=progress,
+                observed_difficulties=observed,
+                distinct_activity_ids=frozenset(),
+                hard_confirmation=False,
+                evidence_verification=False,
+                inconclusive_activity_ids=(),
+                current_contributions=(),
+            )
+            for index in range(1, 4)
+        }
+
+    @staticmethod
+    def _diagnostic_observation(
+        concept_id: str,
+        difficulty: ActivityDifficulty,
+        *,
+        activity_id: str | None = None,
+        score: Decimal | None = Decimal(100),
+        completed_at: datetime | None = None,
+        diagnostic: bool = True,
+    ) -> ConceptObservation:
+        observed_at = completed_at or datetime(2026, 9, 20, 12, tzinfo=UTC)
+        identity = activity_id or f'{concept_id}-{difficulty.value}'
+        return ConceptObservation(
+            attempt_id=f'{identity}-{observed_at.isoformat()}',
+            activity_id=identity,
+            concept_id=concept_id,
+            difficulty=difficulty,
+            first_submitted_at=observed_at,
+            submitted_at=observed_at,
+            completed_at=observed_at,
+            question_scores=(score,),
+            diagnostic=diagnostic,
+        )
+
+    def _complete_with_prior_observations(
+        self, prior: tuple[ConceptObservation, ...]
+    ) -> SkillCompletionSummary:
+        self.repositories.concept_observations.find_many_by_skill_experience_id.return_value = prior
+        attempt = ActivityAttempt.create(
+            id='attempt-complete-skill',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                MultipleSelectionAnswer(
+                    question_key='q2', selected_option_keys=('a', 'c')
+                ),
+                MultipleSelectionAnswer(
+                    question_key='q3', selected_option_keys=('a', 'c')
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='submission-complete-skill',
+            grading_snapshot=grading_snapshot(),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt
+        ]
+
+        self.subject.execute(attempt.id, 'run-1')
+
+        assert self.experience.status is SkillExperienceStatus.COMPLETED
+        summary = self.experience.completion_summary
+        assert summary is not None
+        return summary
+
+    def test_should_store_complete_starting_coverage_when_every_concept_has_all_difficulties(
+        self,
+    ) -> None:
+        prior = tuple(
+            self._diagnostic_observation(concept_id, difficulty)
+            for concept_id in ('concept-1', 'concept-2', 'concept-3')
+            for difficulty in ActivityDifficulty
+        )
+
+        summary = self._complete_with_prior_observations(prior)
+
+        assert summary.initial_coverage_complete is True
+        assert summary.competencies[0].initial_coverage_complete is True
+        for concept in summary.competencies[0].concepts:
+            assert concept.initial_observed_difficulties == (
+                ActivityDifficulty.EASY,
+                ActivityDifficulty.MEDIUM,
+                ActivityDifficulty.HARD,
+            )
+            assert concept.final_observed_difficulties == (
+                ActivityDifficulty.EASY,
+                ActivityDifficulty.MEDIUM,
+                ActivityDifficulty.HARD,
+            )
+        assert (
+            self.repositories.skill_experiences.update.call_args_list[-1].args[0]
+            is self.experience
+        )
+        event = self.repositories.events.add.call_args_list[-1].args[0]
+        assert event.name == 'learning/skill-completed'
+        assert summary.initial_progress == Decimal(100)
+        assert event.payload.initial_progress == str(summary.initial_progress)
+        assert event.payload.final_progress == str(summary.final_progress)
+
+    def test_should_store_partial_starting_coverage_when_a_concept_lacks_a_hard_observation(
+        self,
+    ) -> None:
+        prior = tuple(
+            self._diagnostic_observation(concept_id, difficulty)
+            for concept_id in ('concept-1', 'concept-2', 'concept-3')
+            for difficulty in ActivityDifficulty
+            if not (concept_id == 'concept-2' and difficulty is ActivityDifficulty.HARD)
+        )
+
+        summary = self._complete_with_prior_observations(prior)
+
+        assert summary.initial_coverage_complete is False
+        competency = summary.competencies[0]
+        assert competency.initial_coverage_complete is False
+        concepts = {item.concept_id: item for item in competency.concepts}
+        assert concepts['concept-1'].initial_observed_difficulties == tuple(
+            ActivityDifficulty
+        )
+        assert concepts['concept-2'].initial_observed_difficulties == (
+            ActivityDifficulty.EASY,
+            ActivityDifficulty.MEDIUM,
+        )
+        assert concepts['concept-2'].final_observed_difficulties == tuple(
+            ActivityDifficulty
+        )
+        event = self.repositories.events.add.call_args_list[-1].args[0]
+        assert event.name == 'learning/skill-completed'
+
+    def test_should_keep_the_latest_valid_diagnostic_observation_when_a_later_one_is_inconclusive(
+        self,
+    ) -> None:
+        later = datetime(2026, 9, 21, 12, tzinfo=UTC)
+        prior = (
+            *(
+                self._diagnostic_observation(concept_id, difficulty)
+                for concept_id in ('concept-1', 'concept-2', 'concept-3')
+                for difficulty in ActivityDifficulty
+            ),
+            self._diagnostic_observation(
+                'concept-3',
+                ActivityDifficulty.HARD,
+                score=None,
+                completed_at=later,
+            ),
+        )
+
+        summary = self._complete_with_prior_observations(prior)
+
+        assert summary.initial_coverage_complete is True
+        concepts = {item.concept_id: item for item in summary.competencies[0].concepts}
+        assert concepts['concept-3'].initial_observed_difficulties == tuple(
+            ActivityDifficulty
+        )
+
+    def test_should_store_incomplete_starting_coverage_when_there_is_no_numeric_start(
+        self,
+    ) -> None:
+        prior = tuple(
+            self._diagnostic_observation(
+                concept_id, difficulty, score=None, diagnostic=True
+            )
+            for concept_id in ('concept-1', 'concept-2', 'concept-3')
+            for difficulty in ActivityDifficulty
+        )
+        policy_result = AdaptivePolicyResult(
+            concept_states=tuple(
+                AdaptiveConceptState(
+                    concept_id=f'concept-{index}',
+                    initial_progress=None,
+                    progress=Decimal('100'),
+                    observed_difficulties=frozenset({ActivityDifficulty.HARD}),
+                    distinct_activity_ids=frozenset({ACTIVITY_ID}),
+                    hard_confirmation=True,
+                    evidence_verification=False,
+                    inconclusive_activity_ids=(),
+                    current_contributions=(),
+                )
+                for index in range(1, 4)
+            ),
+            competency_states=(
+                AdaptiveCompetencyState(
+                    competency_id=COMPETENCY_ID,
+                    progress=Decimal('100'),
+                    partial_progress=Decimal('100'),
+                    coverage_complete=False,
+                    status=CompetencyProgressStatus.MASTERED,
+                    mastered_at=NOW,
+                    verification_cause=None,
+                    verification_concept_id=None,
+                    content_released=True,
+                ),
+            ),
+            focus_competency_id=None,
+            recommendation=None,
+        )
+        self.progress.initial_progress = None
+        self.repositories.concept_observations.find_many_by_skill_experience_id.return_value = prior
+
+        with patch(
+            'shifu.learning.core.use_cases.evaluate_choice_activity_use_case.AdaptiveLearningPolicy.evaluate',
+            return_value=policy_result,
+        ):
+            self.subject.execute(self.attempt.id, 'run-1')
+
+        summary = self.experience.completion_summary
+        assert summary is not None
+        assert summary.initial_progress is None
+        assert summary.initial_coverage_complete is False
+        competency = summary.competencies[0]
+        assert competency.initial_progress is None
+        assert competency.initial_coverage_complete is False
+        for concept in competency.concepts:
+            assert concept.initial_observed_difficulties == ()
+            assert concept.initial_progress is None
+            assert concept.final_observed_difficulties == (ActivityDifficulty.HARD,)
+        event = self.repositories.events.add.call_args_list[-1].args[0]
+        assert event.payload.initial_progress == 'unknown'
+
+    def test_should_keep_the_stored_summary_when_the_skill_is_completed_again(
+        self,
+    ) -> None:
+        stored = SkillCompletionSummary(
+            competencies=(),
+            initial_progress=Decimal('10'),
+            final_progress=Decimal('90'),
+            started_at=NOW - timedelta(days=3),
+            completed_at=NOW - timedelta(days=1),
+            initial_coverage_complete=False,
+        )
+        self.experience.completion_summary = stored
+        self.experience.completed_at = NOW - timedelta(days=1)
+
+        prior = tuple(
+            self._diagnostic_observation(concept_id, difficulty)
+            for concept_id in ('concept-1', 'concept-2', 'concept-3')
+            for difficulty in ActivityDifficulty
+        )
+
+        summary = self._complete_with_prior_observations(prior)
+
+        assert summary is stored
+        assert self.experience.completed_at == NOW - timedelta(days=1)
+        event = self.repositories.events.add.call_args_list[-1].args[0]
+        assert event.name == 'learning/skill-completed'
+
+    @pytest.mark.parametrize(
+        ('selected', 'score'),
+        (
+            (
+                (
+                    SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                    MultipleSelectionAnswer(
+                        question_key='q2', selected_option_keys=('a', 'c')
+                    ),
+                    MultipleSelectionAnswer(
+                        question_key='q3', selected_option_keys=('a', 'c')
+                    ),
+                ),
+                Decimal(100),
+            ),
+            (
+                (
+                    SingleChoiceAnswer(question_key='q1', selected_option_key='b'),
+                    MultipleSelectionAnswer(
+                        question_key='q2', selected_option_keys=('b',)
+                    ),
+                    MultipleSelectionAnswer(
+                        question_key='q3', selected_option_keys=('b',)
+                    ),
+                ),
+                Decimal(0),
+            ),
+        ),
+        ids=('score-100', 'score-0'),
+    )
+    def test_should_only_update_the_evaluation_when_a_completed_experience_is_reviewed(
+        self, selected: tuple[Any, ...], score: Decimal
+    ) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self.experience.completion_summary = SkillCompletionSummary(
+            competencies=(),
+            initial_progress=Decimal('10'),
+            final_progress=Decimal('90'),
+            started_at=NOW - timedelta(days=3),
+            completed_at=NOW - timedelta(days=1),
+        )
+        review = ActivityAttempt.create(
+            id='review-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.REVIEW,
+            answers=selected,
+            submitted_at=NOW,
+            submission_key='review-submission',
+            grading_snapshot=grading_snapshot(),
+        )
+        stored = self.experience.completion_summary
+        self.repositories.activity_attempts.find_by_id.return_value = review
+
+        assert self.subject.execute(review.id, 'run-1') is True
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == score
+        assert self.evaluation.effect_applied_at == NOW
+        self.repositories.activity_evaluations.update.assert_called_once_with(
+            self.evaluation
+        )
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.concept_states.upsert_many.assert_not_called()
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.skill_experiences.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        assert self.experience.completion_summary is stored
 
     def test_should_score_exact_sets_and_apply_weighted_result_once(self) -> None:
         assert self.subject.execute(self.attempt.id, 'run-1') is True
@@ -1019,6 +1349,8 @@ class TestEvaluateChoiceActivityUseCase:
             self.experience,
             catalog,
             [self.progress],
+            (),
+            self._concept_states(),
             NOW,
         )
 
@@ -1147,6 +1479,8 @@ class TestEvaluateChoiceActivityUseCase:
             self.experience,
             catalog,
             [self.progress, other_progress],
+            (),
+            self._concept_states(),
             NOW,
         )
 
@@ -1181,6 +1515,8 @@ class TestEvaluateChoiceActivityUseCase:
             self.experience,
             catalog,
             [self.progress],
+            (),
+            self._concept_states(),
             NOW,
         )
 

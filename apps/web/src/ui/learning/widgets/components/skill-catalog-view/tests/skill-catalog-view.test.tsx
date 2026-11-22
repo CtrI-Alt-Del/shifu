@@ -128,6 +128,34 @@ describe('SkillCatalogView', () => {
     expect(screen.getByText('Failed to load skills')).toBeInTheDocument()
   })
 
+  it('offers a retry action next to the error and calls it', async () => {
+    const user = userEvent.setup()
+    const onRetry = vi.fn()
+
+    render(
+      <SkillCatalogView
+        skills={[]}
+        error='Failed to load skills'
+        onRetry={onRetry}
+        onSkillSelect={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('does not offer a retry action without an error', () => {
+    render(
+      <SkillCatalogView skills={mockSkills} onRetry={vi.fn()} onSkillSelect={vi.fn()} />,
+    )
+
+    expect(
+      screen.queryByRole('button', { name: 'Tentar novamente' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows empty state when no skills', () => {
     render(<SkillCatalogView skills={[]} onSkillSelect={vi.fn()} />)
 

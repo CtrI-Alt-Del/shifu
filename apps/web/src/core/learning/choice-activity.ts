@@ -387,4 +387,5 @@ export type ChoiceAttemptDetail = {
   statusAfter?: CompetencyProgressStatus | null
   nextAction?: ActivityRecommendation | null
   questions?: readonly ActivityResultQuestion[]
+  completesSkill: boolean
 }

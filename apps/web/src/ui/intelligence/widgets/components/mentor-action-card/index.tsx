@@ -22,6 +22,8 @@ export type MentorActionCardProps = {
   destination?: string
   reason?: string
   consequences?: string
+  /** Optional extra block between the explanation and the actions. */
+  notice?: ReactNode
   result?: string
   statusText?: string
   actions: MentorActionCardAction[]
@@ -54,6 +56,7 @@ export const MentorActionCard = ({
   destination,
   reason,
   consequences,
+  notice,
   result,
   statusText,
   actions,
@@ -99,6 +102,7 @@ export const MentorActionCard = ({
           {consequences}
         </p>
       ) : null}
+      {notice}
       <output
         aria-live='polite'
         className='flex flex-col gap-3 outline-none empty:sr-only'

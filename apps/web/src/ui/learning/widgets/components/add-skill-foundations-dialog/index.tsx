@@ -1,10 +1,25 @@
-import { type ReactNode, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import type { SuggestedFoundation } from '@/core/learning/suggested-foundation'
+import { Button } from '@/ui/shadcn/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/ui/shadcn/dialog'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 
+import { OtherGoalExperienceNotice } from '../other-goal-experience-notice'
 import { SkillFoundationRow } from '../skill-foundation-row'
+import { useAddSkillFoundationsDialog } from './use-add-skill-foundations-dialog'
 
-type AddSkillFoundationsDialogProps = {
+export type AddSkillFoundationsDialogProps = {
+  goalId: string
+  skillId: string
   skillName: string
   foundations: readonly SuggestedFoundation[]
   isOpen: boolean
@@ -14,7 +29,9 @@ type AddSkillFoundationsDialogProps = {
   onSubmit: (selectedFoundationIds: readonly string[]) => Promise<void>
 }
 
-export function AddSkillFoundationsDialog({
+export const AddSkillFoundationsDialog = ({
+  goalId,
+  skillId,
   skillName,
   foundations,
   isOpen,
@@ -22,130 +39,129 @@ export function AddSkillFoundationsDialog({
   error = null,
   onClose,
   onSubmit,
-}: AddSkillFoundationsDialogProps): ReactNode {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const handleToggle = (skillId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(skillId)) {
-        next.delete(skillId)
-      } else {
-        next.add(skillId)
-      }
-      return next
-    })
-  }
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true)
-    try {
-      await onSubmit(Array.from(selectedIds))
-      setSelectedIds(new Set())
-      onClose()
-    } catch (_err) {
-      // Error is handled by parent via error prop
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  if (!isOpen) {
-    return null
-  }
-
-  const missingFoundations = foundations.filter((f) => f.status === 'missing')
-  const presentFoundations = foundations.filter((f) => f.status === 'present')
+}: AddSkillFoundationsDialogProps): ReactNode => {
+  const {
+    description,
+    hasFoundations,
+    isSubmitting,
+    missingFoundations,
+    note,
+    otherGoalExperiences,
+    presentFoundations,
+    isFoundationSelected,
+    handleCloseAutoFocus,
+    handleOpenChange,
+    handleSubmit,
+    handleToggle,
+  } = useAddSkillFoundationsDialog({ goalId, skillId, foundations, onClose, onSubmit })
 
   return (
-    <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
-      <div className='bg-white rounded-lg shadow-lg max-w-lg w-full mx-4'>
-        <div className='border-b p-6'>
-          <h2 className='text-xl font-semibold'>Adicionar: {skillName}</h2>
-          <p className='text-sm text-gray-600 mt-2'>
-            Selecione as bases que deseja adicionar
-          </p>
-        </div>
+    <Dialog onOpenChange={handleOpenChange} open={isOpen}>
+      <DialogContent
+        className='flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2.5rem)]! max-w-[480px]! flex-col gap-4 overflow-y-auto rounded-[14px]! bg-card'
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
+        <DialogClose
+          aria-label='Fechar'
+          className='absolute right-2 top-2 inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 sm:right-4 sm:top-4 sm:size-6 sm:rounded-md'
+          disabled={isSubmitting}
+          type='button'
+        >
+          <Icon className='size-4' name='x' />
+        </DialogClose>
+        <DialogHeader className='mb-0! flex-row! gap-3 space-y-0! border-b border-border pb-4 pr-8 text-left! sm:pr-8'>
+          <div className='flex size-11 shrink-0 items-center justify-center rounded-full bg-accent'>
+            <Icon className='size-[17px] text-selo-text' name='graduation-cap' />
+          </div>
+          <div className='flex min-w-0 flex-col gap-1'>
+            <DialogTitle className='text-lg font-semibold leading-snug text-foreground'>
+              Adicionar {skillName}?
+            </DialogTitle>
+            <DialogDescription className='text-[15px] leading-snug text-secondary-foreground'>
+              {description}
+            </DialogDescription>
+          </div>
+        </DialogHeader>
 
-        <div className='p-6 pb-8 max-h-96 overflow-y-auto'>
-          {isLoading ? (
-            <div className='text-center py-8'>
-              <div className='inline-block animate-spin'>⚙️</div>
-              <p className='text-gray-600 mt-2'>Carregando...</p>
-            </div>
-          ) : error ? (
-            <div className='p-4 bg-red-50 border border-red-200 rounded text-red-800'>
-              {error}
-            </div>
-          ) : foundations.length === 0 ? (
-            <div className='text-center py-8 text-gray-600'>
-              <p>Nenhuma base sugerida para esta habilidade</p>
-            </div>
-          ) : (
-            <>
-              {missingFoundations.length > 0 && (
-                <div className='mb-6'>
-                  <h3 className='font-semibold text-sm mb-3 text-gray-700'>
-                    Bases ausentes ({missingFoundations.length})
-                  </h3>
-                  <div className='space-y-2'>
-                    {missingFoundations.map((foundation) => (
-                      <SkillFoundationRow
-                        key={foundation.skillId}
-                        skillId={foundation.skillId}
-                        name={foundation.name}
-                        status='missing'
-                        isSelectable={true}
-                        isSelected={selectedIds.has(foundation.skillId)}
-                        onToggle={handleToggle}
-                      />
-                    ))}
-                  </div>
+        {isLoading ? (
+          <output className='block py-4 text-center text-sm text-muted-foreground'>
+            Carregando...
+          </output>
+        ) : null}
+
+        {!isLoading && hasFoundations ? (
+          <div className='max-h-72 space-y-5 overflow-y-auto'>
+            {missingFoundations.length > 0 ? (
+              <section>
+                <h3 className='mb-3 text-sm font-semibold text-secondary-foreground'>
+                  Bases ausentes ({missingFoundations.length})
+                </h3>
+                <div className='space-y-2'>
+                  {missingFoundations.map((foundation) => (
+                    <SkillFoundationRow
+                      isSelectable
+                      isSelected={isFoundationSelected(foundation.skillId)}
+                      key={foundation.skillId}
+                      name={foundation.name}
+                      onToggle={handleToggle}
+                      skillId={foundation.skillId}
+                      status='missing'
+                    />
+                  ))}
                 </div>
-              )}
-
-              {presentFoundations.length > 0 && (
-                <div>
-                  <h3 className='font-semibold text-sm mb-3 text-gray-700'>
-                    Bases já presentes ({presentFoundations.length})
-                  </h3>
-                  <div className='space-y-2'>
-                    {presentFoundations.map((foundation) => (
-                      <SkillFoundationRow
-                        key={foundation.skillId}
-                        skillId={foundation.skillId}
-                        name={foundation.name}
-                        status='present'
-                        isSelectable={false}
-                      />
-                    ))}
-                  </div>
+              </section>
+            ) : null}
+            {presentFoundations.length > 0 ? (
+              <section>
+                <h3 className='mb-3 text-sm font-semibold text-secondary-foreground'>
+                  Bases já presentes ({presentFoundations.length})
+                </h3>
+                <div className='space-y-2'>
+                  {presentFoundations.map((foundation) => (
+                    <SkillFoundationRow
+                      isSelectable={false}
+                      key={foundation.skillId}
+                      name={foundation.name}
+                      skillId={foundation.skillId}
+                      status='present'
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
 
-        <div className='border-t p-6 flex justify-end gap-3'>
-          <button
-            type='button'
-            onClick={onClose}
+        <OtherGoalExperienceNotice experiences={otherGoalExperiences} />
+
+        {error ? (
+          <div className='text-sm text-selo-text' role='alert'>
+            {error}
+          </div>
+        ) : null}
+
+        <p className='text-[13px] text-muted-foreground'>{note}</p>
+
+        <DialogFooter className='[&&]:mt-0! flex-row! justify-end! gap-3 border-t-0! pt-0! space-x-0!'>
+          <DialogClose asChild>
+            <Button
+              className='border-control-border! text-foreground!'
+              disabled={isSubmitting}
+              type='button'
+              variant='outline'
+            >
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button
             disabled={isSubmitting}
-            className='px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50'
-          >
-            Cancelar
-          </button>
-          <button
+            onClick={() => void handleSubmit()}
             type='button'
-            onClick={handleSubmit}
-            disabled={isSubmitting || selectedIds.size === 0}
-            className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
           >
-            {isSubmitting ? 'Adicionando...' : 'Adicionar'}
-          </button>
-        </div>
-      </div>
-    </div>
+            {isSubmitting ? 'Adicionando...' : 'Adicionar habilidade'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

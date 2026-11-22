@@ -1,3 +1,5 @@
+import type { Locator, Page } from '@playwright/test'
+
 import {
   exerciseDictationStates,
   exerciseBrowserManagedControls,
@@ -32,6 +34,7 @@ import {
   installMentorActionsBackend,
   openMentorActionsPage,
   OTHER_GOAL_TITLE,
+  type OtherSkillExperienceFixture,
   outcomeOf,
   SKILL_NAME,
 } from '../support/mentor-actions-backend'
@@ -1427,5 +1430,340 @@ test.describe('Mentor page AI quota', () => {
     } finally {
       await upstream.dispose()
     }
+  })
+})
+
+// SHIFU-125: Mentor add proposal warns about the Skill in another Goal (mocked BFF transport).
+test.describe('Mentor page add proposal with the other Goal notice', () => {
+  const NOTICE_SKILL_NAME = 'Lógica de programação'
+  const NOTICE_TITLE = 'Você já tem esta Habilidade em outro Objetivo'
+  const CAREER_GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F5A'
+  const CAREER_GOAL_TITLE = 'Carreira em dados'
+  const CAPTURE_DIRECTORY = '.playwright-cli/screenshots/skill-completion'
+  const VIEWPORTS = [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 390, height: 844 },
+  ] as const
+
+  const careerExperience: OtherSkillExperienceFixture = {
+    goalId: CAREER_GOAL_ID,
+    goalTitle: CAREER_GOAL_TITLE,
+    skillExperienceId: '01J7T8AC91Z5K8M4JQ8C2D6F5B',
+    skillId: ACTION_IDS.skill,
+    status: 'completed',
+  }
+  const destinationExperience: OtherSkillExperienceFixture = {
+    goalId: ACTION_IDS.goal,
+    goalTitle: GOAL_TITLE,
+    skillExperienceId: ACTION_IDS.experience,
+    skillId: ACTION_IDS.skill,
+    status: 'learning',
+  }
+  const portfolioExperience: OtherSkillExperienceFixture = {
+    goalId: ACTION_IDS.otherGoal,
+    goalTitle: OTHER_GOAL_TITLE,
+    skillExperienceId: ACTION_IDS.otherExperience,
+    skillId: ACTION_IDS.skill,
+    status: 'completed',
+  }
+
+  function noticeProposal() {
+    return buildProposal('add_skill', {
+      skillName: NOTICE_SKILL_NAME,
+      justification: null,
+    })
+  }
+
+  async function scrollMessageListToEnd(card: Locator) {
+    return card.evaluate((element) => {
+      let scroller = element.parentElement
+      while (scroller && getComputedStyle(scroller).overflowY !== 'auto') {
+        scroller = scroller.parentElement
+      }
+      if (!scroller) throw new Error('Message list scroller not found')
+      const result = {
+        scrollTopBefore: Math.round(scroller.scrollTop),
+        maxScrollTop: Math.round(scroller.scrollHeight - scroller.clientHeight),
+        cardWidth: Math.round(element.getBoundingClientRect().width),
+        cardLeft: Math.round(element.getBoundingClientRect().left),
+      }
+      scroller.scrollTop = scroller.scrollHeight
+      return result
+    })
+  }
+
+  function cardOf(page: Page) {
+    return page.getByRole('region', { name: `Adicionar ${NOTICE_SKILL_NAME}?` })
+  }
+
+  for (const viewport of VIEWPORTS) {
+    test(`shows the notice between the explanation and the actions on ${viewport.name}`, async ({
+      authenticatedPage: page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      const backend = await installMentorActionsBackend(page, {
+        proposal: noticeProposal(),
+        otherSkillExperiences: [destinationExperience, careerExperience],
+      })
+      await openMentorActionsPage(page)
+
+      const card = cardOf(page)
+      await expect(card).toBeVisible()
+      await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+      await expect(card).toContainText(
+        'Você pediu ao Mentor para adicionar esta Habilidade.',
+      )
+      const notice = card.getByRole('note')
+      await expect(notice).toBeVisible()
+      await expect(notice).toContainText(NOTICE_TITLE)
+      await expect(notice).toContainText(
+        `No Objetivo “${CAREER_GOAL_TITLE}”, ela está concluída. Aqui ela começa do zero, com um novo diagnóstico, e nenhum resultado é copiado.`,
+      )
+      await expect(notice).not.toContainText(`No Objetivo “${GOAL_TITLE}”`)
+      const link = notice.getByRole('link', { name: `Ver em ${CAREER_GOAL_TITLE}` })
+      await expect(notice.getByRole('link')).toHaveCount(1)
+      await expect(link).toHaveAttribute(
+        'href',
+        `/learning/goals/${CAREER_GOAL_ID}/skills/${ACTION_IDS.skill}`,
+      )
+
+      const [lookup] = backend.callsOf('listOtherSkillExperiencesServer')
+      expect(lookup).toMatchObject({
+        method: 'GET',
+        data: { skillId: ACTION_IDS.skill },
+      })
+
+      // The notice arrives after the conversation was scrolled to its end, so the card
+      // grows below the fold. Scroll the message list to the end before measuring.
+      await scrollMessageListToEnd(card)
+
+      const reasonBox = await card
+        .getByText('Você pediu ao Mentor para adicionar esta Habilidade.')
+        .boundingBox()
+      const noticeBox = await notice.boundingBox()
+      const declineBox = await card.getByRole('button', { name: 'Recusar' }).boundingBox()
+      const confirmBox = await card
+        .getByRole('button', { name: 'Adicionar habilidade' })
+        .boundingBox()
+      const cardBox = await card.boundingBox()
+      expect(noticeBox?.y ?? 0).toBeGreaterThan(
+        (reasonBox?.y ?? 0) + (reasonBox?.height ?? 0) - 1,
+      )
+      expect(declineBox?.y ?? 0).toBeGreaterThan(
+        (noticeBox?.y ?? 0) + (noticeBox?.height ?? 0) - 1,
+      )
+      expect(confirmBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect((noticeBox?.x ?? 0) + (noticeBox?.width ?? 0)).toBeLessThanOrEqual(
+        (cardBox?.x ?? 0) + (cardBox?.width ?? 0),
+      )
+      await expectNoHorizontalOverflow(page)
+      await expect(
+        card.getByRole('button', { name: 'Adicionar habilidade' }),
+      ).toBeEnabled()
+
+      await page.screenshot({
+        path: `${CAPTURE_DIRECTORY}/mentor-notice-${viewport.name}-${viewport.width}.png`,
+      })
+      // The card is taller than the message list on a phone, so the card-only capture
+      // uses a tall viewport, like the 390 x 996 board, to show the whole card.
+      await page.setViewportSize({ width: viewport.width, height: 1200 })
+      await scrollMessageListToEnd(card)
+      await expect(
+        card.getByRole('button', { name: 'Adicionar habilidade' }),
+      ).toBeInViewport({
+        ratio: 1,
+      })
+      await card.screenshot({
+        path: `${CAPTURE_DIRECTORY}/mentor-notice-card-${viewport.name}-${viewport.width}.png`,
+      })
+    })
+  }
+
+  test('reaches the notice link, decline and add by keyboard with a visible focus', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await installMentorActionsBackend(page, {
+      proposal: noticeProposal(),
+      otherSkillExperiences: [careerExperience],
+    })
+    await openMentorActionsPage(page)
+
+    const card = cardOf(page)
+    const link = card.getByRole('link', { name: `Ver em ${CAREER_GOAL_TITLE}` })
+    await expect(link).toBeVisible()
+    await card.getByRole('heading', { name: `Adicionar ${NOTICE_SKILL_NAME}?` }).focus()
+
+    await page.keyboard.press('Tab')
+    await expect(link).toBeFocused()
+    expect(
+      await link.evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
+      }),
+    ).toEqual({ outlineStyle: 'solid', outlineWidth: '2px' })
+    await page.keyboard.press('Tab')
+    await expect(card.getByRole('button', { name: 'Recusar' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeFocused()
+  })
+
+  test('follows the notice link to the existing experience', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await installMentorActionsBackend(page, {
+      proposal: noticeProposal(),
+      otherSkillExperiences: [careerExperience],
+    })
+    await openMentorActionsPage(page)
+
+    await cardOf(page)
+      .getByRole('link', { name: `Ver em ${CAREER_GOAL_TITLE}` })
+      .click()
+
+    await expect(page).toHaveURL(
+      new RegExp(`/learning/goals/${CAREER_GOAL_ID}/skills/${ACTION_IDS.skill}$`),
+    )
+  })
+
+  test('adds the Skill with the notice shown and then drops the notice', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorActionsBackend(page, {
+      proposal: noticeProposal(),
+      otherSkillExperiences: [careerExperience],
+    })
+    await openMentorActionsPage(page)
+
+    const card = cardOf(page)
+    await expect(card.getByRole('note')).toBeVisible()
+    await card.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    const done = page.getByRole('region', { name: `${NOTICE_SKILL_NAME} adicionada` })
+    await expect(done).toBeVisible()
+    await expect(done.getByRole('note')).toHaveCount(0)
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')).toHaveLength(1)
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')[0]).toMatchObject({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillId: ACTION_IDS.skill,
+      },
+    })
+  })
+
+  test('omits the notice and still adds when the lookup fails', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorActionsBackend(page, {
+      proposal: noticeProposal(),
+      otherSkillExperiences: 'fail',
+    })
+    await openMentorActionsPage(page)
+
+    const card = cardOf(page)
+    await expect(card).toBeVisible()
+    await expect
+      .poll(() => backend.callsOf('listOtherSkillExperiencesServer').length)
+      .toBe(1)
+    await expect(card.getByRole('note')).toHaveCount(0)
+    await expect(page.getByText(NOTICE_TITLE)).toHaveCount(0)
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeEnabled()
+
+    await card.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${NOTICE_SKILL_NAME} adicionada` }),
+    ).toBeVisible()
+  })
+
+  test('omits the notice when the Skill exists only in the destination Goal', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorActionsBackend(page, {
+      proposal: noticeProposal(),
+      otherSkillExperiences: [destinationExperience],
+    })
+    await openMentorActionsPage(page)
+
+    const card = cardOf(page)
+    await expect(card).toBeVisible()
+    await expect
+      .poll(() => backend.callsOf('listOtherSkillExperiencesServer').length)
+      .toBe(1)
+    await expect(card.getByRole('note')).toHaveCount(0)
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeEnabled()
+  })
+
+  test('does not look up other experiences for a removal proposal', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('remove_skill'),
+      otherSkillExperiences: [careerExperience],
+    })
+    await openMentorActionsPage(page)
+
+    const card = page.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('note')).toHaveCount(0)
+    expect(backend.callsOf('listOtherSkillExperiencesServer')).toHaveLength(0)
+  })
+
+  test('relates the notice to the destination chosen in the card and updates it on change', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill', {
+        skillName: NOTICE_SKILL_NAME,
+        justification: null,
+        goalId: null,
+        goalTitle: null,
+        candidateGoals: [
+          {
+            goalId: ACTION_IDS.goal,
+            title: GOAL_TITLE,
+            containsSkill: false,
+            skillExperienceId: null,
+          },
+          {
+            goalId: ACTION_IDS.otherGoal,
+            title: OTHER_GOAL_TITLE,
+            containsSkill: false,
+            skillExperienceId: null,
+          },
+        ],
+      }),
+      otherSkillExperiences: [destinationExperience, portfolioExperience],
+    })
+    await openMentorActionsPage(page)
+
+    const card = cardOf(page)
+    await expect(card.getByRole('note')).toHaveCount(0)
+
+    await card.getByRole('button', { name: GOAL_TITLE }).click()
+    const notice = card.getByRole('note')
+    await expect(notice).toContainText(
+      `No Objetivo “${OTHER_GOAL_TITLE}”, ela está concluída.`,
+    )
+    await expect(notice).not.toContainText(`No Objetivo “${GOAL_TITLE}”`)
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeEnabled()
+
+    await card.getByRole('button', { name: 'Trocar Objetivo' }).click()
+    await card.getByRole('button', { name: OTHER_GOAL_TITLE }).click()
+
+    await expect(notice).toContainText(
+      `No Objetivo “${GOAL_TITLE}”, ela está em aprendizado.`,
+    )
+    await expect(notice).not.toContainText(`No Objetivo “${OTHER_GOAL_TITLE}”`)
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeEnabled()
   })
 })

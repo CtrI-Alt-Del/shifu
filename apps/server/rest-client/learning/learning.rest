@@ -181,9 +181,21 @@ Content-Type: application/json
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
 Authorization: Bearer {{accessToken}}
 
-### Get skill experience detail
+### Get skill experience detail (completion is null unless the Skill is completed)
+# For a completed Skill the response also carries the camelCase completion overview.
+# The days follow the account time zone, falling back to UTC. Response excerpt:
+# "completion": {
+#   "startedOn": "2026-09-02", "completedOn": "2026-09-13", "durationDays": 11,
+#   "completedByDiagnosis": false, "learningActivityCount": 14, "learningAttemptCount": 22,
+#   "initialResult": 75.33, "initialResultCoverage": "partial", "finalResult": 91.0,
+#   "competencies": [{ "competencyId": "...", "competencyName": "Funções", "position": 4,
+#     "initialProgress": null, "initialCoverage": "unknown", "finalProgress": 86.0,
+#     "masteredOn": "2026-09-13" }],
+#   "review": { "attemptCount": 3, "latestScore": 85.0 }
+# }
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}
 Authorization: Bearer {{accessToken}}
+Accept: application/json
 
 ### Get material detail
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/materials/{{materialId}}
@@ -212,3 +224,12 @@ Authorization: Bearer {{accessToken}}
 ### Retry choice evaluation
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/retry
 Authorization: Bearer {{accessToken}}
+
+### List the account's own experiences of one Skill (200)
+# Returns { "experiences": [...] } ordered by Goal title, then Goal id. The list is
+# empty when no owned Goal contains the Skill. Another account's Goals never appear.
+GET {{baseUrl}}/learning/skills/{{skillId}}/experiences
+Authorization: Bearer {{accessToken}}
+
+### List experiences of one Skill without authentication (401, no data)
+GET {{baseUrl}}/learning/skills/{{skillId}}/experiences

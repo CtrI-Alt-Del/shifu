@@ -4,6 +4,9 @@ from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures.skill_competency_summary import (
     SkillCompetencySummary,
 )
+from shifu.learning.core.domain.structures.skill_completion_overview import (
+    SkillCompletionOverview,
+)
 from shifu.learning.core.domain.structures.skill_evaluation_state import (
     SkillEvaluationState,
 )
@@ -27,10 +30,17 @@ class SkillExperienceDetail:
     evaluation: SkillEvaluationState | None
     overall_coverage_complete: bool = False
     recommendation_gap: str | None = None
+    completion: SkillCompletionOverview | None = None
 
     def __post_init__(self) -> None:
         if self.overall_result is not None:
             Percentage.create(self.overall_result)
+
+        if (self.completion is not None) is not (
+            self.skill_status is SkillExperienceStatus.COMPLETED
+        ):
+            raise ValueError('Only a completed Skill carries its completion.')
+
         positions = [competency.position for competency in self.competencies]
         if positions != sorted(positions):
             raise ValueError('Competencies follow the curricular order.')

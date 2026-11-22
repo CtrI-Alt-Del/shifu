@@ -33,7 +33,7 @@ export const MobileBottomNavigation = ({
     >
       <div className='mx-auto flex max-w-md items-center justify-around gap-2'>
         {bottomItems.map((item) => {
-          const isActive = isNavigationItemActive(pathname, item.route)
+          const isActive = isNavigationItemActive(pathname, item)
 
           return (
             <Anchor

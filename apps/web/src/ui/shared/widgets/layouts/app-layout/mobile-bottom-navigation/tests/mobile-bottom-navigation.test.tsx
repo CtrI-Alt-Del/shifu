@@ -64,4 +64,43 @@ describe('MobileBottomNavigation', () => {
       screen.getByRole('link', { name: 'Mentor — navegação inferior' }),
     ).not.toHaveAttribute('aria-current')
   })
+
+  it.each([
+    ROUTES.root,
+    ROUTES.learning,
+    '/learning/goals/x',
+    '/learning/goals/x/skills/y',
+  ])('marks only Objetivos as active on %s', (pathname) => {
+    render(<MobileBottomNavigation items={APP_NAVIGATION_ITEMS} pathname={pathname} />)
+
+    const activeLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+
+    expect(activeLinks).toHaveLength(1)
+    expect(
+      screen.getByRole('link', { name: 'Objetivos — navegação inferior' }),
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it.each([ROUTES.gamification, ROUTES.intelligence, ROUTES.account, '/learningx'])(
+    'does not mark Objetivos as active on %s',
+    (pathname) => {
+      render(<MobileBottomNavigation items={APP_NAVIGATION_ITEMS} pathname={pathname} />)
+
+      expect(
+        screen.getByRole('link', { name: 'Objetivos — navegação inferior' }),
+      ).not.toHaveAttribute('aria-current')
+    },
+  )
+
+  it('keeps the account item active on its own route', () => {
+    render(
+      <MobileBottomNavigation items={APP_NAVIGATION_ITEMS} pathname={ROUTES.account} />,
+    )
+
+    expect(
+      screen.getByRole('link', { name: 'Conta — navegação inferior' }),
+    ).toHaveAttribute('aria-current', 'page')
+  })
 })

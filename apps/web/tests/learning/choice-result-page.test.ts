@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { ROUTES } from '@/constants/routes'
+import type { BffFixtureContract } from '../fixtures/bff-fixture'
 import { GamificationTransportFixture } from '../fixtures/gamification-transport-fixture'
 import {
   ChoiceActivityDetailFaker,
@@ -8,6 +9,8 @@ import {
   ChoiceResultQuestionFaker,
   FillBlanksQuestionFaker,
   LearningRouteIdsFaker,
+  DiagnosticOverviewFaker,
+  SkillExperienceDetailFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
 
@@ -47,6 +50,7 @@ async function entranceFrames(page: Page) {
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
 const competencyPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}`
+const skillPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}`
 const attemptPath = `${activityPath}/attempts/${ids.attemptId}`
 const activity = ChoiceActivityDetailFaker.fake({
   activityId: ids.activityId,
@@ -1119,6 +1123,98 @@ test.describe('Activity XP reward routed REST transport', () => {
       }
     })
   }
+
+  // Proves the snake_case wire field `completes_skill` reaches the page as
+  // `completesSkill`: the BFF mapping runs for real, only the upstream body is faked.
+  for (const completesSkill of [true, undefined]) {
+    test(`maps ${completesSkill ? 'completes_skill: true to the completion notice' : 'a body without completes_skill to no notice'}`, async ({
+      page,
+      request,
+      activeAccount,
+    }) => {
+      const transport = GamificationTransportFixture(request, activeAccount.accountId)
+      await transport.register({
+        [activityPath]: {
+          body: {
+            activity_id: ids.activityId,
+            competency_id: ids.competencyId,
+            title: 'Somar os números pares',
+            type: 'practice',
+            difficulty: 'easy',
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual é o resultado?',
+                options: [
+                  { key: 'a', text: '4' },
+                  { key: 'b', text: '6' },
+                ],
+              },
+            ],
+            latest_attempt_id: ids.attemptId,
+            can_submit: false,
+            activity_revision: 'completion-transport',
+          },
+        },
+        [attemptPath]: {
+          body: {
+            attempt_id: ids.attemptId,
+            activity_id: ids.activityId,
+            status: 'completed',
+            submitted_at: '2026-09-23T12:00:00Z',
+            retry_allowed: false,
+            ...(completesSkill === undefined ? {} : { completes_skill: completesSkill }),
+            score: 100,
+            progress_before: 0,
+            progress_after: 100,
+            status_before: 'learning',
+            status_after: 'mastered',
+            questions: [],
+            next_action: null,
+          },
+        },
+        [competencyPath]: {
+          status: 404,
+          body: { code: 'not_found', message: 'Recurso não encontrado.' },
+        },
+      })
+      try {
+        const signIn = await page.request.post('/api/auth/sign-in/identity', {
+          data: { email: activeAccount.email, password: signInPassword },
+          headers: { 'x-forwarded-for': activeAccount.ipAddress },
+        })
+        expect(signIn.status()).toBe(200)
+        await page.goto(attemptPath)
+        await expect(page).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+        await expect(
+          page.getByRole('heading', { name: 'Resultado da Atividade' }),
+        ).toBeVisible()
+
+        const notice = page.getByRole('region', { name: 'Habilidade concluída' })
+        if (completesSkill) {
+          await expect(notice).toBeVisible()
+          await expect(
+            notice.getByRole('link', { name: 'Ver resumo final' }),
+          ).toHaveAttribute('href', skillPath)
+        } else {
+          await expect(notice).toHaveCount(0)
+          await expect(page.getByRole('link', { name: 'Ver resumo final' })).toHaveCount(
+            0,
+          )
+        }
+        expect(
+          (await transport.observations()).filter((entry) => entry.path === attemptPath),
+        ).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ method: 'GET', status: 200 }),
+          ]),
+        )
+      } finally {
+        await transport.dispose()
+      }
+    })
+  }
 })
 
 for (const viewport of [
@@ -1204,3 +1300,129 @@ for (const viewport of [
     })
   }
 }
+
+async function mockResultTransport(
+  bff: BffFixtureContract,
+  attempt: typeof completedAttempt,
+) {
+  await bff.route(async (route) => {
+    const exportName = serverFnExport(route.request().url()) ?? ''
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (exportName.startsWith('getCompetencyDetailAction_')) {
+      await route.fulfill({
+        body: JSON.stringify({ result: adaptiveDetail }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exportName.startsWith('getSkillExperienceAction')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: SkillExperienceDetailFaker.fake({
+            goalId: ids.goalId,
+            skillId: ids.skillId,
+            skillName: 'Lógica de programação',
+            skillStatus: 'learning',
+          }),
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exportName.startsWith('getDiagnosticAction')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: DiagnosticOverviewFaker.fake({
+            runState: 'settled',
+            readyToComplete: false,
+            nextCompetencyId: null,
+            nextActivityId: null,
+            pendingAttemptId: null,
+            pendingAttemptStatus: null,
+            activitySequence: [],
+            competencies: [],
+          }),
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.attemptId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: attempt }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: activity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+}
+
+for (const viewport of [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]) {
+  test(`shows the Skill completion notice after the result and opens the final summary on ${viewport.name}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    await authenticatedPage.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    })
+    await mockResultTransport(bff, { ...completedAttempt, completesSkill: true })
+
+    await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+    const resultHeading = authenticatedPage.getByRole('heading', {
+      name: 'Resultado da Atividade',
+    })
+    await expect(resultHeading).toBeVisible()
+    const notice = authenticatedPage.getByRole('region', { name: 'Habilidade concluída' })
+    await expect(notice).toBeVisible()
+    await expect(notice).toContainText('Habilidade concluída')
+    const resultBox = await resultHeading.boundingBox()
+    const noticeBox = await notice.boundingBox()
+    expect(noticeBox?.y).toBeGreaterThan(resultBox?.y ?? Number.POSITIVE_INFINITY)
+
+    const summaryLink = notice.getByRole('link', { name: 'Ver resumo final' })
+    await expect(summaryLink).toHaveAttribute('href', skillPath)
+    await summaryLink.focus()
+    await expect(summaryLink).toBeFocused()
+    await authenticatedPage.keyboard.press('Enter')
+
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${skillPath}/?$`))
+    await expect(
+      authenticatedPage.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
+    ).toBeVisible()
+  })
+}
+
+test('shows no Skill completion notice when the attempt does not complete the Skill', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await mockResultTransport(bff, { ...completedAttempt, completesSkill: false })
+
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('link', { name: 'Voltar para a Competência' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('Habilidade concluída')).toHaveCount(0)
+  await expect(
+    authenticatedPage.getByRole('link', { name: 'Ver resumo final' }),
+  ).toHaveCount(0)
+})

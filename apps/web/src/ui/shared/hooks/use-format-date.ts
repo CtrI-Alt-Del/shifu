@@ -11,6 +11,12 @@ const DAY_LABEL_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   timeZone: 'UTC',
 })
 
+const COMPACT_DAY_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+})
+
 const WEEKDAY_LABEL_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long',
   day: 'numeric',
@@ -36,6 +42,15 @@ export function useFormatDate() {
     return DAY_LABEL_FORMATTER.format(toUtcDate(isoDate))
   }
 
+  // pt-BR renders the short month as "set." with a trailing dot; the design
+  // writes "2 set", so the parts are composed by hand.
+  function formatCompactDayLabel(isoDate: string): string {
+    const parts = COMPACT_DAY_FORMATTER.formatToParts(toUtcDate(isoDate))
+    const partValue = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value ?? ''
+    return `${partValue('day')} ${partValue('month').replace('.', '')}`
+  }
+
   function formatWeekdayLabel(isoDate: string): string {
     return WEEKDAY_LABEL_FORMATTER.format(toUtcDate(isoDate))
   }
@@ -50,7 +65,13 @@ export function useFormatDate() {
     return `${partValue('day')} ${month} ${partValue('year')}`
   }
 
-  return { formatMonthLabel, formatDayLabel, formatWeekdayLabel, formatShortDate }
+  return {
+    formatMonthLabel,
+    formatDayLabel,
+    formatCompactDayLabel,
+    formatWeekdayLabel,
+    formatShortDate,
+  }
 }
 
 // Calendar dates are plain `YYYY-MM-DD` with no time: parsing them as UTC

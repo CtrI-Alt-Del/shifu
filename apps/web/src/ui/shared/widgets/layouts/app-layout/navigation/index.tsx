@@ -11,7 +11,7 @@ export const Navigation = ({ items, pathname, onNavigate }: NavigationProps) => 
   return (
     <>
       {items.map((item) => {
-        const isActive = isNavigationItemActive(pathname, item.route)
+        const isActive = isNavigationItemActive(pathname, item)
 
         return (
           <Anchor
