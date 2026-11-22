@@ -33,7 +33,10 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
-from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
+from shifu.fakers.curriculum.structures import (
+    PairMatchingQuestionFaker,
+    PracticalPreparationQuestionFaker,
+)
 from shifu.fakers.curriculum.entities import CompetencyFaker, SkillFaker
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.fakers.learning.entities import (
@@ -42,11 +45,17 @@ from shifu.fakers.learning.entities import (
     SkillExperienceFaker,
 )
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
-from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
+from shifu.learning.core.domain.entities import (
+    ActivityAttempt,
+    ActivityEvaluation,
+    PracticePhoto,
+)
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    PracticePhotoOwnerKind,
+    PracticePhotoState,
     SkillExperienceStatus,
 )
 from shifu.learning.core.domain.structures import (
@@ -55,6 +64,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     PairMatchingAnswer,
     PairMatchingSelection,
+    PracticalPreparationAnswer,
     TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
@@ -63,6 +73,8 @@ from shifu.shared.providers.system_identifier_provider import SystemIdentifierPr
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
+
+    from shifu.shared.core.interfaces import FileStorageProvider
 
 CODE_QUESTION_KEY = 'q3'
 CODE_CRITERION_KEY = 'correctness'
@@ -457,3 +469,184 @@ def seed_translation_activity_attempt(
         repos.activity_attempts.add(attempt)
         repos.activity_evaluations.add(evaluation)
     return SeededTranslationActivity(database, provider, attempt, evaluation)
+
+
+PRACTICE_QUESTION_KEY = 'sauteed-vegetables'
+PRACTICE_RECORD_KEYS = ('cuts', 'during', 'final')
+
+
+@dataclass(frozen=True)
+class SeededPracticalPreparationActivity:
+    """One practical preparation Activity with a pending evaluation of a submitted
+    attempt whose three photos are stored and owned by the attempt."""
+
+    database: SqlalchemyLearningDatabase
+    content_provider: DatabaseCurriculumContentProvider
+    attempt: ActivityAttempt
+    evaluation: ActivityEvaluation
+    concept_id: str
+    photo_bytes: dict[str, bytes]
+
+    @property
+    def run_id(self) -> str:
+        assert self.evaluation.run_id is not None
+        return self.evaluation.run_id
+
+    def current_evaluation(self) -> ActivityEvaluation:
+        with self.database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                self.attempt.id
+            )
+        assert evaluation is not None
+        return evaluation
+
+    def concept_observation_values(self) -> list[Decimal | None]:
+        with self.database.transaction() as repositories:
+            observations = repositories.concept_observations.find_many_by_attempt_id(
+                self.attempt.id
+            )
+        return [item.value for item in observations]
+
+
+def seed_practical_preparation_attempt(
+    engine: Engine, storage: FileStorageProvider
+) -> SeededPracticalPreparationActivity:
+    """Seed the sauteed vegetables Activity (weights 40/40/20, three records, one
+    insufficiency rule) and its submitted attempt with stored photos."""
+    ids = SystemIdentifierProvider()
+    now = SystemClockProvider().now()
+    account = AccountFaker.fake(created_at=now)
+    skill = SkillFaker.fake()
+    competency = CompetencyFaker.fake(skill_id=skill.id)
+    concept = Concept(
+        id=ids.generate(),
+        competency_id=competency.id,
+        name='Cortes regulares',
+        description='Cortes de tamanho parecido para um salteado uniforme.',
+        position=1,
+        observation_criteria='Observe se os pedaços têm tamanho parecido.',
+    )
+    question = PracticalPreparationQuestionFaker.fake(
+        key=PRACTICE_QUESTION_KEY,
+        concept_criteria=(
+            PracticalPreparationQuestionFaker.concept_criterion(concept.id),
+        ),
+    )
+    activity = Activity.create(
+        id=ids.generate(),
+        competency_id=competency.id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Legumes salteados',
+        objective='Preparar legumes salteados.',
+        questions=(question,),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(
+                    question_key=question.key, weight_percentage=100
+                ),
+            )
+        ),
+    )
+    goal = GoalFaker.fake(account_id=account.id, created_at=now, updated_at=now)
+    experience = SkillExperienceFaker.fake(
+        goal_id=goal.id,
+        skill_id=skill.id,
+        status=SkillExperienceStatus.LEARNING,
+        created_at=now,
+        updated_at=now,
+    )
+    progress = CompetencyProgressFaker.fake(
+        skill_experience_id=experience.id,
+        competency_id=competency.id,
+        content_released=True,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+        created_at=now,
+        updated_at=now,
+    )
+    with SqlalchemyIdentityDatabase(engine, id_provider=ids).transaction() as repos:
+        repos.accounts.add(account)
+    curriculum_database = SqlalchemyCurriculumDatabase(engine)
+    with curriculum_database.transaction() as repos:
+        repos.skills.add_many([skill])
+        repos.competencies.add_many([competency])
+        repos.activities.add_many([activity])
+        repos.concepts.add_many([concept])
+        repos.curriculum_sequences.add_many(
+            [
+                CurriculumSequence(
+                    competency_id=competency.id,
+                    items=(ActivitySequenceItem(activity_id=activity.id, position=1),),
+                )
+            ]
+        )
+    database = SqlalchemyLearningDatabase(engine, id_provider=ids)
+    with database.transaction() as repos:
+        repos.goals.add(goal)
+        repos.skill_experiences.add_many([experience])
+        repos.competency_progresses.add(progress)
+    provider = DatabaseCurriculumContentProvider(
+        curriculum_database,
+        diagnostic_revision_hmac_key=b'workflow-test-diagnostic-revision-key',
+    )
+    snapshot = provider.get_learning_activity(activity.id)
+    assert snapshot is not None
+    attempt = ActivityAttempt.create(
+        id=ids.generate(),
+        skill_experience_id=experience.id,
+        competency_id=activity.competency_id,
+        activity_id=activity.id,
+        kind=ActivityAttemptKind.LEARNING,
+        answers=(
+            PracticalPreparationAnswer(
+                question_key=PRACTICE_QUESTION_KEY,
+                draft_revision=4,
+                reflection='Os legumes ficaram firmes.',
+            ),
+        ),
+        submitted_at=now,
+        submission_key=ids.generate(),
+        grading_snapshot=snapshot,
+    )
+    evaluation = ActivityEvaluation.create(
+        id=ids.generate(),
+        attempt_id=attempt.id,
+        status=ActivityEvaluationStatus.PENDING,
+        parts=(),
+        started_at=now,
+        run_id=ids.generate(),
+    )
+    photo_bytes: dict[str, bytes] = {}
+    photos: list[PracticePhoto] = []
+    for record_key in PRACTICE_RECORD_KEYS:
+        photo_id = ids.generate()
+        object_key = f'practice-photos/{photo_id}/original'
+        content = f'fake-png-{record_key}'.encode()
+        storage.put(object_key, content, 'image/png')
+        photo_bytes[record_key] = content
+        photos.append(
+            PracticePhoto(
+                id=photo_id,
+                owner_kind=PracticePhotoOwnerKind.ATTEMPT,
+                draft_id=None,
+                attempt_id=attempt.id,
+                record_key=record_key,
+                object_key=object_key,
+                media_type='image/png',
+                size_bytes=len(content),
+                sha256='a' * 64,
+                state=PracticePhotoState.READY,
+                upload_key=ids.generate(),
+                removal_due_at=None,
+            )
+        )
+    with database.transaction() as repos:
+        repos.activity_attempts.add(attempt)
+        repos.activity_evaluations.add(evaluation)
+        for photo in photos:
+            repos.practice_photos.add(photo)
+    return SeededPracticalPreparationActivity(
+        database, provider, attempt, evaluation, concept.id, photo_bytes
+    )

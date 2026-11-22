@@ -49,6 +49,8 @@ import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivi
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/index'
+import { Route as ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRouteImport } from './routes/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/index'
+import { Route as ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRouteImport } from './routes/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -285,6 +287,22 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivity
         LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute,
     } as any,
   )
+const ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute =
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRouteImport.update(
+    {
+      id: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/',
+      path: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
+const ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute =
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRouteImport.update(
+    {
+      id: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/',
+      path: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -327,6 +345,8 @@ export interface FileRoutesByFullPath {
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -366,6 +386,8 @@ export interface FileRoutesByTo {
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -409,6 +431,8 @@ export interface FileRoutesById {
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute
+  '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/': typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -453,6 +477,8 @@ export interface FileRouteTypes {
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -492,6 +518,8 @@ export interface FileRouteTypes {
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId'
   id:
     | '__root__'
     | '/'
@@ -534,6 +562,8 @@ export interface FileRouteTypes {
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/'
+    | '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -563,6 +593,8 @@ export interface RootRouteChildren {
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
   ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute: typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute
   LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute: typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute: typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -847,6 +879,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport
       parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute
     }
+    '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/': {
+      id: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/'
+      path: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey'
+      fullPath: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/practice-photos/$recordKey/'
+      preLoaderRoute: typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/': {
+      id: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/'
+      path: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId'
+      fullPath: '/api/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/practice-photos/$photoId/'
+      preLoaderRoute: typeof ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -960,6 +1006,10 @@ const rootRouteChildren: RootRouteChildren = {
     ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute:
     LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute,
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute:
+    ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdPracticePhotosRecordKeyIndexRoute,
+  ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute:
+    ApiLearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdPracticePhotosPhotoIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -10,6 +10,9 @@ from shifu.learning.core.domain.structures.single_choice_answer import (
     SingleChoiceAnswer,
 )
 from shifu.learning.core.domain.structures.ordering_answer import OrderingAnswer
+from shifu.learning.core.domain.structures.practical_preparation_answer import (
+    PracticalPreparationAnswer,
+)
 from shifu.learning.core.domain.structures.translation_answer import TranslationAnswer
 
 type ActivityAnswer = (
@@ -20,4 +23,5 @@ type ActivityAnswer = (
     | FillBlanksAnswer
     | TranslationAnswer
     | PairMatchingAnswer
+    | PracticalPreparationAnswer
 )

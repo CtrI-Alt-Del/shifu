@@ -382,4 +382,183 @@ describe('useChoiceResultPage routed result consumers', () => {
 
     await waitFor(() => expect(result.current.pageState).toBe('result'))
   })
+
+  describe('practical preparation', () => {
+    const practicalWire = {
+      question_key: 'practice-1',
+      kind: 'practical_preparation',
+      prompt: 'Prepare legumes salteados.',
+      records: [{ key: 'cuts', label: 'Cortes' }],
+      photos: [{ record_key: 'cuts', photo_id: 'photo-1' }],
+      reflection: null,
+      criteria: [
+        {
+          key: 'cut',
+          name: 'Corte',
+          weight: '40',
+          level: 75,
+          comment: 'Quase uniforme.',
+        },
+        { key: 'heat', name: 'Calor', weight: 60, level: null, comment: null },
+      ],
+      closed_without_grade: false,
+      unassessable_records: [],
+      guidance: null,
+    }
+
+    it('maps the practical result with numeric weights, nullable levels and an empty reflection', async () => {
+      respondWithAttempt(attemptWire('completed', [practicalWire]))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.pageState).toBe('result'))
+
+      expect(result.current.attempt?.questions).toEqual([
+        {
+          key: 'practice-1',
+          kind: 'practical_preparation',
+          prompt: 'Prepare legumes salteados.',
+          records: [{ key: 'cuts', label: 'Cortes' }],
+          photos: [{ recordKey: 'cuts', photoId: 'photo-1' }],
+          reflection: '',
+          score: null,
+          criteria: [
+            {
+              key: 'cut',
+              name: 'Corte',
+              weight: 40,
+              level: 75,
+              comment: 'Quase uniforme.',
+            },
+            { key: 'heat', name: 'Calor', weight: 60, level: null, comment: null },
+          ],
+          closedWithoutGrade: false,
+          unassessableRecords: [],
+          guidance: null,
+        },
+      ])
+    })
+
+    it('maps omitted null fields of the wire result to null', async () => {
+      const { reflection, guidance, ...omitted } = practicalWire
+      void reflection
+      void guidance
+      respondWithAttempt(
+        attemptWire('completed', [
+          {
+            ...omitted,
+            criteria: [{ key: 'cut', name: 'Corte', weight: '40' }],
+          },
+        ]),
+      )
+      const { result } = setup()
+      await waitFor(() => expect(result.current.pageState).toBe('result'))
+
+      expect(result.current.attempt?.questions?.[0]).toMatchObject({
+        reflection: '',
+        guidance: null,
+        criteria: [{ key: 'cut', weight: 40, level: null, comment: null }],
+      })
+    })
+
+    it('exposes the Activity identity and an owner-only attempt photo URL for the page', async () => {
+      respondWithAttempt(attemptWire('completed', [practicalWire]))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.pageState).toBe('result'))
+
+      const { renderProps } = result.current
+      if (renderProps.state !== 'result') throw new Error('unreachable')
+      expect(renderProps.detailIds).toEqual({
+        goalId: IDS.goalId,
+        skillId: IDS.skillId,
+        competencyId: IDS.competencyId,
+        activityId: IDS.activityId,
+      })
+      expect(renderProps.buildPracticePhotoUrl?.('photo-1')).toBe(
+        `/api${learningAttemptsPath(IDS)}/${IDS.attemptId}/practice-photos/photo-1`,
+      )
+    })
+
+    it('keeps polling after a retry until a review attempt completes without progress fields', async () => {
+      const reviewCompleted = {
+        ...attemptWire('completed', [{ ...practicalWire, score: '80' }]),
+        score: null,
+        progress_before: undefined,
+        progress_after: undefined,
+        status_before: undefined,
+        status_after: undefined,
+        next_action: undefined,
+      }
+      respondWithAttempt(attemptWire('failed'))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.canRetry).toBe(true))
+      // The server still answers 'failed' right after the retry, then completes.
+      let reads = 0
+      mocks.post.mockImplementation(async () => {
+        mocks.get.mockImplementation(async (path: string) => {
+          if (path === ATTEMPT_PATH) {
+            reads += 1
+            return new RestResponse({
+              statusCode: 200,
+              body: reads < 3 ? attemptWire('failed') : reviewCompleted,
+            })
+          }
+          if (path === learningActivityPath(IDS))
+            return new RestResponse({ statusCode: 200, body: ACTIVITY_WIRE })
+          return new RestResponse({
+            statusCode: 200,
+            body: { availability: 'unavailable' },
+          })
+        })
+        return new RestResponse({ statusCode: 200, body: {} })
+      })
+
+      await act(async () => result.current.handleRetryEvaluation())
+      expect(result.current.attempt?.status).toBe('pending')
+      expect(result.current.canRetry).toBe(false)
+      await waitFor(() => expect(result.current.attempt?.status).toBe('completed'), {
+        timeout: 12_000,
+      })
+
+      expect(result.current.attempt?.questions?.[0]).toMatchObject({
+        score: 80,
+        closedWithoutGrade: false,
+      })
+      expect(result.current.attempt?.score).toBeNull()
+    }, 20_000)
+
+    it('treats a closed attempt without grade as terminal and never retryable', async () => {
+      respondWithAttempt({
+        ...attemptWire('closed_without_grade', [
+          {
+            ...practicalWire,
+            criteria: [],
+            closed_without_grade: true,
+            unassessable_records: [
+              { key: 'cuts', label: 'Cortes', comment: 'Foto escura demais.' },
+            ],
+            guidance: 'Use mais luz.',
+          },
+        ]),
+        score: null,
+        progress_before: null,
+        progress_after: null,
+        next_action: null,
+      })
+      const { result } = setup()
+      await waitFor(() => expect(result.current.pageState).toBe('result'))
+
+      expect(result.current.attempt).toMatchObject({
+        status: 'closed_without_grade',
+        retryAllowed: false,
+        score: null,
+      })
+      expect(result.current.attempt?.questions?.[0]).toMatchObject({
+        closedWithoutGrade: true,
+        unassessableRecords: [
+          { key: 'cuts', label: 'Cortes', comment: 'Foto escura demais.' },
+        ],
+        guidance: 'Use mais luz.',
+      })
+      expect(result.current.canRetry).toBe(false)
+    })
+  })
 })

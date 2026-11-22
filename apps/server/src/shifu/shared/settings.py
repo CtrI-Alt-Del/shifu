@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     )
     mentor_attachment_storage_access_key: SecretStr | None = None
     mentor_attachment_storage_secret_key: SecretStr | None = None
+    learning_practice_photo_storage_bucket: str = Field(
+        default='shifu-learning-practice-photos', min_length=3, max_length=63
+    )
+    learning_practice_photo_storage_region: str = Field(
+        default='us-east-1', min_length=1
+    )
+    learning_practice_photo_storage_endpoint_url: HttpUrl | None = None
+    learning_practice_photo_storage_addressing_style: Literal[
+        'auto', 'path', 'virtual'
+    ] = 'auto'
+    learning_practice_photo_storage_access_key: SecretStr | None = None
+    learning_practice_photo_storage_secret_key: SecretStr | None = None
     mentor_attachment_max_image_pixels: int = Field(
         default=20_000_000, ge=1, le=100_000_000
     )

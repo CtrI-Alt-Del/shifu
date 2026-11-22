@@ -6,6 +6,7 @@ import type {
   CodeResultQuestion,
   FillBlanksResultQuestion,
   PairMatchingResultQuestion,
+  PracticalPreparationResultQuestion,
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
 import { ENTRANCE_ROW } from '@/constants/motion-variants'
@@ -30,6 +31,9 @@ export const ChoiceResultDetail = ({
   questionNumber,
   result,
 }: ChoiceResultDetailProps) => {
+  // Practical preparation results have their own layout on the result page.
+  if (isPracticalPreparationResultQuestion(result)) return null
+
   if (isFillBlanksResultQuestion(result))
     return <FillBlanksResult questionNumber={questionNumber} result={result} />
 
@@ -409,7 +413,8 @@ export const ChoiceResultDetail = ({
     question.kind !== 'ordering' &&
     question.kind !== 'translation' &&
     question.kind !== 'fill_blanks' &&
-    question.kind !== 'pair_matching'
+    question.kind !== 'pair_matching' &&
+    question.kind !== 'practical_preparation'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -518,6 +523,12 @@ export const ChoiceResultDetail = ({
 
 function formatNullableScore(score: number | null) {
   return score === null ? '—' : SCORE_FORMATTER.format(Number(score))
+}
+
+function isPracticalPreparationResultQuestion(
+  result: ActivityResultQuestion,
+): result is PracticalPreparationResultQuestion {
+  return 'kind' in result && result.kind === 'practical_preparation'
 }
 
 function isFillBlanksResultQuestion(

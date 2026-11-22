@@ -1,0 +1,37 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - generic [ref=f2e5]:
+          - link "Shifu — Objetivos" [ref=f2e6] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f2e7]: Shifu
+            - generic [ref=f2e8]: 師
+          - navigation "Navegação principal" [ref=f2e9]:
+            - link "Objetivos" [ref=f2e10] [cursor=pointer]:
+              - /url: /
+            - link "Progresso" [ref=f2e11] [cursor=pointer]:
+              - /url: /gamification
+            - link "Mentor" [ref=f2e12] [cursor=pointer]:
+              - /url: /intelligence
+        - generic [ref=f2e13]:
+          - 'link "Uso da IA: 1% da cota mensal" [ref=f2e39] [cursor=pointer]':
+            - /url: /account/ai-usage
+            - generic [ref=f2e40]: IA · 1%
+          - button "Abrir menu da conta" [ref=f2e15] [cursor=pointer]
+    - main [ref=f2e20]:
+      - main [ref=f2e41]:
+        - generic [ref=f2e42]:
+          - generic [ref=f2e43]:
+            - generic [ref=f2e44]:
+              - link "Voltar para o Objetivo" [ref=f2e45] [cursor=pointer]:
+                - /url: /learning/goals/01M82EKR8SZJTCZRJVR1JDNY6D
+              - paragraph [ref=f2e46]: Habilidade
+              - heading "Decisões em algoritmos" [level=1] [ref=f2e47]
+            - button "Mais ações de Decisões em algoritmos" [ref=f2e48] [cursor=pointer]
+          - generic [ref=f2e53]:
+            - heading "Comece pelo diagnóstico" [level=2] [ref=f2e54]
+            - paragraph [ref=f2e55]: O diagnóstico percorre todas as Competências desta Habilidade. Você verá apenas o resultado consolidado ao final.
+            - button "Iniciar Habilidade" [ref=f2e56] [cursor=pointer]
+  - button "Abrir Mentor" [ref=f2e35] [cursor=pointer]
+  - region "Notifications alt+T"

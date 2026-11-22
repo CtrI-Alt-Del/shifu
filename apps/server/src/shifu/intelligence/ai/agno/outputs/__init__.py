@@ -15,6 +15,11 @@ from .mentor_review_criterion_output import (
 )
 from .mentor_review_output import MentorReviewOutput as MentorReviewOutput
 from .mentor_title_output import MentorTitleOutput as MentorTitleOutput
+from .practice_photo_assessment_output import (
+    PracticeCriterionOutput as PracticeCriterionOutput,
+    PracticePhotoAssessmentOutput as PracticePhotoAssessmentOutput,
+    PracticeRecordOutput as PracticeRecordOutput,
+)
 from .planning_interview_output import (
     PlanningInterviewOutput as PlanningInterviewOutput,
     PlanningQuestionOutput as PlanningQuestionOutput,

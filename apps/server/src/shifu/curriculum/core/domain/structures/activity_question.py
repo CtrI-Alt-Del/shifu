@@ -5,6 +5,7 @@ from .javascript_stdin_question import JavascriptStdinQuestion
 from .multiple_selection_question import MultipleSelectionQuestion
 from .ordering_question import OrderingQuestion
 from .pair_matching_question import PairMatchingQuestion
+from .practical_preparation_question import PracticalPreparationQuestion
 from .react_question import ReactQuestion
 from .react_fastify_question import ReactFastifyQuestion
 from .single_choice_question import SingleChoiceQuestion
@@ -23,4 +24,5 @@ type ActivityQuestion = (
     | FillBlanksQuestion
     | TranslationQuestion
     | PairMatchingQuestion
+    | PracticalPreparationQuestion
 )

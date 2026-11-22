@@ -1,0 +1,76 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Response as FastApiResponse
+from pydantic import TypeAdapter
+
+from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases import SavePracticeReflectionUseCase
+from shifu.learning.pipes import LearningPipe
+from shifu.learning.rest.schemas.practice_draft_schemas import (
+    PRACTICE_DRAFT_PATH,
+    ActivityIdPath,
+    CompetencyIdPath,
+    GoalIdPath,
+    PracticeDraftSchemas,
+    SkillIdPath,
+)
+from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.core.interfaces import CurriculumContentProvider, IdentifierProvider
+from shifu.shared.pipes import AuthenticationPipe
+
+
+class Request(PracticeDraftSchemas.ReflectionRequest):
+    pass
+
+
+class Response(PracticeDraftSchemas.Draft):
+    pass
+
+
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
+class SavePracticeReflectionController:
+    @staticmethod
+    def handle(router: APIRouter) -> None:
+        @router.put(
+            f'{PRACTICE_DRAFT_PATH}/reflection',
+            response_model=Response,
+            status_code=200,
+        )
+        def _(
+            goal_id: GoalIdPath,
+            skill_id: SkillIdPath,
+            competency_id: CompetencyIdPath,
+            activity_id: ActivityIdPath,
+            request: Request,
+            http_response: FastApiResponse,
+            user: Annotated[
+                AuthenticatedUser,
+                Depends(AuthenticationPipe.get_authenticated_user),
+            ],
+            database: Annotated[
+                LearningDatabase,
+                Depends(LearningPipe.get_database),
+            ],
+            provider: Annotated[
+                CurriculumContentProvider,
+                Depends(LearningPipe.get_curriculum_content_provider),
+            ],
+            identifiers: Annotated[
+                IdentifierProvider,
+                Depends(LearningPipe.get_identifier_provider),
+            ],
+        ) -> Response:
+            view = SavePracticeReflectionUseCase(
+                database, provider, identifiers
+            ).execute(
+                user.account_id,
+                goal_id,
+                skill_id,
+                competency_id,
+                activity_id,
+                request.reflection,
+            )
+            http_response.headers['Cache-Control'] = 'private, no-store'
+            return _RESPONSE_ADAPTER.validate_python(view, from_attributes=True)

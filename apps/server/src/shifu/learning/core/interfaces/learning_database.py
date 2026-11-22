@@ -26,6 +26,12 @@ from shifu.learning.core.interfaces.mentor_action_receipts_repository import (
 from shifu.learning.core.interfaces.ordering_passages_repository import (
     OrderingPassagesRepository,
 )
+from shifu.learning.core.interfaces.practice_drafts_repository import (
+    PracticeDraftsRepository,
+)
+from shifu.learning.core.interfaces.practice_photos_repository import (
+    PracticePhotosRepository,
+)
 from shifu.learning.core.interfaces.skill_experiences_repository import (
     SkillExperiencesRepository,
 )
@@ -45,6 +51,8 @@ class LearningDatabaseRepositories:
     concept_states: ConceptStatesRepository
     mentor_action_receipts: MentorActionReceiptsRepository
     ordering_passages: OrderingPassagesRepository
+    practice_drafts: PracticeDraftsRepository
+    practice_photos: PracticePhotosRepository
     events: EventsRepository
 
 

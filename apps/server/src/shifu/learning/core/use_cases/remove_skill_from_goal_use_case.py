@@ -1,5 +1,6 @@
 from shifu.learning.core.domain.errors import SkillExperienceNotFoundError
 from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases.practice_photo_cleanup import PracticePhotoCleanup
 
 
 class RemoveSkillFromGoalUseCase:
@@ -21,4 +22,7 @@ class RemoveSkillFromGoalUseCase:
             if goal is None or goal.account_id != account_id:
                 raise SkillExperienceNotFoundError
 
+            PracticePhotoCleanup.request_for_skill_experience(
+                repositories, experience.id
+            )
             repositories.skill_experiences.remove(experience)

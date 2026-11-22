@@ -60,6 +60,7 @@ const config = defineConfig(({ mode }) => {
     server: {
       port: Number(env.SHIFU_WEB_APP_PORT) || 7000,
       headers: webContainerIsolationHeaders,
+      watch: { ignored: ['**/.playwright-cli/**'] },
     },
     preview: { headers: webContainerIsolationHeaders },
 

@@ -5,3 +5,5 @@ from .goal import Goal as Goal
 from .skill_experience import SkillExperience as SkillExperience
 from .mentor_action_receipt import MentorActionReceipt as MentorActionReceipt
 from .ordering_passage import OrderingPassage as OrderingPassage
+from .practice_draft import PracticeDraft as PracticeDraft
+from .practice_photo import PracticePhoto as PracticePhoto

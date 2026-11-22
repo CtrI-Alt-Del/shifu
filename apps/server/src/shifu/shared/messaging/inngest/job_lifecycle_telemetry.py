@@ -46,6 +46,10 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'communication-cancel': 'communication.cancel_communication',
     'communication-deliver': 'communication.deliver_communication',
     'learning-evaluate-choice-activity': 'learning.evaluate_choice_activity',
+    'learning-purge-practice-photo': 'learning.purge_practice_photo',
+    'learning-purge-practice-data-on-account-deleted': (
+        'learning.purge_practice_data_on_account_deleted'
+    ),
     'intelligence-purge-mentor-attachments-on-account-deleted': (
         'intelligence.purge_mentor_attachments_on_account_deleted'
     ),

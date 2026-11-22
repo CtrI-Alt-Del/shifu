@@ -143,6 +143,44 @@ class PairMatchingQuestionResultResponse(BaseModel):
     disclosed_correct_pairs: tuple[PairResultResponse, ...] = ()
 
 
+class PracticalRecordResultResponse(BaseModel):
+    key: str
+    label: str
+
+
+class PracticalPhotoResultResponse(BaseModel):
+    record_key: str
+    photo_id: str
+
+
+class PracticalCriterionResultResponse(BaseModel):
+    key: str
+    name: str
+    weight: Decimal
+    level: int | None
+    comment: str | None
+
+
+class PracticalUnassessableRecordResponse(BaseModel):
+    key: str
+    label: str
+    comment: str
+
+
+class PracticalPreparationQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['practical_preparation']
+    prompt: str
+    records: tuple[PracticalRecordResultResponse, ...]
+    photos: tuple[PracticalPhotoResultResponse, ...]
+    reflection: str
+    criteria: tuple[PracticalCriterionResultResponse, ...]
+    score: Decimal | None
+    closed_without_grade: bool
+    unassessable_records: tuple[PracticalUnassessableRecordResponse, ...]
+    guidance: str | None
+
+
 class Response(BaseModel):
     attempt_id: str
     activity_id: str
@@ -163,7 +201,8 @@ class Response(BaseModel):
         | OrderingQuestionResultResponse
         | FillBlanksQuestionResultResponse
         | TranslationQuestionResultResponse
-        | PairMatchingQuestionResultResponse,
+        | PairMatchingQuestionResultResponse
+        | PracticalPreparationQuestionResultResponse,
         ...,
     ] = ()
 
