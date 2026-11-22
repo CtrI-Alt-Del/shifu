@@ -13,6 +13,10 @@ import { useConfirmMentorSkillAdditionAction } from '@/ui/intelligence/hooks/use
 import { useConfirmMentorSkillRemovalAction } from '@/ui/intelligence/hooks/use-confirm-mentor-skill-removal-action'
 import { useDeclineMentorActionProposalAction } from '@/ui/intelligence/hooks/use-decline-mentor-action-proposal-action'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+import {
+  OTHER_SKILL_EXPERIENCES_QUERY_KEY,
+  useOtherSkillExperiencesQuery,
+} from '@/ui/intelligence/hooks/use-other-skill-experiences-query'
 import type {
   MentorActionCardProps,
   MentorActionCardTone,
@@ -100,7 +104,7 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
   const [declineError, setDeclineError] = useState<string | null>(null)
   const lockedRequest = useRef<ConfirmationRequest | null>(null)
   const isConfirming = useRef(false)
-  const resultRef = useRef<HTMLDivElement | null>(null)
+  const resultRef = useRef<HTMLOutputElement | null>(null)
   const titleRef = useRef<HTMLHeadingElement | null>(null)
 
   const isAddition = proposal.kind === 'add_skill'
@@ -135,6 +139,16 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
     phase === 'idle' &&
     !isFixedDestination &&
     (selectedGoalId === null || isChangingGoal)
+  const isAwaitingAdditionConfirmation = isAddition && !result && phase === 'idle'
+  const { otherSkillExperiences } = useOtherSkillExperiencesQuery(
+    isAwaitingAdditionConfirmation ? proposal.skillId : null,
+  )
+  const otherGoalExperiences =
+    isAwaitingAdditionConfirmation && !isPicking
+      ? otherSkillExperiences.filter(
+          (experience) => experience.goalId !== effectiveGoalId,
+        )
+      : []
   const viewKey = result
     ? result.kind === 'completed'
       ? `completed:${result.outcome}`
@@ -182,6 +196,9 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
   function invalidateObjectiveQueries(goalId: string) {
     void queryClient.invalidateQueries({ queryKey: ['learning', 'goal-detail', goalId] })
     void queryClient.invalidateQueries({ queryKey: ['learning', 'home-goals'] })
+    void queryClient.invalidateQueries({
+      queryKey: [...OTHER_SKILL_EXPERIENCES_QUERY_KEY, proposal.skillId],
+    })
   }
 
   async function handleConfirm() {
@@ -452,5 +469,5 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
 
   const view = buildView()
 
-  return { ...view, resultRef, titleRef, handleSelectGoal }
+  return { ...view, otherGoalExperiences, resultRef, titleRef, handleSelectGoal }
 }

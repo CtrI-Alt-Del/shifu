@@ -22,11 +22,13 @@ export type MentorActionCardProps = {
   destination?: string
   reason?: string
   consequences?: string
+  /** Optional extra block between the explanation and the actions. */
+  notice?: ReactNode
   result?: string
   statusText?: string
   actions: MentorActionCardAction[]
   children?: ReactNode
-  resultRef?: Ref<HTMLDivElement>
+  resultRef?: Ref<HTMLOutputElement>
   titleRef?: Ref<HTMLHeadingElement>
 }
 
@@ -54,6 +56,7 @@ export const MentorActionCard = ({
   destination,
   reason,
   consequences,
+  notice,
   result,
   statusText,
   actions,
@@ -99,11 +102,11 @@ export const MentorActionCard = ({
           {consequences}
         </p>
       ) : null}
-      <div
+      {notice}
+      <output
         aria-live='polite'
         className='flex flex-col gap-3 outline-none empty:sr-only'
         ref={resultRef}
-        role='status'
         tabIndex={-1}
       >
         {result ? (
@@ -112,7 +115,7 @@ export const MentorActionCard = ({
         {statusText ? (
           <p className='break-words text-[13px] text-muted-foreground'>{statusText}</p>
         ) : null}
-      </div>
+      </output>
       {actions.length > 0 ? (
         <div className='flex justify-end gap-2.5 max-[480px]:flex-col max-[480px]:[&>*]:w-full'>
           {actions.map((action) =>
