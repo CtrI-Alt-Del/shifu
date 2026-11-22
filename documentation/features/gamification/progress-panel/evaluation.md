@@ -142,7 +142,7 @@ All captures live under `apps/web/.playwright-cli/screenshots/` (ignored by Git)
 | Uncommitted work | None after the final delivery commit; no env file, storage state or screenshot is staged. |
 | Active processes | None. The disposable Postgres/Redis containers, API, web and proxy processes and the Playwright CLI session were stopped after the last runs. Ports 7000 and 7777 belong to processes this task did not start and were left alone. |
 | Blockers | None for this candidate. ACH-02 (two Alembic heads on `main`) needs its own fix; a separate task was started for it. |
-| Next action | Publication through `create-pr`; then the PR checks decide completion. |
+| Next action | Wait for the PR checks and review conversations of PR #63; fix any failure caused by this delivery through `implement-spec`, then mark Spec and Evaluation `completed`. |
 
 # Delivery
 
@@ -156,7 +156,7 @@ All captures live under `apps/web/.playwright-cli/screenshots/` (ignored by Git)
 
 | Field | Result |
 | --- | --- |
-| Publication | Authorized by the explicit `conclude-spec` invocation: synchronized with `origin/main` (`98b2aec8`, merge `ceb5c72f`, one conflict in a re-export list resolved by keeping both sides), scoped commits created, PR creation follows. Spec stays `implemented` and Evaluation `ready` until the PR checks and review conversations are resolved. |
+| Publication | Authorized by the explicit `conclude-spec` invocation: synchronized with `origin/main` (`98b2aec8`, merge `ceb5c72f`, one conflict in a re-export list resolved by keeping both sides), scoped commits created, branch pushed and PR [#63](https://github.com/CtrI-Alt-Del/shifu/pull/63) opened against `main` (head `claude/shifu-133-spec-5249fe`, delivery commits `6caf2028`, `90cfcf0e`, `3e87bf40`, `6c6a4732`, `0fef4539`, `8bbd2860`, `b6049fd5`, merge `ceb5c72f`, then `96c8c265` and `b4166365`). Spec stays `implemented` and Evaluation `ready` until the PR checks and review conversations are resolved. |
 | Source verification | Learning PRD content 83066881 is still version 36 and Gamification PRD content 82903042 is still version 5 (read through Atlassian MCP at conclusion, summary and version metadata only; the complete pages were read in the Spec cycle). No authority conflict. |
 | Documentation Alignment | Spec Documentation Alignment reconciled: PRD versions confirmed, Penpot boards re-exported fresh for the final visual review, modules and architecture unchanged. No change to Architecture, Modules, Rules, Tooling or Design documents is warranted: the lessons recorded above are feature-level details or already covered by existing code patterns. No Confluence checkbox or Jira status was changed; no Jira or Confluence write was requested. |
 | Revision History | Revision 2 (Q19-Q23 reconciliation) on 2026-11-22; no change at conclusion. |
