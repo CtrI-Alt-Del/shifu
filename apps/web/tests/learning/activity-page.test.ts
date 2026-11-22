@@ -2115,3 +2115,148 @@ test.describe('VM-03 — Inconclusive and partial-result disclosure', () => {
     await expect(authenticatedPage.getByText(REFERENCE_TRANSLATION)).not.toBeVisible()
   })
 })
+
+test('restores a practical preparation draft, uploads the missing photo and submits only the draft revision', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const practicalActivity = {
+    ...activity,
+    accountId: 'playwright-account',
+    activityRevision: 'practice-revision-1',
+    questions: [
+      {
+        key: 'practice-1',
+        kind: 'practical_preparation' as const,
+        prompt: 'Prepare legumes salteados.',
+        guidance: ['Use fogo alto.'],
+        references: [{ label: 'Guia de cortes', accessibleText: 'Texto acessível' }],
+        difficulty: 'easy',
+        records: [
+          { key: 'cuts', label: 'Cortes', mustShow: 'Os legumes cortados' },
+          { key: 'cooking', label: 'Durante o preparo', mustShow: 'A frigideira' },
+          { key: 'dish', label: 'Prato final', mustShow: 'O prato pronto' },
+        ],
+        criteria: [
+          { key: 'cut', name: 'Corte', description: 'Cortes uniformes', weight: 40 },
+          { key: 'heat', name: 'Calor', description: 'Ponto', weight: 40 },
+          { key: 'plate', name: 'Prato', description: 'Apresentação', weight: 20 },
+        ],
+      },
+    ],
+  }
+  const readyPhoto = (recordKey: string) => ({
+    recordKey,
+    photoId: `photo-${recordKey}`,
+    state: 'ready',
+    mediaType: 'image/jpeg',
+    sizeBytes: 1200,
+  })
+  const partialDraft = {
+    revision: 2,
+    reflection: '',
+    photos: [readyPhoto('cuts'), readyPhoto('cooking')],
+  }
+  const completeDraft = {
+    ...partialDraft,
+    revision: 3,
+    photos: [...partialDraft.photos, readyPhoto('dish')],
+  }
+  const submissions: Array<Record<string, unknown>> = []
+  const exportName = (url: string) => {
+    const segment = new URL(url).pathname.split('/_serverFn/')[1]
+    try {
+      return JSON.parse(Buffer.from(segment ?? '', 'base64').toString('utf-8'))
+        .export as string
+    } catch {
+      return ''
+    }
+  }
+
+  await bff.route(async (route) => {
+    const name = exportName(route.request().url())
+    const body = route.request().postData() ?? ''
+    if (name.startsWith('getPracticeDraftAction_')) {
+      await route.fulfill({
+        body: JSON.stringify({ result: partialDraft }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (name.startsWith('submitActivityAction_')) {
+      const envelope = JSON.parse(body) as { t?: SerializedServerValue }
+      const payload = envelope.t ? decodeServerValue(envelope.t) : null
+      submissions.push((payload as { data: Record<string, unknown> }).data)
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (decodeURIComponent(`${route.request().url()} ${body}`).includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: practicalActivity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+  await authenticatedPage.route(
+    '**/api/learning/**/practice-photos/**',
+    async (route) => {
+      if (route.request().method() === 'PUT') {
+        await route.fulfill({
+          body: JSON.stringify(completeDraft),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fulfill({ status: 404, body: '' })
+    },
+  )
+
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+
+  await expect(
+    authenticatedPage.getByText(
+      'Formatos aceitos: JPEG, PNG ou WebP. Tamanho máximo: 10 MB por foto.',
+    ),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('Rascunho salvo na sua conta')).toBeVisible()
+  await expect(authenticatedPage.getByText('Foto adicionada')).toHaveCount(2)
+  await expect(authenticatedPage.getByText('Obrigatória')).toHaveCount(1)
+  const submit = authenticatedPage.getByRole('button', { name: 'Enviar Atividade' })
+  await expect(submit).toBeDisabled()
+
+  await authenticatedPage
+    .locator('input[type="file"]')
+    .nth(2)
+    .setInputFiles({
+      name: 'prato.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from('foto'),
+    })
+  await expect(authenticatedPage.getByText('Foto adicionada')).toHaveCount(3)
+  await expect(submit).toBeEnabled()
+  for (const button of await authenticatedPage
+    .getByRole('button', { name: /foto/i })
+    .all()) {
+    const box = await button.boundingBox()
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+  }
+
+  await submit.focus()
+  await authenticatedPage.keyboard.press('Enter')
+
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+  expect(submissions).toHaveLength(1)
+  expect(JSON.stringify(submissions[0])).toContain('draftRevision')
+  expect(JSON.stringify(submissions[0])).not.toContain('prato.jpg')
+})

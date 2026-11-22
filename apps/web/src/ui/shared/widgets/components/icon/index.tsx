@@ -7,6 +7,7 @@ import {
   BookOpen,
   Brain,
   Calendar,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -80,6 +81,7 @@ export type IconName =
   | 'book-open'
   | 'brain'
   | 'calendar'
+  | 'camera'
   | 'check'
   | 'chevron-left'
   | 'chevron-right'
@@ -150,6 +152,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'book-open': BookOpen,
   brain: Brain,
   calendar: Calendar,
+  camera: Camera,
   check: Check,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,

@@ -5,6 +5,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
+import { buildAttemptPracticePhotoPath } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
@@ -50,7 +51,13 @@ export type ChoiceResultRenderProps = ChoiceResultSlots &
         recommendation?: ActivityRecommendation | null
         adaptiveDetail?: AvailableCompetencyDetail | null
         adaptiveLoadError?: boolean
-        detailIds?: { goalId: string; skillId: string; competencyId: string }
+        detailIds?: {
+          goalId: string
+          skillId: string
+          competencyId: string
+          activityId?: string
+        }
+        buildPracticePhotoUrl?: (photoId: string) => string
         onRetryEvaluation: () => Promise<void>
         onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
       }
@@ -296,7 +303,17 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
             goalId: routeProps.goalId,
             skillId: routeProps.skillId,
             competencyId: routeProps.competencyId,
+            activityId: routeProps.activityId,
           },
+          buildPracticePhotoUrl: (photoId: string) =>
+            buildAttemptPracticePhotoPath({
+              goalId: routeProps.goalId,
+              skillId: routeProps.skillId,
+              competencyId: routeProps.competencyId,
+              activityId: routeProps.activityId,
+              attemptId: routeProps.attemptId,
+              photoId,
+            }),
           onRetryEvaluation: handleRetryEvaluation,
           onOpenRecommendation: routeProps?.onOpenRecommendation,
         }

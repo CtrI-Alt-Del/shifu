@@ -128,3 +128,15 @@ export function buildMentorAttachmentFilePath(
 ): string {
   return `/api/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(attachmentId)}/file`
 }
+
+export function buildPracticePhotoPath(
+  ids: LearningActivityRouteIds & { recordKey: string },
+): string {
+  return `/api${learningActivityPath(ids)}/practice-photos/${encodeURIComponent(ids.recordKey)}`
+}
+
+export function buildAttemptPracticePhotoPath(
+  ids: LearningActivityRouteIds & { attemptId: string; photoId: string },
+): string {
+  return `/api${learningAttemptsPath(ids)}/${encodeURIComponent(ids.attemptId)}/practice-photos/${encodeURIComponent(ids.photoId)}`
+}

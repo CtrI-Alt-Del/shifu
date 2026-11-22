@@ -5,7 +5,11 @@ import type {
 } from './competency-detail'
 
 export type ChoiceQuestionKind = 'single_choice' | 'multiple_selection'
-export type ChoiceAttemptStatus = 'pending' | 'failed' | 'completed'
+export type ChoiceAttemptStatus =
+  | 'pending'
+  | 'failed'
+  | 'completed'
+  | 'closed_without_grade'
 
 export type ChoiceOption = {
   key: string
@@ -164,6 +168,46 @@ export type PairMatchingQuestion = {
   translations: readonly PairMatchingItem[]
 }
 
+export type PracticalPreparationRecord = {
+  key: string
+  label: string
+  mustShow: string
+}
+
+export type PracticalPreparationCriterion = {
+  key: string
+  name: string
+  description: string
+  weight: number
+}
+
+export type PracticalPreparationQuestion = {
+  key: string
+  kind: 'practical_preparation'
+  prompt: string
+  guidance: readonly string[]
+  references: readonly { label: string; accessibleText: string }[]
+  difficulty: string
+  records: readonly PracticalPreparationRecord[]
+  criteria: readonly PracticalPreparationCriterion[]
+}
+
+export type PracticePhotoState = 'uploading' | 'ready' | 'failed'
+
+export type PracticeDraftPhoto = {
+  recordKey: string
+  photoId: string
+  state: PracticePhotoState
+  mediaType: string
+  sizeBytes: number
+}
+
+export type PracticeDraft = {
+  revision: number
+  reflection: string
+  photos: readonly PracticeDraftPhoto[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
@@ -174,6 +218,7 @@ export type ActivityQuestion =
   | FillBlanksQuestion
   | TranslationQuestion
   | PairMatchingQuestion
+  | PracticalPreparationQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -228,6 +273,13 @@ export type PairMatchingAnswer = {
   pairs: readonly PairMatchingPair[]
 }
 
+export type PracticalPreparationAnswer = {
+  kind: 'practical_preparation'
+  questionKey: string
+  draftRevision: number
+  reflection: string
+}
+
 export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
 
 export type ActivityAnswer =
@@ -237,6 +289,7 @@ export type ActivityAnswer =
   | FillBlanksAnswer
   | TranslationAnswer
   | PairMatchingAnswer
+  | PracticalPreparationAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -365,6 +418,25 @@ export type PairMatchingResultQuestion = {
   disclosedCorrectPairs?: readonly PairMatchingPair[]
 }
 
+export type PracticalPreparationResultQuestion = {
+  key: string
+  kind: 'practical_preparation'
+  prompt: string
+  records: readonly { key: string; label: string }[]
+  photos: readonly { recordKey: string; photoId: string }[]
+  reflection: string
+  criteria: readonly {
+    key: string
+    name: string
+    weight: number
+    level: number | null
+    comment: string | null
+  }[]
+  closedWithoutGrade: boolean
+  unassessableRecords: readonly { key: string; label: string; comment: string }[]
+  guidance: string | null
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
@@ -372,6 +444,7 @@ export type ActivityResultQuestion =
   | FillBlanksResultQuestion
   | TranslationResultQuestion
   | PairMatchingResultQuestion
+  | PracticalPreparationResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string
