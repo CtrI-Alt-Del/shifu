@@ -3,6 +3,7 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from uuid import UUID
 from typing import Any, cast, get_args, get_origin, get_type_hints
 
 
@@ -15,6 +16,8 @@ class Serialization:
             return str(value)
         if isinstance(value, datetime):
             return value.isoformat()
+        if isinstance(value, UUID):
+            return str(value)
         if is_dataclass(value):
             return {
                 field.name: Serialization.serialize_value(getattr(value, field.name))

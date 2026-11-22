@@ -87,7 +87,12 @@ class TestQueueAccountErasureOperationalAlertJob:
             raw_message: object = json.load(response)
         assert isinstance(raw_message, dict)
         stored = cast('dict[str, object]', raw_message)
-        assert stored.get('To') == 'shifu.ctrlaltdel@gmail.com'
+        raw_recipients = stored.get('To')
+        assert isinstance(raw_recipients, list)
+        recipients = cast('list[object]', raw_recipients)
+        assert len(recipients) == 1
+        recipient = cast('dict[str, object]', recipients[0])
+        assert recipient.get('Address') == 'shifu.ctrlaltdel@gmail.com'
         assert stored.get('Subject') == 'Alerta de limpeza de conta pendente no Shifu'
         text_body = stored.get('Text')
         html_body = stored.get('HTML')
