@@ -23,6 +23,7 @@ from shifu.learning.rest.controllers import (
     GetMaterialDetailController,
     GetSkillExperienceDetailController,
     ListAvailableSkillsController,
+    ListSkillExperiencesOfSkillController,
     RemoveGoalController,
     RemoveSkillExperienceFromMentorController,
     RemoveSkillFromGoalController,
@@ -70,4 +71,5 @@ class LearningRouter:
         RemovePracticePhotoController.handle(router)
         GetPracticePhotoController.handle(router)
         DiscardPracticeDraftController.handle(router)
+        ListSkillExperiencesOfSkillController.handle(router)
         return router

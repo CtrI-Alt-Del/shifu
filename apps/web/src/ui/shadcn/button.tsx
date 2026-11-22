@@ -8,9 +8,9 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const VARIANT_CLASS_NAMES: Record<ButtonVariant, string> = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-  ghost: 'bg-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground',
+  ghost: 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
   danger: 'bg-danger text-white hover:bg-danger/90',
-  outline: 'border border-control-border bg-transparent text-foreground hover:bg-white/5',
+  outline: 'border border-control-border bg-transparent text-foreground hover:bg-muted',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

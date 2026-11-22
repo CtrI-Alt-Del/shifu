@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { Input } from '@/ui/shadcn/input'
+
 type SearchSkillCatalogInputProps = {
   onSearch: (query: string) => void
   placeholder?: string
@@ -7,15 +9,16 @@ type SearchSkillCatalogInputProps = {
 
 export function SearchSkillCatalogInput({
   onSearch,
-  placeholder = 'Procurar habilidade...',
+  placeholder = 'Buscar no Currículo',
 }: SearchSkillCatalogInputProps): ReactNode {
   return (
     <div className='w-full'>
-      <input
-        type='text'
+      <Input
+        aria-label={placeholder}
+        className='px-4 text-[15px]'
         onChange={(e) => onSearch(e.target.value)}
         placeholder={placeholder}
-        className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
+        type='text'
       />
     </div>
   )

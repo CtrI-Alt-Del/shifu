@@ -26,6 +26,7 @@ import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceResultDetail } from './choice-result-detail'
 import { PracticalPreparationAttempt } from './practical-preparation-attempt'
+import { SkillCompletedNotice } from './skill-completed-notice'
 import { type ChoiceResultPageProps, useChoiceResultPage } from './use-choice-result-page'
 
 export type { ChoiceResultPageProps } from './use-choice-result-page'
@@ -460,6 +461,15 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
               </Button>
             ) : null}
           </motion.section>
+        ) : null}
+
+        {attempt.completesSkill && pageProps.detailIds ? (
+          <motion.div variants={ENTRANCE_CARD}>
+            <SkillCompletedNotice
+              goalId={pageProps.detailIds.goalId}
+              skillId={pageProps.detailIds.skillId}
+            />
+          </motion.div>
         ) : null}
 
         {backToCompetencyLink ? (

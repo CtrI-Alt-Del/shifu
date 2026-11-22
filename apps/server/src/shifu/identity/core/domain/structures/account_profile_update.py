@@ -1,6 +1,8 @@
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from shifu.identity.core.domain.enums import AccountAppearance
 from shifu.identity.core.domain.errors import (
+    InvalidAppearanceError,
     InvalidDisplayNameError,
     InvalidTimeZoneError,
 )
@@ -11,6 +13,7 @@ from shifu.shared.core.domain.structures import structure
 class AccountProfileUpdate:
     display_name: str
     time_zone: str
+    appearance: str
 
     def __post_init__(self) -> None:
         name = self.display_name.strip()
@@ -25,3 +28,5 @@ class AccountProfileUpdate:
             ZoneInfo(self.time_zone)
         except (ZoneInfoNotFoundError, ValueError) as error:
             raise InvalidTimeZoneError from error
+        if self.appearance not in AccountAppearance:
+            raise InvalidAppearanceError

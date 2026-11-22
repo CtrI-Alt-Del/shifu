@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from shifu.identity.core.domain.enums import AccountStatus
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.core.interfaces import IdentityDatabase
 from shifu.identity.pipes import IdentityPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -17,6 +17,7 @@ class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     display_name: str
     time_zone: str
+    appearance: str
 
 
 class Response(BaseModel):
@@ -24,6 +25,7 @@ class Response(BaseModel):
     display_name: str
     email: str
     time_zone: str | None
+    appearance: AccountAppearance
     status: AccountStatus
     created_at: datetime
     confirmed_at: datetime | None
@@ -48,7 +50,9 @@ class UpdateAccountProfileController:
             profile = UpdateAccountProfileUseCase(database, clock).execute(
                 user,
                 AccountProfileUpdate(
-                    display_name=request.display_name, time_zone=request.time_zone
+                    display_name=request.display_name,
+                    time_zone=request.time_zone,
+                    appearance=request.appearance,
                 ),
             )
             return _RESPONSE_ADAPTER.validate_python(profile, from_attributes=True)

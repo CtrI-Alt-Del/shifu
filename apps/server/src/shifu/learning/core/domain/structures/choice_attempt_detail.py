@@ -44,6 +44,7 @@ class ChoiceAttemptDetail:
     status_before: CompetencyProgressStatus | None = None
     status_after: CompetencyProgressStatus | None = None
     next_action: ActivityRecommendation | None = None
+    completes_skill: bool = False
     questions: tuple[
         ChoiceResultDetail
         | CodeResultDetail

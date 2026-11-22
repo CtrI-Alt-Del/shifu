@@ -1,15 +1,21 @@
 from decimal import Decimal
 
-from shifu.learning.core.domain.entities import CompetencyProgress
+from shifu.learning.core.domain.entities import (
+    CompetencyProgress,
+    SkillExperience,
+)
 from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
     ActivityRecommendationType,
     CompetencyAvailability,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.errors import SkillExperienceDetailNotFoundError
 from shifu.learning.core.domain.structures import (
     AdaptiveConceptState,
     AvailableCompetencyDetail,
     SkillCompetencySummary,
+    SkillCompletionOverview,
     SkillEvaluationState,
     SkillExperienceDetail,
     SkillRecommendation,
@@ -22,6 +28,9 @@ from shifu.learning.core.use_cases.get_competency_detail_use_case import (
     GetCompetencyDetailUseCase,
 )
 from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
+from shifu.learning.core.use_cases.skill_completion_overview_builder import (
+    build_skill_completion_overview,
+)
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
@@ -45,6 +54,7 @@ class GetSkillExperienceDetailUseCase:
         account_id: str,
         goal_id: str,
         skill_id: str,
+        time_zone: str | None = None,
     ) -> SkillExperienceDetail:
         with self._learning_database.transaction() as repositories:
             goal = repositories.goals.find_by_id(goal_id)
@@ -100,6 +110,17 @@ class GetSkillExperienceDetailUseCase:
             activity_titles = self._activity_titles(competencies)
             skill_name = skill_content.name
             skill_status = skill_experience.status
+            completion = (
+                self._completion_overview(
+                    repositories,
+                    skill_experience,
+                    competencies,
+                    progress_rows,
+                    time_zone,
+                )
+                if skill_status is SkillExperienceStatus.COMPLETED
+                else None
+            )
 
         recommendation = (
             self._focus_recommendation(
@@ -141,6 +162,50 @@ class GetSkillExperienceDetailUseCase:
             recommendation_gap=(
                 recommendation.gap if recommendation is not None else None
             ),
+            completion=completion,
+        )
+
+    @staticmethod
+    def _completion_overview(
+        repositories: LearningDatabaseRepositories,
+        skill_experience: SkillExperience,
+        competencies: tuple[CurriculumCompetencySnapshot, ...],
+        progress_rows: list[CompetencyProgress],
+        time_zone: str | None,
+    ) -> SkillCompletionOverview:
+        summary = skill_experience.completion_summary
+        if summary is None:
+            raise RuntimeError('A completed Skill experience lacks its summary.')
+
+        attempts = repositories.activity_attempts.find_many_by_skill_experience_id(
+            skill_experience.id
+        )
+        review_attempt_ids = tuple(
+            attempt.id
+            for attempt in attempts
+            if attempt.kind is ActivityAttemptKind.REVIEW
+        )
+        evaluations = (
+            repositories.activity_evaluations.find_many_by_attempt_ids(
+                review_attempt_ids
+            )
+            if review_attempt_ids
+            else []
+        )
+        observations = tuple(
+            repositories.concept_observations.find_many_by_skill_experience_id(
+                skill_experience.id
+            )
+        )
+        return build_skill_completion_overview(
+            skill_experience_id=skill_experience.id,
+            summary=summary,
+            competencies=competencies,
+            progress_rows=progress_rows,
+            observations=observations,
+            attempts=attempts,
+            evaluations=evaluations,
+            time_zone=time_zone,
         )
 
     def _focus_recommendation(

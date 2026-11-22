@@ -72,6 +72,8 @@ last_updated_at: 2026-11-22
 | ACH-11 | Fora do escopo: formulário de login sem `method`; um clique antes da hidratação envia a senha na URL. `apps/web/src/ui/identity/widgets/pages/sign-in-page/index.tsx`. | Média | Nenhum | Registrado para tarefa separada. |
 | ACH-12 | Lacuna do seed: a conta seed não alcança a Atividade de demonstração (competência 033 da Habilidade 032). | Baixa | VM-01 | Documentado: criar um Objetivo, adicionar a Habilidade 032 e iniciá-la pela interface, depois abrir a Atividade `01SHF000000000000000000994`. Seed não alterado, a pedido do usuário. |
 
+| ACH-13 | Merge com a `main` em 2026-11-22 (SHIFU-125): 6 conflitos mecânicos de importações, rotas e testes; a migração `14fadc960949` da `main` criou uma segunda ponta do Alembic. | Média | CI-06, CI-08 | Resolvido: a migração `e48385bfd6fe` agora tem as duas pontas como `down_revision`; uma só ponta (`alembic heads`). Pós-merge: tipos 0 erros, lint e formato limpos, arquitetura ok, 507 testes de servidor e 853 de Learning na web passaram. |
+
 # Lessons Learned
 
 | Lesson | Supporting finding / evidence | Documentation action or disposition |

@@ -39,11 +39,13 @@ from shifu.learning.core.domain.events.skill_completed_event import (
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     AdaptiveCompetencyMemory,
+    AdaptiveConceptState,
     ChoiceEvaluationResult,
     CodeAnswer,
     CodeQuestionAssessmentDecisions,
     CodeRubricResult,
     CompetencyCompletionSummary,
+    ConceptCompletionSummary,
     ConceptObservation,
     EvaluationPartResult,
     FillBlanksAnswer,
@@ -83,6 +85,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCompetencySnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
@@ -729,7 +732,14 @@ class EvaluateChoiceActivityUseCase:
         )
         if result.focus_competency_id is None:
             self._complete_skill(
-                repositories, goal, experience, catalog, progress_rows, now
+                repositories,
+                goal,
+                experience,
+                catalog,
+                progress_rows,
+                all_observations,
+                concept_states_by_id,
+                now,
             )
 
     @staticmethod
@@ -739,14 +749,17 @@ class EvaluateChoiceActivityUseCase:
         experience: SkillExperience,
         catalog: CurriculumSkillSnapshot,
         progress_rows: list[CompetencyProgress],
+        observations: tuple[ConceptObservation, ...],
+        concept_states_by_id: dict[str, AdaptiveConceptState],
         now: datetime,
     ) -> None:
         by_id = {item.competency_id: item for item in progress_rows}
         summaries = tuple(
-            CompetencyCompletionSummary(
-                competency_id=competency.id,
-                initial_progress=by_id[competency.id].initial_progress,
-                final_progress=by_id[competency.id].current_progress or Decimal(0),
+            EvaluateChoiceActivityUseCase._competency_summary(
+                competency,
+                by_id[competency.id],
+                observations,
+                concept_states_by_id,
             )
             for competency in catalog.competencies
         )
@@ -769,6 +782,9 @@ class EvaluateChoiceActivityUseCase:
             final_progress=final,
             started_at=experience.started_at or now,
             completed_at=now,
+            initial_coverage_complete=all(
+                item.initial_coverage_complete for item in summaries
+            ),
         )
         experience.complete(summary, now)
         repositories.skill_experiences.update(experience)
@@ -784,6 +800,49 @@ class EvaluateChoiceActivityUseCase:
                     completed_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
                 )
             )
+        )
+
+    @staticmethod
+    def _competency_summary(
+        competency: CurriculumCompetencySnapshot,
+        progress: CompetencyProgress,
+        observations: tuple[ConceptObservation, ...],
+        concept_states_by_id: dict[str, AdaptiveConceptState],
+    ) -> CompetencyCompletionSummary:
+        starting_difficulties = {
+            concept.id: AdaptiveLearningPolicy.diagnostic_observed_difficulties(
+                concept.id, observations
+            )
+            for concept in competency.concepts
+        }
+        return CompetencyCompletionSummary(
+            competency_id=competency.id,
+            initial_progress=progress.initial_progress,
+            final_progress=progress.current_progress or Decimal(0),
+            initial_coverage_complete=all(
+                difficulties == frozenset(ActivityDifficulty)
+                for difficulties in starting_difficulties.values()
+            ),
+            concepts=tuple(
+                ConceptCompletionSummary(
+                    concept_id=concept.id,
+                    initial_progress=concept_states_by_id[concept.id].initial_progress,
+                    final_progress=concept_states_by_id[concept.id].progress
+                    or Decimal(0),
+                    initial_observed_difficulties=tuple(
+                        difficulty
+                        for difficulty in ActivityDifficulty
+                        if difficulty in starting_difficulties[concept.id]
+                    ),
+                    final_observed_difficulties=tuple(
+                        difficulty
+                        for difficulty in ActivityDifficulty
+                        if difficulty
+                        in concept_states_by_id[concept.id].observed_difficulties
+                    ),
+                )
+                for concept in competency.concepts
+            ),
         )
 
     @staticmethod

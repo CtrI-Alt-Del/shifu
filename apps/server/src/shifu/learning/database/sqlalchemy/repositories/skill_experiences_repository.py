@@ -62,6 +62,24 @@ class SqlalchemySkillExperiencesRepository:
         ).all()
         return [SkillExperienceMapper.to_domain(model) for model in models]
 
+    def find_many_by_goal_ids_and_skill_id(
+        self,
+        goal_ids: list[str],
+        skill_id: str,
+    ) -> list[SkillExperience]:
+        if not goal_ids:
+            return []
+
+        models = self._session.scalars(
+            select(SkillExperienceModel)
+            .where(
+                SkillExperienceModel.goal_id.in_(goal_ids),
+                SkillExperienceModel.skill_id == skill_id,
+            )
+            .order_by(SkillExperienceModel.goal_id)
+        ).all()
+        return [SkillExperienceMapper.to_domain(model) for model in models]
+
     def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:
         if not goal_ids:
             return {}

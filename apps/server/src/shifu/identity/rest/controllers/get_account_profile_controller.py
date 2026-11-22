@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, TypeAdapter
 
-from shifu.identity.core.domain.enums import AccountStatus
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.core.interfaces import IdentityDatabase
 from shifu.identity.pipes import IdentityPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -16,6 +16,7 @@ class Response(BaseModel):
     display_name: str
     email: str
     time_zone: str | None
+    appearance: AccountAppearance
     status: AccountStatus
     created_at: datetime
     confirmed_at: datetime | None

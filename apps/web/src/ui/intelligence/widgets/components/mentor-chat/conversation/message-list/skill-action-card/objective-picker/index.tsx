@@ -20,7 +20,7 @@ export const ObjectivePicker = ({ candidates, hint, onSelect }: ObjectivePickerP
   return (
     <fieldset
       aria-describedby={hintId}
-      className='flex flex-col items-start gap-2.5 max-[480px]:items-stretch'
+      className='m-0 flex min-w-0 flex-col items-start gap-2.5 border-0 p-0 max-[480px]:items-stretch'
     >
       <legend className='text-[13px] font-medium leading-normal text-secondary-foreground'>
         Objetivo

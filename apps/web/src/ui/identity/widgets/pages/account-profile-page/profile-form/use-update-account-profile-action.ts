@@ -24,7 +24,7 @@ export const useUpdateAccountProfileAction = () => {
         await refreshCurrentRoute()
       } catch {
         setRefreshWarning(
-          'Perfil salvo. Não foi possível atualizar o menu agora. Recarregue a página para conferir seu nome.',
+          'Perfil salvo. Não foi possível atualizar a tela agora. Recarregue a página para ver seu nome e sua aparência.',
         )
       }
     },

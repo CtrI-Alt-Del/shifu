@@ -15,7 +15,7 @@ import { useComposer } from './use-composer'
  * buttons keep their own dimming off and use the opaque board fill.
  */
 const BLOCKED_GHOST_BUTTON_CLASS_NAMES = {
-  open: 'bg-white/5',
+  open: 'bg-muted',
   blocked: 'bg-surface-alt! aria-disabled:opacity-100!',
 } as const
 

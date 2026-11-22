@@ -45,6 +45,37 @@ export type SkillEvaluationState = {
   status: SkillEvaluationStatus
 }
 
+export type StartingPointCoverage = 'complete' | 'partial' | 'unknown'
+
+export type CompetencyCompletionOverview = {
+  competencyId: string
+  competencyName: string
+  position: number
+  initialProgress: number | null
+  initialCoverage: StartingPointCoverage
+  finalProgress: number
+  masteredOn: string
+}
+
+export type SkillReviewOverview = {
+  attemptCount: number
+  latestScore: number | null
+}
+
+export type SkillCompletionOverview = {
+  startedOn: string
+  completedOn: string
+  durationDays: number
+  completedByDiagnosis: boolean
+  learningActivityCount: number | null
+  learningAttemptCount: number | null
+  initialResult: number | null
+  initialResultCoverage: StartingPointCoverage
+  finalResult: number
+  competencies: CompetencyCompletionOverview[]
+  review: SkillReviewOverview
+}
+
 export type SkillExperienceDetail = {
   goalId: string
   skillId: string
@@ -58,6 +89,7 @@ export type SkillExperienceDetail = {
   recommendation: SkillRecommendation | null
   recommendationGap: string | null
   evaluation: SkillEvaluationState | null
+  completion: SkillCompletionOverview | null
 }
 
 export const SKILL_STATUS_LABELS: Record<SkillExperienceStatus, string> = {

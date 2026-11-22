@@ -44,7 +44,13 @@ describe('AccountMenu', () => {
     useAccountMenuMock.mockReturnValue(createController({ isOpen: true }))
 
     render(
-      <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
+      <AccountMenu
+        account={{
+          displayName: 'Thiago',
+          email: 'thiago@exemplo.com',
+          appearance: 'dark',
+        }}
+      />,
     )
 
     expect(screen.getByRole('button', { name: 'Fechar menu da conta' })).toHaveAttribute(
@@ -64,7 +70,13 @@ describe('AccountMenu', () => {
   it('delegates trigger and logout actions through the owning hook', () => {
     useAccountMenuMock.mockReturnValue(createController({ isOpen: true }))
     render(
-      <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
+      <AccountMenu
+        account={{
+          displayName: 'Thiago',
+          email: 'thiago@exemplo.com',
+          appearance: 'dark',
+        }}
+      />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Fechar menu da conta' }))
@@ -83,7 +95,13 @@ describe('AccountMenu', () => {
       createController({ isOpen: true, status: 'pending' }),
     )
     const { rerender } = render(
-      <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
+      <AccountMenu
+        account={{
+          displayName: 'Thiago',
+          email: 'thiago@exemplo.com',
+          appearance: 'dark',
+        }}
+      />,
     )
 
     expect(screen.getByRole('menuitem', { name: 'Saindo...' })).toBeDisabled()
@@ -100,7 +118,13 @@ describe('AccountMenu', () => {
       }),
     )
     rerender(
-      <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
+      <AccountMenu
+        account={{
+          displayName: 'Thiago',
+          email: 'thiago@exemplo.com',
+          appearance: 'dark',
+        }}
+      />,
     )
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Não foi possível sair agora. Tente novamente.',
@@ -111,7 +135,13 @@ describe('AccountMenu', () => {
       createController({ isOpen: true, status: 'success' }),
     )
     rerender(
-      <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
+      <AccountMenu
+        account={{
+          displayName: 'Thiago',
+          email: 'thiago@exemplo.com',
+          appearance: 'dark',
+        }}
+      />,
     )
     expect(screen.getByRole('status')).toHaveTextContent(
       'Saída concluída. Redirecionando para Entrar...',

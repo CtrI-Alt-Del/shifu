@@ -35,6 +35,9 @@ from .get_skill_experience_detail_use_case import (
     GetSkillExperienceDetailUseCase as GetSkillExperienceDetailUseCase,
 )
 from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCase
+from .list_skill_experiences_of_skill_use_case import (
+    ListSkillExperiencesOfSkillUseCase as ListSkillExperiencesOfSkillUseCase,
+)
 from .prepare_practical_preparation_activity_evaluation_use_case import (
     PreparePracticalPreparationActivityEvaluationUseCase as PreparePracticalPreparationActivityEvaluationUseCase,
 )

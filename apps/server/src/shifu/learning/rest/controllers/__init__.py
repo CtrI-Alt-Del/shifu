@@ -35,6 +35,9 @@ from .get_material_detail_controller import (
 from .list_available_skills_controller import (
     ListAvailableSkillsController as ListAvailableSkillsController,
 )
+from .list_skill_experiences_of_skill_controller import (
+    ListSkillExperiencesOfSkillController as ListSkillExperiencesOfSkillController,
+)
 from .remove_goal_controller import RemoveGoalController as RemoveGoalController
 from .remove_skill_experience_from_mentor_controller import (
     RemoveSkillExperienceFromMentorController as RemoveSkillExperienceFromMentorController,

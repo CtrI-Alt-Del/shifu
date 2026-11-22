@@ -4,7 +4,11 @@ from typing import TYPE_CHECKING, cast
 from faker import Faker
 
 from shifu.identity.core.domain.entities import Account
-from shifu.identity.core.domain.enums import AccountDeletionReason, AccountStatus
+from shifu.identity.core.domain.enums import (
+    AccountAppearance,
+    AccountDeletionReason,
+    AccountStatus,
+)
 from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
@@ -26,6 +30,7 @@ class AccountFaker:
         status: AccountStatus = AccountStatus.ACTIVE,
         access_version: int | None = None,
         time_zone: str | None = None,
+        appearance: AccountAppearance = AccountAppearance.SYSTEM,
         retained_session_id: str | None = None,
         retained_session_access_version: int | None = None,
         created_at: datetime | None = None,
@@ -75,6 +80,7 @@ class AccountFaker:
             status=status,
             access_version=resolved_access_version,
             time_zone=time_zone or cls._faker.timezone(),
+            appearance=appearance,
             retained_session_id=retained_session_id,
             retained_session_access_version=retained_session_access_version,
             created_at=created,

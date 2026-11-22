@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
+import type { SkillExperienceReference } from '@/core/learning/skill-experience-reference'
 import { SkillActionCard } from '..'
 import { useSkillActionCard } from '../use-skill-action-card'
 
@@ -51,6 +52,7 @@ function makeHookValue(
     actions: [],
     picker: null,
     swap: null,
+    otherGoalExperiences: [],
     resultRef: createRef<HTMLOutputElement>(),
     titleRef: createRef<HTMLHeadingElement>(),
     handleSelectGoal: handleSelectGoalMock,
@@ -275,5 +277,109 @@ describe('SkillActionCard', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Adicionando habilidade…')
     expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  describe('other Goal experience notice', () => {
+    const careerExperience: SkillExperienceReference = {
+      goalId: 'goal-career',
+      goalTitle: 'Carreira em dados',
+      skillExperienceId: 'experience-career',
+      skillId: 'skill-9',
+      status: 'completed',
+    }
+    const portfolioExperience: SkillExperienceReference = {
+      goalId: 'goal-portfolio',
+      goalTitle: 'Construir meu portfólio',
+      skillExperienceId: 'experience-portfolio',
+      skillId: 'skill-9',
+      status: 'learning',
+    }
+    const proposalActions: ReturnType<typeof useSkillActionCard>['actions'] = [
+      { key: 'decline', label: 'Recusar', variant: 'outline' },
+      {
+        key: 'confirm',
+        label: 'Adicionar habilidade',
+        variant: 'primary',
+        handleSelect: handleSelectMock,
+      },
+    ]
+
+    it('explains the new experience starts from zero and links to the existing one', async () => {
+      useSkillActionCardMock.mockReturnValue(
+        makeHookValue({
+          actions: proposalActions,
+          otherGoalExperiences: [careerExperience],
+        }),
+      )
+      const router = await renderCard()
+
+      const notice = screen.getByRole('note')
+      expect(notice).toHaveTextContent('Você já tem esta Habilidade em outro Objetivo')
+      expect(notice).toHaveTextContent(
+        'No Objetivo “Carreira em dados”, ela está concluída. Aqui ela começa do zero, com um novo diagnóstico, e nenhum resultado é copiado.',
+      )
+      const link = screen.getByRole('link', { name: 'Ver em Carreira em dados' })
+      expect(link).toHaveAttribute('href', '/learning/goals/goal-career/skills/skill-9')
+      fireEvent.click(link)
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(
+          '/learning/goals/goal-career/skills/skill-9',
+        ),
+      )
+      expect(leafRoute(router)).toEqual({
+        routeId: ROUTES.learningSkill,
+        params: { goalId: 'goal-career', skillId: 'skill-9' },
+      })
+    })
+
+    it('lists each other Goal with its own status and link, and the zero-start sentence once', async () => {
+      useSkillActionCardMock.mockReturnValue(
+        makeHookValue({
+          actions: proposalActions,
+          otherGoalExperiences: [careerExperience, portfolioExperience],
+        }),
+      )
+      await renderCard()
+
+      const notice = screen.getByRole('note')
+      expect(notice).toHaveTextContent(
+        'No Objetivo “Carreira em dados”, ela está concluída.',
+      )
+      expect(notice).toHaveTextContent(
+        'No Objetivo “Construir meu portfólio”, ela está em aprendizado.',
+      )
+      expect(notice.textContent?.match(/começa do zero/g)).toHaveLength(1)
+      expect(screen.getByRole('link', { name: 'Ver em Carreira em dados' })).toBeVisible()
+      expect(
+        screen.getByRole('link', { name: 'Ver em Construir meu portfólio' }),
+      ).toHaveAttribute('href', '/learning/goals/goal-portfolio/skills/skill-9')
+    })
+
+    it('keeps Adicionar habilidade enabled and after the notice', async () => {
+      useSkillActionCardMock.mockReturnValue(
+        makeHookValue({
+          actions: proposalActions,
+          otherGoalExperiences: [careerExperience],
+        }),
+      )
+      await renderCard()
+
+      const confirm = screen.getByRole('button', { name: 'Adicionar habilidade' })
+      expect(confirm).toBeEnabled()
+      expect(
+        screen.getByRole('note').compareDocumentPosition(confirm) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeGreaterThan(0)
+      fireEvent.click(confirm)
+      expect(handleSelectMock).toHaveBeenCalledOnce()
+    })
+
+    it('renders no notice without other experiences', async () => {
+      useSkillActionCardMock.mockReturnValue(makeHookValue({ actions: proposalActions }))
+      await renderCard()
+
+      expect(screen.queryByRole('note')).toBeNull()
+      expect(screen.queryByText(/Você já tem esta Habilidade/)).toBeNull()
+    })
   })
 })

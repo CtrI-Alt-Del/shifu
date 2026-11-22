@@ -75,6 +75,7 @@ test.describe('canonical account auth handlers', () => {
       displayName: 'Handler Test Learner',
       email: activeAccount.email,
       timeZone: 'America/Sao_Paulo',
+      appearance: 'system',
     })
     expect(response.headers()['x-shifu-bff-secret']).toBeUndefined()
     expect(response.headers().authorization).toBeUndefined()
@@ -103,7 +104,7 @@ test.describe('canonical account auth handlers', () => {
     expect(login.headers()['set-cookie']).toContain('HttpOnly')
     expect((await request.get('/api/auth/account/password')).status()).toBe(404)
     const foreign = await request.post('/api/auth/account/profile', {
-      data: { displayName: 'Foreign', timeZone: 'UTC' },
+      data: { displayName: 'Foreign', timeZone: 'UTC', appearance: 'light' },
       headers: { origin: 'https://foreign.invalid' },
     })
     expect(foreign.status()).toBe(403)
@@ -113,6 +114,7 @@ test.describe('canonical account auth handlers', () => {
       displayName: 'Handler Test Learner',
       email: activeAccount.email,
       timeZone: 'America/Sao_Paulo',
+      appearance: 'system',
     })
   })
 
@@ -123,7 +125,11 @@ test.describe('canonical account auth handlers', () => {
     await signIn(request, activeAccount)
     const response = await request.post('/api/auth/account/profile', {
       headers: sameOriginHeaders(),
-      data: { displayName: '  Updated Learner  ', timeZone: 'Asia/Kathmandu' },
+      data: {
+        displayName: '  Updated Learner  ',
+        timeZone: 'Asia/Kathmandu',
+        appearance: 'light',
+      },
     })
     expect(response.status()).toBe(200)
     expect(response.headers()['cache-control']).toBe('no-store')
@@ -132,6 +138,7 @@ test.describe('canonical account auth handlers', () => {
       displayName: 'Updated Learner',
       email: activeAccount.email,
       timeZone: 'Asia/Kathmandu',
+      appearance: 'light',
     }
     expect(await response.json()).toEqual(profile)
     const read = await request.get('/api/auth/account')
@@ -140,13 +147,14 @@ test.describe('canonical account auth handlers', () => {
     const pool = new Pool({ connectionString: DATABASE_URL })
     try {
       const canonical = await pool.query(
-        'select display_name, time_zone, email from identity_accounts where id = $1',
+        'select display_name, time_zone, appearance, email from identity_accounts where id = $1',
         [activeAccount.accountId],
       )
       expect(canonical.rows).toEqual([
         {
           display_name: profile.displayName,
           time_zone: profile.timeZone,
+          appearance: 'light',
           email: activeAccount.email,
         },
       ])
@@ -166,8 +174,11 @@ test.describe('canonical account auth handlers', () => {
   }) => {
     await signIn(request, activeAccount)
     for (const [body, code] of [
-      [{ displayName: '', timeZone: 'UTC' }, 'invalid_display_name'],
-      [{ displayName: 'Learner', timeZone: 'invalid/time' }, 'invalid_time_zone'],
+      [{ displayName: '', timeZone: 'UTC', appearance: 'dark' }, 'invalid_display_name'],
+      [
+        { displayName: 'Learner', timeZone: 'invalid/time', appearance: 'dark' },
+        'invalid_time_zone',
+      ],
     ] as const) {
       const response = await request.post('/api/auth/account/profile', {
         headers: sameOriginHeaders(),
@@ -274,8 +285,10 @@ test.describe('canonical account auth handlers', () => {
       expect((await request.post(`/api/auth${path}`, { data })).status()).toBe(404)
     }
     for (const body of [
-      { displayName: 'Bypass', timeZone: 'UTC', accountId: 'other' },
-      { displayName: 'Bypass', timeZone: 'UTC', accessVersion: 100 },
+      { displayName: 'Bypass', timeZone: 'UTC', appearance: 'dark', accountId: 'other' },
+      { displayName: 'Bypass', timeZone: 'UTC', appearance: 'dark', accessVersion: 100 },
+      { displayName: 'Bypass', timeZone: 'UTC', appearance: 'sepia' },
+      { displayName: 'Bypass', timeZone: 'UTC' },
     ])
       expect(
         (
@@ -297,10 +310,11 @@ test.describe('canonical account auth handlers', () => {
         })
       ).status(),
     ).toBe(400)
-    expect(
-      (await request.get('/api/auth/account').then((response) => response.json()))
-        .displayName,
-    ).toBe('Handler Test Learner')
+    const afterBypass = await request
+      .get('/api/auth/account')
+      .then((response) => response.json())
+    expect(afterBypass.displayName).toBe('Handler Test Learner')
+    expect(afterBypass.appearance).toBe('system')
     const pool = new Pool({ connectionString: DATABASE_URL })
     try {
       expect(
@@ -515,7 +529,11 @@ test.describe('canonical account auth handlers', () => {
         create trigger ${trigger} before update on better_auth_users for each row execute function ${trigger}()`)
       const save = await request.post('/api/auth/account/profile', {
         headers: sameOriginHeaders(),
-        data: { displayName: 'Canonical survives', timeZone: 'Europe/Lisbon' },
+        data: {
+          displayName: 'Canonical survives',
+          timeZone: 'Europe/Lisbon',
+          appearance: 'dark',
+        },
       })
       expect(save.status()).toBe(200)
       expect((await save.json()).displayName).toBe('Canonical survives')
@@ -551,7 +569,7 @@ test.describe('canonical account auth handlers', () => {
       expect((await unavailableRead.json()).code).toBe('identity_unavailable')
       const unavailableSave = await request.post('/api/auth/account/profile', {
         headers: sameOriginHeaders(),
-        data: { displayName: 'Must not persist', timeZone: 'UTC' },
+        data: { displayName: 'Must not persist', timeZone: 'UTC', appearance: 'light' },
       })
       expect(unavailableSave.status()).toBe(503)
       const unavailablePassword = await request.post('/api/auth/account/password', {

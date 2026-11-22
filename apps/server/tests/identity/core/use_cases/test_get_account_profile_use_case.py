@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.identity.entities import AccountFaker
-from shifu.identity.core.domain.enums import AccountStatus
+from shifu.identity.core.domain.enums import AccountAppearance, AccountStatus
 from shifu.identity.core.interfaces import (
     IdentityDatabase,
     IdentityDatabaseRepositories,
@@ -45,6 +45,16 @@ class TestGetAccountProfileUseCase:
         assert result.email == self.account.email
         assert result.display_name == self.account.display_name
         assert result.time_zone is None
+        assert result.appearance is AccountAppearance.SYSTEM
+        self.repositories.accounts.update.assert_not_called()
+
+    @pytest.mark.parametrize('appearance', list(AccountAppearance))
+    def test_should_return_the_account_appearance(
+        self, appearance: AccountAppearance
+    ) -> None:
+        self.account.appearance = appearance
+        result = self.subject.execute(self.user)
+        assert result.appearance is appearance
         self.repositories.accounts.update.assert_not_called()
 
     @pytest.mark.parametrize(

@@ -159,7 +159,7 @@ describe('AppLayout', () => {
   it('mounts the account-scoped Mentor context and FAB in the authenticated shell', () => {
     render(
       <AppLayout
-        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        account={{ displayName: 'Ana', email: 'ana@example.com', appearance: 'dark' }}
         accountMenu={<button type='button'>Conta</button>}
       >
         <p>Protected content</p>
@@ -176,7 +176,7 @@ describe('AppLayout', () => {
   it('mounts the streak reminder invite for the authenticated account', () => {
     render(
       <AppLayout
-        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        account={{ displayName: 'Ana', email: 'ana@example.com', appearance: 'dark' }}
         accountMenu={<button type='button'>Conta</button>}
       >
         <p>Protected content</p>
@@ -191,7 +191,10 @@ describe('AppLayout', () => {
 
   it.each([
     ['no account', undefined],
-    ['an account without an e-mail', { displayName: 'Ana', email: '' }],
+    [
+      'an account without an e-mail',
+      { displayName: 'Ana', email: '', appearance: 'dark' as const },
+    ],
   ])('does not mount the streak reminder invite with %s', (_case, account) => {
     render(
       <AppLayout account={account} accountMenu={<button type='button'>Conta</button>}>
@@ -237,7 +240,7 @@ describe('AppLayout', () => {
     })
     render(
       <AppLayout
-        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        account={{ displayName: 'Ana', email: 'ana@example.com', appearance: 'dark' }}
         accountMenu={<button type='button'>Conta</button>}
       >
         <p>Page content</p>

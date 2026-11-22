@@ -22,6 +22,8 @@ export type MentorActionCardProps = {
   destination?: string
   reason?: string
   consequences?: string
+  /** Optional extra block between the explanation and the actions. */
+  notice?: ReactNode
   result?: string
   statusText?: string
   actions: MentorActionCardAction[]
@@ -41,7 +43,7 @@ const OUTLINE_CLASS = 'border border-control-border! text-foreground!'
 const LINK_CLASS: Record<MentorActionCardAction['variant'], string> = {
   primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
   danger: 'bg-danger text-white hover:bg-danger/90',
-  outline: `${OUTLINE_CLASS} bg-transparent hover:bg-white/5`,
+  outline: `${OUTLINE_CLASS} bg-transparent hover:bg-muted`,
 }
 
 const LINK_BASE_CLASS =
@@ -54,6 +56,7 @@ export const MentorActionCard = ({
   destination,
   reason,
   consequences,
+  notice,
   result,
   statusText,
   actions,
@@ -99,6 +102,7 @@ export const MentorActionCard = ({
           {consequences}
         </p>
       ) : null}
+      {notice}
       <output
         aria-live='polite'
         className='flex flex-col gap-3 outline-none empty:sr-only'

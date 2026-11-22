@@ -5,6 +5,7 @@ import { ROUTES } from '@/constants/routes'
 import { MentorActionCard } from '@/ui/intelligence/widgets/components/mentor-action-card'
 import { Button } from '@/ui/shadcn/button'
 import { ObjectivePicker } from './objective-picker'
+import { OtherGoalExperienceNotice } from './other-goal-experience-notice'
 import { useSkillActionCard } from './use-skill-action-card'
 
 export type SkillActionCardProps = { proposal: MentorActionProposal }
@@ -22,6 +23,7 @@ export const SkillActionCard = ({ proposal }: SkillActionCardProps) => {
     actions,
     picker,
     swap,
+    otherGoalExperiences,
     resultRef,
     titleRef,
     handleSelectGoal,
@@ -57,6 +59,7 @@ export const SkillActionCard = ({ proposal }: SkillActionCardProps) => {
       destination={destination}
       icon={icon}
       isTitleVisible={isTitleVisible}
+      notice={<OtherGoalExperienceNotice experiences={otherGoalExperiences} />}
       reason={reason}
       result={result}
       resultRef={resultRef}

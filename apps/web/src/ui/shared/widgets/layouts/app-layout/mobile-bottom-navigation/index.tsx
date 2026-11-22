@@ -33,7 +33,7 @@ export const MobileBottomNavigation = ({
     >
       <div className='mx-auto flex max-w-md items-center justify-around gap-2'>
         {bottomItems.map((item) => {
-          const isActive = isNavigationItemActive(pathname, item.route)
+          const isActive = isNavigationItemActive(pathname, item)
 
           return (
             <Anchor
@@ -41,8 +41,8 @@ export const MobileBottomNavigation = ({
               aria-label={`${item.label} — navegação inferior`}
               className={`flex min-h-11 min-w-16 flex-1 flex-col items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-offset-2 ${
                 isActive
-                  ? 'bg-white/5 text-foreground'
-                  : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
               key={item.route}
               route={item.route}

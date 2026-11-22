@@ -66,6 +66,7 @@ const COMPLETED_ATTEMPT: ChoiceAttemptDetail = {
   status: 'completed',
   submittedAt: '2026-09-23T12:00:00Z',
   retryAllowed: false,
+  completesSkill: false,
   score: 0,
   progressBefore: 68,
   progressAfter: 67,
@@ -524,6 +525,108 @@ describe('ChoiceResultPage', () => {
       />,
     )
     expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
+  })
+
+  describe('Skill completion notice', () => {
+    const DETAIL_IDS = {
+      goalId: '01SHF000000000000000000001',
+      skillId: '01SHF000000000000000000002',
+      competencyId: '01SHF000000000000000000003',
+    }
+    const COMPLETING_ATTEMPT: ChoiceAttemptDetail = {
+      ...COMPLETED_ATTEMPT,
+      completesSkill: true,
+    }
+
+    it('shows the notice with the final summary link after the result content', () => {
+      render(
+        <ChoiceResultPage
+          activity={ACTIVITY}
+          attempt={COMPLETING_ATTEMPT}
+          detailIds={DETAIL_IDS}
+          onRetryEvaluation={vi.fn()}
+          state='result'
+        />,
+      )
+
+      const resultHeading = screen.getByRole('heading', {
+        name: 'Resultado da Atividade',
+      })
+      const notice = screen.getByRole('region', { name: 'Habilidade concluída' })
+      expect(notice).toHaveTextContent('Habilidade concluída')
+      const link = screen.getByRole('link', { name: 'Ver resumo final' })
+      expect(notice).toContainElement(link)
+      expect(link).toHaveAttribute('href', '/learning/goals/$goalId/skills/$skillId')
+      expect(link).toHaveAttribute(
+        'data-params',
+        JSON.stringify({ goalId: DETAIL_IDS.goalId, skillId: DETAIL_IDS.skillId }),
+      )
+      expect(resultHeading.compareDocumentPosition(notice)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(
+        screen
+          .getByRole('heading', { name: 'Progresso demonstrado da Habilidade' })
+          .compareDocumentPosition(notice),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
+    it('keeps the way back to the Competency after the notice', () => {
+      render(
+        <ChoiceResultPage
+          activity={ACTIVITY}
+          attempt={COMPLETING_ATTEMPT}
+          detailIds={DETAIL_IDS}
+          onRetryEvaluation={vi.fn()}
+          state='result'
+        />,
+      )
+
+      const notice = screen.getByRole('region', { name: 'Habilidade concluída' })
+      const backLink = screen.getByRole('link', { name: 'Voltar para a Competência' })
+      expect(notice.compareDocumentPosition(backLink)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    })
+
+    it('shows no notice when the attempt does not complete the Skill', () => {
+      render(
+        <ChoiceResultPage
+          activity={ACTIVITY}
+          attempt={COMPLETED_ATTEMPT}
+          detailIds={DETAIL_IDS}
+          onRetryEvaluation={vi.fn()}
+          state='result'
+        />,
+      )
+
+      expect(
+        screen.getByRole('heading', { name: 'Resultado da Atividade' }),
+      ).toBeVisible()
+      expect(screen.queryByText('Habilidade concluída')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Ver resumo final' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('shows no notice while the evaluation is still pending', () => {
+      render(
+        <ChoiceResultPage
+          activity={ACTIVITY}
+          attempt={{
+            ...COMPLETING_ATTEMPT,
+            status: 'pending',
+            score: null,
+            questions: undefined,
+          }}
+          detailIds={DETAIL_IDS}
+          onRetryEvaluation={vi.fn()}
+          state='result'
+        />,
+      )
+
+      expect(screen.queryByText('Habilidade concluída')).not.toBeInTheDocument()
+    })
   })
 
   describe('practical preparation', () => {

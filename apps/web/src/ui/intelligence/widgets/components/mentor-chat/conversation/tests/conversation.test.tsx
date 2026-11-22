@@ -851,6 +851,7 @@ describe('Conversation', () => {
         actions: [{ key: 'confirm', label: 'Adicionar habilidade', variant: 'primary' }],
         picker: null,
         swap: null,
+        otherGoalExperiences: [],
         resultRef: { current: null },
         titleRef: { current: null },
         handleSelectGoal: vi.fn(),

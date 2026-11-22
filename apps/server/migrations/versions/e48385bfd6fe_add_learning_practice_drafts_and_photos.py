@@ -1,7 +1,7 @@
 """Add private Learning practice drafts and photos.
 
 Revision ID: e48385bfd6fe
-Revises: 46a3cef1cbec
+Revises: 46a3cef1cbec, 14fadc960949
 """
 
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ from alembic import op
 
 
 revision: str = 'e48385bfd6fe'
-down_revision: str | None = '46a3cef1cbec'
+down_revision: str | Sequence[str] | None = ('46a3cef1cbec', '14fadc960949')
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

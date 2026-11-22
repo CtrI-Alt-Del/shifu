@@ -1,4 +1,5 @@
 from .account_access import AccountAccess as AccountAccess
+from .account_appearance import AccountAppearance as AccountAppearance
 from .account_action_token_status import (
     AccountActionTokenStatus as AccountActionTokenStatus,
 )

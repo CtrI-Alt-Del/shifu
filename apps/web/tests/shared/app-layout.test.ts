@@ -64,8 +64,84 @@ test.describe('AppLayout', () => {
         })
         return
       }
+      if (fn?.startsWith('getAvailableSkillsAction_')) {
+        await route.fulfill({
+          body: JSON.stringify({ result: [] }),
+          contentType: 'application/json',
+          status: 200,
+        })
+        return
+      }
       await route.fallback()
     })
+  })
+
+  test('marks Objetivos as the only active destination on a Learning route on desktop', async ({
+    authenticatedPage,
+  }) => {
+    await authenticatedPage.setViewportSize({ width: 1280, height: 800 })
+    await navigateAuthenticatedPage(authenticatedPage, `${ROUTES.learningGoalsNew}/`)
+    await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/new\/?$/)
+
+    const navigation = authenticatedPage.getByRole('navigation', {
+      name: 'Navegação principal',
+    })
+    await expect(navigation.getByRole('link', { name: 'Objetivos' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(navigation.getByRole('link', { name: 'Progresso' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(navigation.getByRole('link', { name: 'Mentor' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+
+    await navigation.getByRole('link', { name: 'Progresso' }).click()
+
+    await expect(authenticatedPage).toHaveURL(/\/gamification\/overview\/?$/)
+    await expect(navigation.getByRole('link', { name: 'Progresso' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(navigation.getByRole('link', { name: 'Objetivos' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
+  test('marks Objetivos as the only active bottom item on a Learning route on mobile', async ({
+    authenticatedPage,
+  }) => {
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await navigateAuthenticatedPage(authenticatedPage, `${ROUTES.learningGoalsNew}/`)
+    await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/new\/?$/)
+
+    const bottomBar = authenticatedPage.getByRole('navigation', {
+      name: 'Navegação inferior',
+    })
+    await expect(bottomBar).toBeVisible()
+    await expect(
+      bottomBar.getByRole('link', { name: 'Objetivos — navegação inferior' }),
+    ).toHaveAttribute('aria-current', 'page')
+    for (const name of ['Progresso', 'Mentor', 'Conta']) {
+      await expect(
+        bottomBar.getByRole('link', { name: `${name} — navegação inferior` }),
+      ).not.toHaveAttribute('aria-current', 'page')
+    }
+    await expect(bottomBar.locator('[aria-current="page"]')).toHaveCount(1)
+
+    await bottomBar.getByRole('link', { name: 'Mentor — navegação inferior' }).click()
+
+    await expect(authenticatedPage).toHaveURL(/\/intelligence\/?$/)
+    await expect(
+      bottomBar.getByRole('link', { name: 'Mentor — navegação inferior' }),
+    ).toHaveAttribute('aria-current', 'page')
+    await expect(
+      bottomBar.getByRole('link', { name: 'Objetivos — navegação inferior' }),
+    ).not.toHaveAttribute('aria-current', 'page')
   })
 
   test('navigates between the shared desktop destinations', async ({
@@ -171,6 +247,7 @@ test.describe('AppLayout', () => {
           displayName: 'Playwright Learner',
           email: 'playwright@shifu.local',
           timeZone: 'UTC',
+          appearance: 'dark',
         }),
       }),
     )
@@ -312,6 +389,7 @@ test.describe('AppLayout', () => {
           displayName: 'Playwright Learner',
           email: 'playwright@shifu.local',
           timeZone: 'UTC',
+          appearance: 'dark',
         }),
       }),
     )

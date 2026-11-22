@@ -14,6 +14,8 @@ export const ROUTES = {
   learningGoal: '/learning/goals/$goalId',
   learningSkill: '/learning/goals/$goalId/skills/$skillId',
   learningGoalSkillsAdd: '/learning/goals/$goalId/skills/add',
+  learningCompetency:
+    '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId',
   gamification: '/gamification',
   gamificationOverview: '/gamification/overview',
   gamificationCalendar: '/gamification/calendar',
@@ -38,6 +40,7 @@ type StaticRouteName = Exclude<
   keyof typeof ROUTES,
   | 'learningGoal'
   | 'learningSkill'
+  | 'learningCompetency'
   | 'learningActivity'
   | 'learningAttempt'
   | 'learningDiagnosticResult'
