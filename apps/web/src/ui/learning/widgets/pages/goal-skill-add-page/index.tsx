@@ -1,25 +1,36 @@
 import { Link } from '@tanstack/react-router'
-import './goal-skill-add-page.css'
+import { motion } from 'motion/react'
+
+import { ENTRANCE_RISE, ENTRANCE_SECTION } from '@/constants/motion-variants'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
+
+import { AddSkillCatalogSection } from '../../sections/add-skill-catalog-section'
 
 export type GoalSkillAddPageProps = { goalId: string }
 
 export const GoalSkillAddPage = ({ goalId }: GoalSkillAddPageProps) => {
   return (
-    <section className='goal-skill-add-page rounded-lg border border-border bg-card p-8 text-center'>
-      <h1 className='font-serif text-3xl'>Adicionar Habilidade</h1>
-      <p className='mx-auto mt-3 max-w-xl leading-7 text-muted-foreground'>
-        Escolha uma Habilidade do currículo para incluí-la neste Objetivo.
-      </p>
-      <p className='mx-auto mt-2 max-w-xl text-sm text-muted-foreground'>
-        A seleção de Habilidades e bases sugeridas será disponibilizada neste fluxo.
-      </p>
-      <Link
-        className='mt-6 inline-flex min-h-11 items-center rounded-md border border-control-border px-4 font-semibold'
-        params={{ goalId }}
-        to='/learning/goals/$goalId'
-      >
-        Voltar para o Objetivo
-      </Link>
-    </section>
+    <main className='mx-auto w-full max-w-7xl pb-10'>
+      <MotionEntrance className='flex flex-col gap-4 sm:gap-6'>
+        <motion.div variants={ENTRANCE_RISE}>
+          <Link
+            className='inline-flex min-h-11 items-center gap-1 text-sm font-medium text-secondary-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+            params={{ goalId }}
+            to='/learning/goals/$goalId'
+          >
+            <span aria-hidden='true'>←</span> Voltar ao Objetivo
+          </Link>
+        </motion.div>
+        <motion.h1
+          className='font-serif text-[32px] font-normal leading-tight text-foreground sm:text-[40px]'
+          variants={ENTRANCE_RISE}
+        >
+          Adicionar Habilidade
+        </motion.h1>
+        <motion.div variants={ENTRANCE_SECTION}>
+          <AddSkillCatalogSection goalId={goalId} />
+        </motion.div>
+      </MotionEntrance>
+    </main>
   )
 }

@@ -1,93 +1,58 @@
-import { type ReactNode, useState } from 'react'
-
-import type { CatalogSkill } from '@/core/learning/catalog-skill'
-
-import { useAddSkillToGoalAction } from '@/ui/learning/hooks/use-add-skill-to-goal-action'
-import { useSkillCatalogQuery } from '@/ui/learning/hooks/use-skill-catalog-query'
+import type { ReactNode } from 'react'
 
 import { AddSkillFoundationsDialog } from '../../components/add-skill-foundations-dialog'
 import { SearchSkillCatalogInput } from '../../components/search-skill-catalog-input'
 import { SkillCatalogView } from '../../components/skill-catalog-view'
+import { useAddSkillCatalogSection } from './use-add-skill-catalog-section'
 
-type AddSkillCatalogSectionProps = {
+export type AddSkillCatalogSectionProps = {
   goalId: string
 }
 
-export function AddSkillCatalogSection({
+export const AddSkillCatalogSection = ({
   goalId,
-}: AddSkillCatalogSectionProps): ReactNode {
+}: AddSkillCatalogSectionProps): ReactNode => {
   const {
-    skills,
-    skillsError,
-    isLoadingSkills,
-    isLoadingMoreSkills,
+    catalogError,
+    dialogError,
     hasMoreSkills,
+    isLoading,
+    selectedSkill,
+    skills,
+    handleDialogClose,
+    handleDialogSubmit,
+    handleSearch,
+    handleSkillSelect,
     loadMoreSkills,
-    setSkillCatalogQuery,
-  } = useSkillCatalogQuery(goalId)
-  const { addSkillToGoal, resetAddSkillToGoal } = useAddSkillToGoalAction(goalId)
-
-  const [selectedSkill, setSelectedSkill] = useState<CatalogSkill | null>(null)
-  const [dialogError, setDialogError] = useState<string | null>(null)
-
-  const handleSkillSelect = (skill: CatalogSkill) => {
-    setSelectedSkill(skill)
-    setDialogError(null)
-  }
-
-  const handleDialogClose = () => {
-    setSelectedSkill(null)
-    setDialogError(null)
-    resetAddSkillToGoal()
-  }
-
-  const handleDialogSubmit = async (
-    selectedFoundationIds: readonly string[],
-  ): Promise<void> => {
-    if (selectedSkill === null) return
-
-    try {
-      await addSkillToGoal({
-        skillId: selectedSkill.id,
-        foundationSkillIds: selectedFoundationIds,
-      })
-    } catch (error) {
-      setDialogError(
-        error instanceof Error ? error.message : 'Erro ao adicionar habilidade',
-      )
-      throw error
-    }
-  }
+    retrySkills,
+  } = useAddSkillCatalogSection({ goalId })
 
   return (
-    <div className='w-full'>
-      <div className='mb-6'>
-        <h2 className='mb-4 text-2xl font-semibold'>Adicionar Habilidade</h2>
-        <SearchSkillCatalogInput
-          onSearch={setSkillCatalogQuery}
-          placeholder='Procurar habilidade...'
-        />
-      </div>
+    <div className='flex w-full flex-col gap-4 sm:gap-6'>
+      <SearchSkillCatalogInput onSearch={handleSearch} />
 
       <SkillCatalogView
-        skills={skills}
-        isLoading={isLoadingSkills || isLoadingMoreSkills}
-        error={skillsError instanceof Error ? skillsError.message : null}
-        onSkillSelect={handleSkillSelect}
-        onLoadMore={loadMoreSkills}
+        error={catalogError}
         hasMore={hasMoreSkills}
+        isLoading={isLoading}
+        onLoadMore={loadMoreSkills}
+        onRetry={retrySkills}
+        onSkillSelect={handleSkillSelect}
+        skills={skills}
       />
 
-      {selectedSkill !== null && (
+      {selectedSkill !== null ? (
         <AddSkillFoundationsDialog
-          skillName={selectedSkill.name}
-          foundations={selectedSkill.foundations}
-          isOpen
           error={dialogError}
+          foundations={selectedSkill.foundations}
+          goalId={goalId}
+          isOpen
           onClose={handleDialogClose}
           onSubmit={handleDialogSubmit}
+          skillId={selectedSkill.id}
+          skillName={selectedSkill.name}
         />
-      )}
+      ) : null}
     </div>
   )
 }

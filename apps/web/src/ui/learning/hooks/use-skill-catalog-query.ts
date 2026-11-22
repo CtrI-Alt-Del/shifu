@@ -56,16 +56,24 @@ export function useSkillCatalogQuery(goalId: string) {
     return () => clearTimeout(timer)
   }, [query])
 
-  const { data, error, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useInfiniteQuery({
-      queryKey: ['learning', 'skill-catalog', goalId, debouncedQuery],
-      queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        searchSkillCatalog({
-          data: { goalId, query: debouncedQuery || undefined, cursor: pageParam },
-        }),
-      initialPageParam: undefined as string | undefined,
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    })
+  const {
+    data,
+    error,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ['learning', 'skill-catalog', goalId, debouncedQuery],
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      searchSkillCatalog({
+        data: { goalId, query: debouncedQuery || undefined, cursor: pageParam },
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: false,
+  })
 
   const skills = data?.pages.flatMap((page) => page.items) ?? []
 
@@ -76,6 +84,7 @@ export function useSkillCatalogQuery(goalId: string) {
     isLoadingMoreSkills: isFetchingNextPage,
     hasMoreSkills: !!hasNextPage,
     loadMoreSkills: fetchNextPage,
+    retrySkills: refetch,
     setSkillCatalogQuery: setQuery,
   }
 }

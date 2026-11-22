@@ -122,7 +122,7 @@ describe('SkillFoundationRow', () => {
       )
 
       const statusElement = screen.getByText(/✓ Presente/)
-      expect(statusElement).toHaveClass('text-green-600')
+      expect(statusElement).toHaveClass('text-jade-text')
     })
 
     it('styles missing status in gray', () => {
@@ -136,7 +136,7 @@ describe('SkillFoundationRow', () => {
       )
 
       const statusElement = screen.getByText(/○ Ausente/)
-      expect(statusElement).toHaveClass('text-gray-500')
+      expect(statusElement).toHaveClass('text-muted-foreground')
     })
   })
 })
