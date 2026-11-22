@@ -6,6 +6,7 @@ from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
 )
 from shifu.learning.core.domain.structures import (
+    ActivityRubricAssessmentDecision,
     ChoiceEvaluationResult,
     CodeEvaluationResult,
     CodeRubricResult,
@@ -21,6 +22,28 @@ _TRANSLATION_KIND_MARKER = 'translation'
 
 
 class ActivityEvaluationMapper:
+    @staticmethod
+    def _deserialize_rubric_decisions(
+        value: object,
+    ) -> tuple[ActivityRubricAssessmentDecision, ...]:
+        serialized_decisions = cast('list[dict[str, object]]', value)
+        return tuple(
+            cast(
+                'ActivityRubricAssessmentDecision',
+                Serialization.deserialize_value(
+                    serialized_decision,
+                    ActivityRubricAssessmentDecision,
+                ),
+            )
+            for serialized_decision in serialized_decisions
+        )
+
+    @staticmethod
+    def _serialize_rubric_decisions(
+        decisions: tuple[ActivityRubricAssessmentDecision, ...],
+    ) -> list[object]:
+        return [Serialization.serialize_value(decision) for decision in decisions]
+
     @staticmethod
     def _deserialize_parts(value: object) -> tuple[EvaluationPartResult, ...]:
         serialized_parts = cast('list[dict[str, object]]', value)
@@ -72,6 +95,9 @@ class ActivityEvaluationMapper:
             completed_at=model.completed_at,
             effect_applied_at=model.effect_applied_at,
             run_id=model.run_id,
+            rubric_decisions=ActivityEvaluationMapper._deserialize_rubric_decisions(
+                model.rubric_decisions
+            ),
             progress_before=model.progress_before,
             progress_after=model.progress_after,
             status_before=(
@@ -99,6 +125,9 @@ class ActivityEvaluationMapper:
             completed_at=evaluation.completed_at,
             effect_applied_at=evaluation.effect_applied_at,
             run_id=evaluation.run_id,
+            rubric_decisions=ActivityEvaluationMapper._serialize_rubric_decisions(
+                evaluation.rubric_decisions
+            ),
             progress_before=evaluation.progress_before,
             progress_after=evaluation.progress_after,
             status_before=(

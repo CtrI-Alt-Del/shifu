@@ -1,7 +1,7 @@
 import hashlib
 import re
 import unicodedata
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from shifu.intelligence.core.domain.entities import (
     MentorMessage,
@@ -51,10 +51,12 @@ from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     selected_attachments,
 )
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     IdentifierProvider,
     MentorAccessProvider,
 )
+from shifu.shared.core.domain.structures import MentorAccessGrant
 
 
 class CreateMentorSessionUseCase:
@@ -67,6 +69,7 @@ class CreateMentorSessionUseCase:
         access_provider: MentorAccessProvider,
         quota_policy: AiQuotaPolicy,
         quota_calendar: AiQuotaCalendarProvider,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._ledger: AiQuotaLedger = AiQuotaLedger(
             quota_policy, quota_calendar, clock_provider
@@ -76,6 +79,7 @@ class CreateMentorSessionUseCase:
         self._identifier_provider = identifier_provider
         self._clock_provider = clock_provider
         self._title_provider = title_provider
+        self._account_activity_provider = account_activity_provider
 
     def execute(
         self,
@@ -98,7 +102,10 @@ class CreateMentorSessionUseCase:
         legacy_fingerprint = mentor_submission_fingerprint(first_message, context_hint)
         grant = self._access_provider.authorize(account_id, submission_key)
         self._access_provider.assert_current(grant)
-        with self._database.transaction() as repositories:
+        with (
+            self._account_activity_provider.activity(account_id),
+            self._database.transaction() as repositories,
+        ):
             fingerprint_values = attachment_fingerprint_values(
                 repositories, account_id, attachment_batch_id, attachment_ids
             )
@@ -118,11 +125,77 @@ class CreateMentorSessionUseCase:
                     legacy_fingerprint,
                     attachment_ids,
                 )
-            # An exhausted month refuses the start before the title call; the
-            # admission below stays the authority.
+            # Refuse before calling the title provider when the quota is spent.
             self._ledger.assert_available(repositories, account_id)
 
-        title = self._generate_title(first_message)
+        if not first_message.strip():
+            with self._account_activity_provider.activity(account_id):
+                return self._persist_created_session(
+                    account_id,
+                    submission_key,
+                    first_message,
+                    context_hint,
+                    attachment_batch_id,
+                    attachment_ids,
+                    legacy_fingerprint,
+                    grant,
+                    'Conversa com anexos',
+                )
+
+        effect_id = uuid5(
+            NAMESPACE_URL, f'shifu:intelligence:mentor-title:{parsed_key}'
+        )
+        try:
+            with self._account_activity_provider.external_effect(
+                account_id, effect_id, 'intelligence.mentor-session.title'
+            ) as admitted:
+                self._access_provider.assert_current(grant)
+                title = (
+                    self._generate_title(first_message)
+                    if admitted
+                    else self._fallback_title(first_message)
+                )
+                # Keep the receipt open through the SQL commit that stores its
+                # title result, so a settled receipt always has a durable result.
+                return self._persist_created_session(
+                    account_id,
+                    submission_key,
+                    first_message,
+                    context_hint,
+                    attachment_batch_id,
+                    attachment_ids,
+                    legacy_fingerprint,
+                    grant,
+                    title,
+                )
+        except MentorTitleUnavailableError:
+            # The receipt is now unknown, so a retry cannot repeat the model call.
+            # The fallback remains usable and is committed under the activity gate.
+            with self._account_activity_provider.activity(account_id):
+                return self._persist_created_session(
+                    account_id,
+                    submission_key,
+                    first_message,
+                    context_hint,
+                    attachment_batch_id,
+                    attachment_ids,
+                    legacy_fingerprint,
+                    grant,
+                    self._fallback_title(first_message),
+                )
+
+    def _persist_created_session(
+        self,
+        account_id: str,
+        submission_key: str,
+        first_message: str,
+        context_hint: MentorContextHint | None,
+        attachment_batch_id: str | None,
+        attachment_ids: tuple[str, ...],
+        legacy_fingerprint: str,
+        grant: MentorAccessGrant,
+        title: str,
+    ) -> CreateMentorSessionResult:
         now = self._clock_provider.now()
         with self._database.transaction() as repositories:
             fingerprint_values = attachment_fingerprint_values(
@@ -172,17 +245,12 @@ class CreateMentorSessionUseCase:
                 now=now,
                 allow_unbound_session=True,
             )
-            # Admission comes before any state: a refusal leaves no session,
-            # message, attempt or event behind.
             self._ledger.admit(
                 repositories,
                 AiQuotaRequestKind.MENTOR_RESPONSE,
                 attempt_id,
                 account_id,
             )
-            # Persist the parent row before attachment updates flush. The
-            # attachment has a composite FK to its owning session, and these
-            # repositories flush their writes immediately within this transaction.
             repositories.mentor_sessions.add(session, submission_key, fingerprint)
             if selected:
                 batch = repositories.mentor_attachment_batches.find_by_id(
@@ -251,7 +319,7 @@ class CreateMentorSessionUseCase:
             return 'Conversa com anexos'
         try:
             title = self._title_provider.generate(first_message[:1000]).strip()
-        except (MentorTitleUnavailableError, MentorTitleOutputInvalidError):
+        except MentorTitleOutputInvalidError:
             return self._fallback_title(first_message)
 
         if not title or len(title) > 120:

@@ -13,3 +13,7 @@ class MentorActionReceiptsRepository(Protocol):
     def try_add(self, receipt: MentorActionReceipt) -> bool:
         """Insert the receipt, returning False when the (account, confirmation) pair exists."""
         ...
+
+    def remove_by_account_id(self, account_id: str) -> None:
+        """Remove the account's operation receipts."""
+        ...

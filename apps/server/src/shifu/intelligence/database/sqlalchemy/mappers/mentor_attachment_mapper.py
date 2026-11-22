@@ -1,6 +1,10 @@
 from shifu.intelligence.core.domain.entities import MentorAttachment
 from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
-from shifu.intelligence.database.sqlalchemy.models import MentorAttachmentModel
+from shifu.intelligence.core.domain.structures import MentorAttachmentVisionResult
+from shifu.intelligence.database.sqlalchemy.models import (
+    MentorAttachmentModel,
+    MentorAttachmentVisionResultRecord,
+)
 
 
 class MentorAttachmentMapper:
@@ -29,6 +33,14 @@ class MentorAttachmentMapper:
             illegible_pages=tuple(model.illegible_pages),
             uninterpreted_pages=tuple(model.uninterpreted_pages),
             upload_completed_at=model.upload_completed_at,
+            vision_results=tuple(
+                MentorAttachmentVisionResult(
+                    page_number=result['page_number'],
+                    legible=result['legible'],
+                    description=result['description'],
+                )
+                for result in model.vision_results
+            ),
         )
 
     @staticmethod
@@ -56,4 +68,12 @@ class MentorAttachmentMapper:
             illegible_pages=list(attachment.illegible_pages),
             uninterpreted_pages=list(attachment.uninterpreted_pages),
             upload_completed_at=attachment.upload_completed_at,
+            vision_results=[
+                MentorAttachmentVisionResultRecord(
+                    page_number=result.page_number,
+                    legible=result.legible,
+                    description=result.description,
+                )
+                for result in attachment.vision_results
+            ],
         )

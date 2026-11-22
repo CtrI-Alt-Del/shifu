@@ -3,19 +3,23 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  ACCOUNT_ERASURE_ALERT_SUBJECT,
+  ACCOUNT_ERASURE_ALERT_TEXT,
   ACCOUNT_CONFIRMATION_SUBJECT,
   PASSWORD_RECOVERY_SUBJECT,
+  renderAccountErasureAlertEmail,
   renderAccountConfirmationEmail,
   renderPasswordRecoveryEmail,
 } from '../templates/index.js'
 import type {
+  AccountErasureAlertEmailProps,
   AccountConfirmationEmailProps,
   PasswordRecoveryEmailProps,
 } from '../templates/index.js'
 
 type TemplatePlaceholder = {
   name: string
-  type: 'text' | 'url'
+  type: 'text' | 'url' | 'uuid' | 'module' | 'failure-code' | 'timestamp'
 }
 
 type RenderedTemplate = {
@@ -27,6 +31,7 @@ type TemplateManifest = {
   template: string
   version: number
   subject: string
+  text?: string
   placeholders: readonly TemplatePlaceholder[]
 }
 
@@ -56,6 +61,22 @@ const PASSWORD_RECOVERY_PLACEHOLDER_VALUES: PasswordRecoveryEmailProps = {
   expiresAt: '{{expires_at}}',
 }
 
+const ACCOUNT_ERASURE_ALERT_PLACEHOLDERS = [
+  { name: 'erasure_id', type: 'uuid' },
+  { name: 'module', type: 'module' },
+  { name: 'failure_code', type: 'failure-code' },
+  { name: 'closed_at', type: 'timestamp' },
+  { name: 'due_at', type: 'timestamp' },
+] as const
+
+const ACCOUNT_ERASURE_ALERT_PLACEHOLDER_VALUES: AccountErasureAlertEmailProps = {
+  erasureId: '{{erasure_id}}',
+  module: '{{module}}',
+  failureCode: '{{failure_code}}',
+  closedAt: '{{closed_at}}',
+  dueAt: '{{due_at}}',
+}
+
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const REPOSITORY_ROOT = resolve(PACKAGE_ROOT, '..', '..')
 const OUTPUT_DIRECTORY = resolve(
@@ -64,6 +85,15 @@ const OUTPUT_DIRECTORY = resolve(
 )
 
 const TEMPLATES: readonly TemplateDefinition[] = [
+  {
+    template: 'account-erasure-alert',
+    version: 1,
+    subject: ACCOUNT_ERASURE_ALERT_SUBJECT,
+    text: ACCOUNT_ERASURE_ALERT_TEXT,
+    placeholders: ACCOUNT_ERASURE_ALERT_PLACEHOLDERS,
+    render: () =>
+      renderAccountErasureAlertEmail(ACCOUNT_ERASURE_ALERT_PLACEHOLDER_VALUES),
+  },
   {
     template: 'account-confirmation',
     version: 1,
@@ -174,6 +204,7 @@ async function buildTemplate(template: TemplateDefinition): Promise<void> {
         template: template.template,
         version: template.version,
         subject: template.subject,
+        ...(template.text === undefined ? {} : { text: template.text }),
         placeholders: template.placeholders,
       },
       null,

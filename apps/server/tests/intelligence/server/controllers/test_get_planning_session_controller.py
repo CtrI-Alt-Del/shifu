@@ -10,6 +10,7 @@ from shifu.intelligence.ai.intelligence_workflows_registry import (
 from shifu.intelligence.core.domain.errors import PlanningIndexUnavailableError
 from shifu.intelligence.core.domain.structures import PlanningQuery
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     MentorAccessProvider,
     MentorContextProvider,
     MentorCatalogProvider,
@@ -256,6 +257,9 @@ class TestPlanningUnavailableCompositionContract:
             create_autospec(MentorCatalogProvider, instance=True),
             create_autospec(MentorGoalDestinationsProvider, instance=True),
             outbox_engine=postgres_database.engine,
+            account_activity_provider=create_autospec(
+                AccountActivityProvider, instance=True
+            ),
             quota_policy=quota_policy(),
             quota_calendar=CALENDAR,
             curriculum_catalog_provider=None,

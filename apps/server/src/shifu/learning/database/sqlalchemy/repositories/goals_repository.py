@@ -41,5 +41,10 @@ class SqlalchemyGoalsRepository:
     def remove(self, goal: Goal) -> None:
         self._session.execute(delete(GoalModel).where(GoalModel.id == goal.id))
 
+    def remove_by_account_id(self, account_id: str) -> None:
+        self._session.execute(
+            delete(GoalModel).where(GoalModel.account_id == account_id)
+        )
+
     def remove_all(self) -> None:
         self._session.execute(delete(GoalModel))

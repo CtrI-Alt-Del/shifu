@@ -1,6 +1,9 @@
 from shifu.intelligence.messaging.inngest.jobs.purge_ai_quota_on_account_deleted_job import (
     PurgeAiQuotaOnAccountDeletedJob as PurgeAiQuotaOnAccountDeletedJob,
 )
+from shifu.intelligence.messaging.inngest.jobs.purge_intelligence_on_account_erasure_job import (
+    PurgeIntelligenceOnAccountErasureJob as PurgeIntelligenceOnAccountErasureJob,
+)
 from shifu.intelligence.messaging.inngest.jobs.purge_learner_memories_on_account_deleted_job import (
     PurgeLearnerMemoriesOnAccountDeletedJob as PurgeLearnerMemoriesOnAccountDeletedJob,
 )

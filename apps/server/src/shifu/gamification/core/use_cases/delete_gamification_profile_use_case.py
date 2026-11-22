@@ -14,9 +14,8 @@ class DeleteGamificationProfileUseCase:
     def execute(self, account_id: str) -> None:
         with self._database.transaction() as repositories:
             profile = repositories.profiles.find_by_account_id(account_id)
-            if profile is None:
-                return
-            repositories.profiles.remove(profile)
+            if profile is not None:
+                repositories.profiles.remove(profile)
             repositories.xp_grants.remove_many_by_account_id(account_id)
             repositories.earned_achievements.remove_many_by_account_id(account_id)
             repositories.rewarded_milestones.remove_many_by_account_id(account_id)

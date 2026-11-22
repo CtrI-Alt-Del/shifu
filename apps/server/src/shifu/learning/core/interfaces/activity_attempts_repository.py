@@ -7,6 +7,12 @@ from shifu.learning.core.domain.enums import ActivityAttemptKind
 class ActivityAttemptsRepository(Protocol):
     def find_by_id(self, attempt_id: str) -> ActivityAttempt | None: ...
 
+    def find_account_id_by_attempt_id(self, attempt_id: str) -> str | None: ...
+
+    def find_ids_by_account_id(self, account_id: str) -> list[str]:
+        """Return attempt IDs owned by the account through their Goal."""
+        ...
+
     def find_by_skill_experience_id_and_submission_key(
         self,
         skill_experience_id: str,

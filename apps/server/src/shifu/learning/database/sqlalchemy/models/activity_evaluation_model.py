@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -19,6 +19,12 @@ class ActivityEvaluationModel(Model):
     )
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     parts: Mapped[object] = mapped_column(JSON, nullable=False)
+    rubric_decisions: Mapped[object] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::json"),
+    )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

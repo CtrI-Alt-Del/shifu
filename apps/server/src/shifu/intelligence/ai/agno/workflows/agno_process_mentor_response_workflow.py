@@ -10,7 +10,7 @@ from math import isfinite
 from threading import Event, Thread
 from time import perf_counter
 from typing import TYPE_CHECKING, Literal
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from agno.metrics import RunMetrics
 from agno.run.base import RunStatus
@@ -41,7 +41,7 @@ from shifu.intelligence.core.domain.structures import (
 from shifu.intelligence.providers.telemetry.mentor_telemetry_correlation import (
     mentor_telemetry_correlation,
 )
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
 from shifu.shared.messaging.agentos.workflow_helpers import copy_agent
 
 if TYPE_CHECKING:
@@ -74,6 +74,7 @@ if TYPE_CHECKING:
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
         AgentOSHandoffStore,
     )
+    from shifu.shared.core.interfaces import AccountActivityProvider
     from shifu.shared.providers.system_identifier_provider import (
         SystemIdentifierProvider,
     )
@@ -113,6 +114,10 @@ class _ExecutionState:
     telemetry_correlation_id: str = field(default_factory=lambda: uuid4().hex)
 
 
+class _AttemptActivityUnavailableError(Exception):
+    """An attempt is missing, changed owners, or its account is no longer active."""
+
+
 class AgnoProcessMentorResponseWorkflow(Workflow):
     """Run Core phases and direct, bounded Agent calls without storing private data."""
 
@@ -135,6 +140,8 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         finalizer: FinalizeMentorResponseUseCase,
         identifier_provider: SystemIdentifierProvider,
         handoffs: AgentOSHandoffStore,
+        account_activity_provider: AccountActivityProvider,
+        attempt_account_id_resolver: Callable[[str], str | None],
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
         self._summarize = summarize_use_case
@@ -154,6 +161,8 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         self._identifier_provider = identifier_provider
         self._telemetry: MentorTelemetryProvider | None = telemetry
         self._handoffs = handoffs
+        self._account_activity = account_activity_provider
+        self._attempt_account_id_resolver = attempt_account_id_resolver
         super().__init__(
             id='intelligence-process-mentor-response',
             name='Process Mentor Response',
@@ -220,6 +229,8 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
             telemetry=self._telemetry,
+            account_activity_provider=self._account_activity,
+            attempt_account_id_resolver=self._attempt_account_id_resolver,
         )
         workflow.db = self.db
         if update:
@@ -240,9 +251,10 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                 if isinstance(raw, str)
                 else _Input.model_validate(raw, strict=True)
             )
-            self._summarize.execute(
-                request.attempt_id, request.event_id or request.attempt_id
-            )
+            with self._account_activity_scope(request.attempt_id):
+                self._summarize.execute(
+                    request.attempt_id, request.event_id or request.attempt_id
+                )
         except Exception:  # noqa: BLE001 - prepare validates the input and decides the outcome.
             return StepOutput(content='summary-skipped')
         return StepOutput(content='summary-done')
@@ -260,9 +272,10 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                 if isinstance(raw, str)
                 else _Input.model_validate(raw, strict=True)
             )
-            self._update_memories.execute(
-                request.attempt_id, request.event_id or request.attempt_id
-            )
+            with self._account_activity_scope(request.attempt_id):
+                self._update_memories.execute(
+                    request.attempt_id, request.event_id or request.attempt_id
+                )
         except Exception:  # noqa: BLE001 - prepare validates the input and decides the outcome.
             return StepOutput(content='memories-skipped')
         return StepOutput(content='memories-done')
@@ -284,38 +297,46 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
 
         owner = request.event_id or request.attempt_id
         try:
-            prepared = self._prepare.execute(request.attempt_id, owner)
-            if prepared is None:
+            with self._account_activity_scope(request.attempt_id):
+                prepared = self._prepare.execute(request.attempt_id, owner)
+                if prepared is None:
+                    state = _ExecutionState(
+                        prepared=None, status=MentorResponseStatus.CANCELLED
+                    )
+                    self._release_claim.execute(request.attempt_id, owner)
+                    return self._store(state, 'done')
+                approved = (
+                    list(prepared.attachment_request.approved_blocks)
+                    if prepared.attachment_request
+                    else []
+                )
+                for block in prepared.local_blocks:
+                    published = self._publish_local_block(prepared, owner, block)
+                    self._assert_published(published)
+                    if all(
+                        existing.block_key != block.block_key for existing in approved
+                    ):
+                        approved.append(block)
+                if prepared.attachment_request is not None:
+                    prepared = replace(
+                        prepared,
+                        attachment_request=replace(
+                            prepared.attachment_request,
+                            approved_blocks=tuple(approved),
+                        ),
+                    )
                 state = _ExecutionState(
-                    prepared=None, status=MentorResponseStatus.CANCELLED
+                    prepared=prepared,
+                    status=MentorResponseStatus.PROCESSING,
+                    approved_blocks=tuple(approved),
                 )
-                self._release_claim.execute(request.attempt_id, owner)
-                return self._store(state, 'done')
-            approved = (
-                list(prepared.attachment_request.approved_blocks)
-                if prepared.attachment_request
-                else []
+                # A restarted run never asks the model again for a published answer.
+                return self._store(self._resume_published(state) or state, 'continue')
+        except _AttemptActivityUnavailableError:
+            return self._store(
+                _ExecutionState(prepared=None, status=MentorResponseStatus.CANCELLED),
+                'done',
             )
-            for block in prepared.local_blocks:
-                published = self._publish_local_block(prepared, owner, block)
-                self._assert_published(published)
-                if all(existing.block_key != block.block_key for existing in approved):
-                    approved.append(block)
-            if prepared.attachment_request is not None:
-                prepared = replace(
-                    prepared,
-                    attachment_request=replace(
-                        prepared.attachment_request,
-                        approved_blocks=tuple(approved),
-                    ),
-                )
-            state = _ExecutionState(
-                prepared=prepared,
-                status=MentorResponseStatus.PROCESSING,
-                approved_blocks=tuple(approved),
-            )
-            # A restarted run never asks the model again for a published answer.
-            return self._store(self._resume_published(state) or state, 'continue')
         except Exception:  # noqa: BLE001 - translate private boundary failures.
             status = self._fail_response(request.attempt_id, owner)
             self._release_claim_safely(request.attempt_id, owner)
@@ -351,6 +372,16 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             reference = self._read_reference(step_input.get_last_step_content())
             request = self._request_for_step(step_input)
             state = self._consume_or_recover(reference, request)
+        except _AttemptActivityUnavailableError:
+            try:
+                return self._store(
+                    _ExecutionState(
+                        prepared=None, status=MentorResponseStatus.CANCELLED
+                    ),
+                    'done',
+                )
+            except Exception:  # noqa: BLE001 - no account-owned state remains to write.
+                raise ServiceUnavailableError(_UNAVAILABLE) from None
         except Exception:  # noqa: BLE001 - opaque handoff errors are sanitized.
             status = self._fail_unrecoverable_step(step_input)
             try:
@@ -390,10 +421,24 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                 correction=state.correction,
             )
             usage_recorder = self._usage_recorder(attempt_id, owner, scope)
-            self._record_progress.execute(
-                attempt_id, owner, MentorWorkflowStep.WRITE_ANSWER
+            with self._account_activity_scope(attempt_id):
+                self._record_progress.execute(
+                    attempt_id, owner, MentorWorkflowStep.WRITE_ANSWER
+                )
+            writer_phase = (
+                'attachment-answer'
+                if request.attachment_context is not None
+                else 'writer'
             )
-            with self._inference_guard(attempt_id, owner):
+            writer_operation = f'intelligence.mentor-response.{writer_phase}'
+            with (
+                self._external_model_effect(
+                    attempt_id,
+                    phase=f'{writer_phase}:{state.iteration}',
+                    operation=writer_operation,
+                ),
+                self._inference_guard(attempt_id, owner),
+            ):
                 candidate = self._write_candidate(
                     request,
                     attempt_id,
@@ -402,10 +447,16 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                     scope,
                     usage_recorder,
                 )
-            self._record_progress.execute(
-                attempt_id, owner, MentorWorkflowStep.REVIEW_ANSWER
-            )
+            with self._account_activity_scope(attempt_id):
+                self._record_progress.execute(
+                    attempt_id, owner, MentorWorkflowStep.REVIEW_ANSWER
+                )
             with (
+                self._external_model_effect(
+                    attempt_id,
+                    phase=f'reviewer:{state.iteration}',
+                    operation='intelligence.mentor-response.reviewer',
+                ),
                 self._inference_guard(attempt_id, owner),
                 inference_usage_scope(scope, usage_recorder),
             ):
@@ -422,6 +473,17 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             )
             decision = 'done' if review.approved else 'retry'
             return self._store(updated, decision)
+        except _AttemptActivityUnavailableError:
+            return self._store(
+                replace(
+                    state,
+                    status=MentorResponseStatus.CANCELLED,
+                    candidate=None,
+                    approved=False,
+                    rejected=False,
+                ),
+                'done',
+            )
         except Exception:  # noqa: BLE001 - private Agent/provider failures fail closed.
             status = self._fail_response(attempt_id, owner)
             self._release_claim_safely(attempt_id, owner)
@@ -580,51 +642,62 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         prepared = state.prepared
         owner = prepared.execution_owner
         try:
-            request = prepared.attachment_request
-            if request is not None:
-                block = self._block_to_publish(state, prepared)
-                if block is None or not self._publish_block.execute(
-                    prepared.attempt_id,
-                    owner,
-                    block,
-                    prepared.context,
-                ):
-                    status = self._fail_response(prepared.attempt_id, owner)
-                    return StepOutput(content=status.value)
-                if all(
-                    existing.block_key != block.block_key
-                    for existing in state.approved_blocks
-                ):
-                    state.approved_blocks = (*state.approved_blocks, block)
-            if not state.approved_blocks:
-                status = self._fail_response(prepared.attempt_id, owner)
-                return StepOutput(content=status.value)
-            content = '\n\n'.join(
-                block.content
-                for block in sorted(
-                    state.approved_blocks, key=lambda item: item.ordinal
+            with self._account_activity_scope(prepared.attempt_id):
+                return self._publish_and_finalize_for_active_account(
+                    state, prepared, owner
                 )
-            )
-            self._assert_current.execute(prepared.attempt_id, owner)
-            finalized = self._finalizer.execute(
-                prepared.account_id,
-                prepared.session_id,
-                prepared.learner_message_id,
-                content,
-                prepared.attempt_id,
-                owner,
-            )
-            if not finalized:
-                return StepOutput(
-                    content=self._fail_response(prepared.attempt_id, owner).value
-                )
-            return StepOutput(content=MentorResponseStatus.COMPLETED.value)
+        except _AttemptActivityUnavailableError:
+            return StepOutput(content=MentorResponseStatus.CANCELLED.value)
         except Exception:  # noqa: BLE001 - sanitize private finalization failures.
             return StepOutput(
                 content=self._fail_response(prepared.attempt_id, owner).value
             )
         finally:
             self._release_claim_safely(prepared.attempt_id, owner)
+
+    def _publish_and_finalize_for_active_account(
+        self,
+        state: _ExecutionState,
+        prepared: PreparedMentorResponse,
+        owner: str,
+    ) -> StepOutput:
+        request = prepared.attachment_request
+        if request is not None:
+            block = self._block_to_publish(state, prepared)
+            if block is None or not self._publish_block.execute(
+                prepared.attempt_id,
+                owner,
+                block,
+                prepared.context,
+            ):
+                status = self._fail_response(prepared.attempt_id, owner)
+                return StepOutput(content=status.value)
+            if all(
+                existing.block_key != block.block_key
+                for existing in state.approved_blocks
+            ):
+                state.approved_blocks = (*state.approved_blocks, block)
+        if not state.approved_blocks:
+            status = self._fail_response(prepared.attempt_id, owner)
+            return StepOutput(content=status.value)
+        content = '\n\n'.join(
+            block.content
+            for block in sorted(state.approved_blocks, key=lambda item: item.ordinal)
+        )
+        self._assert_current.execute(prepared.attempt_id, owner)
+        finalized = self._finalizer.execute(
+            prepared.account_id,
+            prepared.session_id,
+            prepared.learner_message_id,
+            content,
+            prepared.attempt_id,
+            owner,
+        )
+        if not finalized:
+            return StepOutput(
+                content=self._fail_response(prepared.attempt_id, owner).value
+            )
+        return StepOutput(content=MentorResponseStatus.COMPLETED.value)
 
     @staticmethod
     def _block_to_publish(
@@ -662,6 +735,37 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         return None
 
     @contextmanager
+    def _account_activity_scope(self, attempt_id: str) -> Generator[str]:
+        """Re-resolve attempt ownership before admitting a personal-data phase."""
+        account_id = self._attempt_account_id_resolver(attempt_id)
+        if account_id is None:
+            raise _AttemptActivityUnavailableError
+        try:
+            with self._account_activity.activity(account_id):
+                if self._attempt_account_id_resolver(attempt_id) != account_id:
+                    raise _AttemptActivityUnavailableError
+                yield account_id
+        except AuthorizationError as error:
+            raise _AttemptActivityUnavailableError from error
+
+    @contextmanager
+    def _external_model_effect(
+        self, attempt_id: str, *, phase: str, operation: str
+    ) -> Generator[None]:
+        """Fence one external model call with an account gate and durable receipt."""
+        with self._account_activity_scope(attempt_id) as account_id:
+            effect_id = uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:mentor-response:{attempt_id}:{phase}',
+            )
+            with self._account_activity.external_effect(
+                account_id, effect_id, operation
+            ) as should_run:
+                if not should_run:
+                    raise ServiceUnavailableError(_UNAVAILABLE)
+                yield
+
+    @contextmanager
     def _inference_guard(self, attempt_id: str, owner: str) -> Generator[None]:
         stop = Event()
         lost = Event()
@@ -669,9 +773,13 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         def renew() -> None:
             while not stop.wait(30):
                 try:
-                    if not self._renew_claim.execute(attempt_id, owner):
-                        lost.set()
-                        return
+                    with self._account_activity_scope(attempt_id):
+                        if not self._renew_claim.execute(attempt_id, owner):
+                            lost.set()
+                            return
+                except _AttemptActivityUnavailableError:
+                    lost.set()
+                    return
                 except Exception:  # noqa: BLE001 - renewal failure invalidates inference.
                     lost.set()
                     return
@@ -709,7 +817,10 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
 
     def _fail_response(self, attempt_id: str, owner: str) -> MentorResponseStatus:
         try:
-            return self._fail.execute(attempt_id, owner, 'service_unavailable')
+            with self._account_activity_scope(attempt_id):
+                return self._fail.execute(attempt_id, owner, 'service_unavailable')
+        except _AttemptActivityUnavailableError:
+            return MentorResponseStatus.CANCELLED
         except Exception:  # noqa: BLE001 - suppress private failure details.
             return MentorResponseStatus.FAILED
 
@@ -734,7 +845,8 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
 
     def _release_claim_safely(self, attempt_id: str, owner: str) -> None:
         try:
-            self._release_claim.execute(attempt_id, owner)
+            with self._account_activity_scope(attempt_id):
+                self._release_claim.execute(attempt_id, owner)
         except Exception:  # noqa: BLE001 - claim cleanup is best effort.
             return
 
@@ -767,10 +879,16 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         try:
             return self._consume(reference)
         except (KeyError, ServiceUnavailableError):
-            owner = request.event_id or request.attempt_id
+            return self._recover_missing_handoff(reference, request)
+
+    def _recover_missing_handoff(
+        self, reference: _StepReference, request: _Input
+    ) -> _ExecutionState:
+        owner = request.event_id or request.attempt_id
+        with self._account_activity_scope(request.attempt_id):
             prepared = self._prepare.execute(request.attempt_id, owner)
             if prepared is None:
-                self._release_claim_safely(request.attempt_id, owner)
+                self._release_claim.execute(request.attempt_id, owner)
                 return _ExecutionState(
                     prepared=None, status=MentorResponseStatus.CANCELLED
                 )
@@ -801,15 +919,15 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             resumed = self._resume_published(state)
             if resumed is not None:
                 return resumed
-            for _ in range(reference.iteration):
-                if state.approved:
-                    break
-                output = self._write_state(state)
-                recovered_reference = self._read_reference(output.content)
-                state = self._consume(recovered_reference)
-                if state.prepared is None:
-                    break
-            return state
+        for _ in range(reference.iteration):
+            if state.approved:
+                break
+            output = self._write_state(state)
+            recovered_reference = self._read_reference(output.content)
+            state = self._consume(recovered_reference)
+            if state.prepared is None:
+                break
+        return state
 
     @staticmethod
     def _read_reference(content: object) -> _StepReference:

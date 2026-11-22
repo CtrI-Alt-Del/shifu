@@ -5,7 +5,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from typing import ClassVar, cast
 
 from fastapi import APIRouter, FastAPI
-from sqlalchemy import Engine
+from sqlalchemy import Engine, create_engine
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -40,7 +40,11 @@ from shifu.gamification.providers.gamification_mentor_facts_provider import (
     GamificationMentorFactsProvider,
 )
 from shifu.gamification.rest.router import GamificationRouter
-from shifu.identity.core.domain.events import AccountDeletedEvent
+from shifu.identity.core.domain.events import (
+    AccountDeletedEvent,
+    AccountErasureOperationalAlertRequestedEvent,
+    AccountErasureRequestedEvent,
+)
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
@@ -48,6 +52,13 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 )
 from shifu.identity.providers.identity_account_time_zone_provider import (
     IdentityAccountTimeZoneProvider,
+)
+from shifu.identity.providers.account_activity import (
+    SqlalchemyAccountActivityProvider,
+    SqlalchemyCommunicationActivityProvider,
+)
+from shifu.identity.providers.account_erasure import (
+    SqlalchemyAccountErasureProvider,
 )
 from shifu.identity.providers.identity_mentor_access_provider import (
     IdentityMentorAccessProvider,
@@ -57,6 +68,7 @@ from shifu.intelligence.ai.intelligence_workflows_registry import (
     IntelligenceWorkflowsRegistry,
 )
 from shifu.intelligence.core.domain.structures import AiQuotaPolicy
+from shifu.intelligence.core.use_cases import PurgePlanningSessionsForAccountUseCase
 from shifu.intelligence.core.interfaces import (
     MentorRouteProvider,
     MentorTelemetryProvider,
@@ -237,6 +249,17 @@ class FastAPIApp:
         telemetry_provider: TelemetryProvider | None = None,
     ) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
+        activity_engine = (
+            create_engine(
+                database_engine.url,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=0,
+                pool_timeout=5,
+            )
+            if database_engine.dialect.name == 'postgresql'
+            else database_engine
+        )
         id_provider = SystemIdentifierProvider()
         clock_provider = SystemClockProvider()
         settings = get_settings()
@@ -253,6 +276,19 @@ class FastAPIApp:
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
             id_provider=id_provider,
+            activity_engine=activity_engine,
+        )
+        account_activity_provider = SqlalchemyAccountActivityProvider(
+            identity_database=identity_database,
+            engine=activity_engine,
+        )
+        communication_activity_provider = SqlalchemyCommunicationActivityProvider(
+            identity_database=identity_database,
+            engine=activity_engine,
+        )
+        account_erasure_provider = SqlalchemyAccountErasureProvider(
+            identity_database=identity_database,
+            clock_provider=clock_provider,
         )
         communication_database = SqlalchemyCommunicationDatabase(
             engine=database_engine,
@@ -264,6 +300,7 @@ class FastAPIApp:
             id_provider=id_provider,
             clock_provider=clock_provider,
             secret_envelope_provider=secret_envelope_provider,
+            account_activity_provider=account_activity_provider,
             action_origin=ENVIRONMENT.confirmation_action_origin,
         )
         password_recovery_workflow = PasswordRecoveryWorkflow(
@@ -271,6 +308,7 @@ class FastAPIApp:
             id_provider=id_provider,
             clock_provider=clock_provider,
             secret_envelope_provider=secret_envelope_provider,
+            account_activity_provider=account_activity_provider,
             action_origin=ENVIRONMENT.confirmation_action_origin,
         )
         message_renderer_provider = build_message_renderer()
@@ -337,6 +375,7 @@ class FastAPIApp:
             mentor_catalog_provider,
             mentor_goal_destinations_provider,
             outbox_engine=database_engine,
+            account_activity_provider=account_activity_provider,
             quota_policy=ai_quota_policy,
             quota_calendar=ai_quota_calendar_provider,
             route_provider=mentor_route_provider,
@@ -351,6 +390,7 @@ class FastAPIApp:
             mentor_access_provider,
             curriculum_content_provider,
             outbox_engine=database_engine,
+            account_activity_provider=account_activity_provider,
         )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
@@ -379,6 +419,8 @@ class FastAPIApp:
                 await intelligence_registry.close()
                 await learning_registry.close()
                 database_engine.dispose()
+                if activity_engine is not database_engine:
+                    activity_engine.dispose()
                 raise ServiceUnavailableError(
                     message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
@@ -438,6 +480,8 @@ class FastAPIApp:
                 finally:
                     await cache_provider.close()
                     database_engine.dispose()
+                    if activity_engine is not database_engine:
+                        activity_engine.dispose()
                     _emit_telemetry(
                         telemetry_provider,
                         {
@@ -480,7 +524,18 @@ class FastAPIApp:
                     purge_ai_quota_use_case=(
                         intelligence_registry.purge_ai_quota_use_case
                     ),
+                    purge_planning_sessions_use_case=(
+                        PurgePlanningSessionsForAccountUseCase(
+                            intelligence_registry.planning_sessions
+                        )
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
+                    account_erasure_requested_event_name=(
+                        AccountErasureRequestedEvent.EVENT_NAME
+                    ),
+                    account_erasure_target_provider=account_erasure_provider,
+                    account_erasure_acknowledgement_provider=(account_erasure_provider),
+                    account_activity_provider=account_activity_provider,
                     mentor_action_resolved_event_name=(
                         MentorSkillActionResolvedEvent.EVENT_NAME
                     ),
@@ -494,6 +549,16 @@ class FastAPIApp:
                     secret_envelope_provider=secret_envelope_provider,
                     message_renderer_provider=message_renderer_provider,
                     email_delivery_provider=email_delivery_provider,
+                    account_activity_provider=account_activity_provider,
+                    communication_activity_provider=(communication_activity_provider),
+                    account_erasure_operational_alert_requested_event_name=(
+                        AccountErasureOperationalAlertRequestedEvent.EVENT_NAME
+                    ),
+                    account_erasure_requested_event_name=(
+                        AccountErasureRequestedEvent.EVENT_NAME
+                    ),
+                    account_erasure_target_provider=account_erasure_provider,
+                    account_erasure_acknowledgement_provider=(account_erasure_provider),
                     telemetry_provider=telemetry,
                 ),
                 lambda inngest, telemetry: LearningInngestMessaging.register_jobs(
@@ -501,9 +566,12 @@ class FastAPIApp:
                     learning_database=learning_database,
                     clock_provider=clock_provider,
                     curriculum_content_provider=curriculum_content_provider,
+                    account_activity_provider=account_activity_provider,
                     max_code_assessment_input_bytes=(
                         settings.max_code_assessment_input_bytes
                     ),
+                    account_erasure_target_provider=account_erasure_provider,
+                    account_erasure_acknowledgement_provider=(account_erasure_provider),
                     telemetry_provider=telemetry,
                 ),
                 lambda inngest, telemetry: GamificationInngestMessaging.register_jobs(
@@ -511,6 +579,12 @@ class FastAPIApp:
                     gamification_database=gamification_database,
                     curriculum_content_provider=curriculum_content_provider,
                     clock_provider=clock_provider,
+                    account_activity_provider=account_activity_provider,
+                    account_erasure_requested_event_name=(
+                        AccountErasureRequestedEvent.EVENT_NAME
+                    ),
+                    account_erasure_target_provider=account_erasure_provider,
+                    account_erasure_acknowledgement_provider=(account_erasure_provider),
                     telemetry_provider=telemetry,
                 ),
             ],
@@ -530,6 +604,8 @@ class FastAPIApp:
         IntelligenceErrorHandler.register(app)
         LearningErrorHandler.register(app)
         app.state.identity_database = identity_database
+        app.state.account_activity_provider = account_activity_provider
+        app.state.account_erasure_provider = account_erasure_provider
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
         app.state.password_recovery_delivery_gateway = password_recovery_workflow

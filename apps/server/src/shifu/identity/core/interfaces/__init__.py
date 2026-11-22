@@ -1,6 +1,18 @@
 from .account_action_tokens_repository import (
     AccountActionTokensRepository as AccountActionTokensRepository,
 )
+from .account_browser_capabilities_repository import (
+    AccountBrowserCapabilitiesRepository as AccountBrowserCapabilitiesRepository,
+)
+from .account_external_effect_receipts_repository import (
+    AccountExternalEffectReceiptsRepository as AccountExternalEffectReceiptsRepository,
+)
+from .account_erasure_repository import (
+    AccountErasureRepository as AccountErasureRepository,
+)
+from .account_erasure_bff_provider import (
+    AccountErasureBffProvider as AccountErasureBffProvider,
+)
 from .accounts_repository import (
     AccountsRepository as AccountsRepository,
     ExpiringAccountsRepository as ExpiringAccountsRepository,

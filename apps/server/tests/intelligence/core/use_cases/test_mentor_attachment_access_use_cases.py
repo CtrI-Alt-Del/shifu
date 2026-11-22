@@ -37,6 +37,7 @@ from shifu.intelligence.core.use_cases.remove_mentor_attachment_use_case import 
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     FileStorageProvider,
     IdentifierProvider,
@@ -134,6 +135,8 @@ def harness() -> dict[str, Any]:
     )
     storage = create_autospec(FileStorageProvider, instance=True)
     storage.read.return_value = b'private file bytes'
+    activity = create_autospec(AccountActivityProvider, instance=True)
+    activity.activity.return_value.__enter__.return_value = None
     return {
         'database': database,
         'repositories': repositories,
@@ -141,6 +144,7 @@ def harness() -> dict[str, Any]:
         'identifier': identifier,
         'access': access,
         'storage': storage,
+        'activity': activity,
     }
 
 
@@ -458,6 +462,7 @@ def test_read_file_uses_private_preview_and_rechecks_current_generation(
         dependencies['identifier'],
         dependencies['access'],
         dependencies['storage'],
+        dependencies['activity'],
     )
 
     result = subject.execute(_ACCOUNT_ID, _SESSION_ID, _ATTACHMENT_ID, preview=True)
@@ -487,6 +492,7 @@ def test_read_file_rejects_non_image_preview_before_authorization(
         dependencies['identifier'],
         dependencies['access'],
         dependencies['storage'],
+        dependencies['activity'],
     )
 
     with pytest.raises(MentorAttachmentNotFoundError):
@@ -510,6 +516,7 @@ def test_read_file_wraps_storage_failure_and_rejects_revoked_generation(
         dependencies['identifier'],
         dependencies['access'],
         dependencies['storage'],
+        dependencies['activity'],
     )
     dependencies['storage'].read.side_effect = OSError
     with pytest.raises(MentorAttachmentUnavailableError):

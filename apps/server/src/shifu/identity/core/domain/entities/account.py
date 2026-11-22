@@ -117,9 +117,22 @@ class Account:
 
         self._clear_retained_session()
         self.status = AccountStatus.DELETED
+        self.access_version += 1
         self.deleted_at = deleted_at
         self.deletion_reason = reason
         self.updated_at = deleted_at
+
+    def anonymize(self, *, replacement_email: str, updated_at: datetime) -> None:
+        if self.status is not AccountStatus.DELETED:
+            raise AccountDeletionNotAllowedError
+        self.display_name = 'Conta encerrada'
+        self.email = EmailAddress.create(
+            replacement_email, error_type=InvalidEmailError
+        ).value
+        self.password_hash = '!disabled!'
+        self.time_zone = None
+        self._clear_retained_session()
+        self.updated_at = updated_at
 
     def change_display_name(self, display_name: str, updated_at: datetime) -> None:
         if self.status is not AccountStatus.ACTIVE:

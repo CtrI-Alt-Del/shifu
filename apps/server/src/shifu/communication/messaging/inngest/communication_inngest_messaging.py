@@ -5,6 +5,7 @@ from typing import cast
 from inngest import Function, Inngest
 
 from shifu.communication.core.interfaces import (
+    CommunicationActivityProvider,
     CommunicationDatabase,
     EmailDeliveryProvider,
     MessageRendererProvider,
@@ -13,11 +14,16 @@ from shifu.communication.core.interfaces import (
 from shifu.communication.core.use_cases import (
     CancelCommunicationUseCase,
     DeliverCommunicationUseCase,
+    PurgeCommunicationDataForAccountUseCase,
+    QueueAccountErasureOperationalAlertUseCase,
+    QueueCommunicationUseCase,
 )
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest.jobs import (
     CancelCommunicationJob,
     DeliverCommunicationJob,
+    PurgeCommunicationOnAccountErasureJob,
+    QueueAccountErasureOperationalAlertJob,
 )
 from shifu.communication.providers.email import (
     FernetSecretEnvelopeProvider,
@@ -26,7 +32,13 @@ from shifu.communication.providers.email import (
     SmtpEmailDeliveryProvider,
 )
 from shifu.shared.constants import EnvironmentSettings
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    AccountErasureAcknowledgementProvider,
+    AccountErasureTargetProvider,
+    ClockProvider,
+    IdentifierProvider,
+)
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
@@ -40,11 +52,19 @@ class CommunicationInngestMessaging:
         inngest: Inngest,
         *,
         communication_database: CommunicationDatabase | None = None,
+        communication_activity_provider: CommunicationActivityProvider,
+        account_activity_provider: AccountActivityProvider,
         id_provider: IdentifierProvider | None = None,
         clock_provider: ClockProvider | None = None,
         secret_envelope_provider: SecretEnvelopeProvider | None = None,
         message_renderer_provider: MessageRendererProvider | None = None,
         email_delivery_provider: EmailDeliveryProvider | None = None,
+        account_erasure_requested_event_name: str,
+        account_erasure_operational_alert_requested_event_name: str,
+        account_erasure_target_provider: AccountErasureTargetProvider,
+        account_erasure_acknowledgement_provider: (
+            AccountErasureAcknowledgementProvider
+        ),
         telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         settings = EnvironmentSettings.from_environment()
@@ -74,10 +94,27 @@ class CommunicationInngestMessaging:
             secret_envelope_provider=secret_envelope_provider,
             message_renderer_provider=message_renderer_provider,
             email_delivery_provider=email_delivery_provider,
+            communication_activity_provider=communication_activity_provider,
+            account_activity_provider=account_activity_provider,
         )
         cancellation_use_case = CancelCommunicationUseCase(
             communication_database=communication_database,
             clock_provider=clock_provider,
+        )
+        purge_communication_use_case = PurgeCommunicationDataForAccountUseCase(
+            communication_database=communication_database,
+        )
+        queue_communication_use_case = QueueCommunicationUseCase(
+            communication_database=communication_database,
+            id_provider=id_provider,
+            clock_provider=clock_provider,
+            secret_envelope_provider=secret_envelope_provider,
+            account_activity_provider=account_activity_provider,
+        )
+        queue_account_erasure_alert_use_case = (
+            QueueAccountErasureOperationalAlertUseCase(
+                queue_communication_use_case,
+            )
         )
         return [
             cast(
@@ -93,6 +130,32 @@ class CommunicationInngestMessaging:
                 CancelCommunicationJob.handle(
                     inngest,
                     cancellation_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgeCommunicationOnAccountErasureJob.handle(
+                    inngest,
+                    purge_communication_use_case,
+                    account_erasure_requested_event_name=(
+                        account_erasure_requested_event_name
+                    ),
+                    account_erasure_target_provider=(account_erasure_target_provider),
+                    account_erasure_acknowledgement_provider=(
+                        account_erasure_acknowledgement_provider
+                    ),
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                QueueAccountErasureOperationalAlertJob.handle(
+                    inngest,
+                    queue_account_erasure_alert_use_case,
+                    operational_alert_requested_event_name=(
+                        account_erasure_operational_alert_requested_event_name
+                    ),
                     telemetry_provider=telemetry_provider,
                 ),
             ),

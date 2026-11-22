@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from shifu.identity.core.domain.errors import (
     InvalidCredentialsError,
+    InvalidCurrentPasswordError,
     InvalidDisplayNameError,
     InvalidTimeZoneError,
     InvalidPasswordError,
@@ -210,6 +211,20 @@ class AppErrorHandler:
         )
 
     @staticmethod
+    async def handle_invalid_current_password(
+        request: Request, error: Exception
+    ) -> JSONResponse:
+        if request.url.path == '/identity/account-deletions' and isinstance(
+            error, InvalidCurrentPasswordError
+        ):
+            return AppErrorHandler._build_response(
+                status_code=status.HTTP_403_FORBIDDEN,
+                code='invalid_current_password',
+                message=error.message,
+            )
+        return await AppErrorHandler.handle_authorization_error(request, error)
+
+    @staticmethod
     async def handle_service_unavailable(
         _request: Request, _error: Exception
     ) -> JSONResponse:
@@ -225,13 +240,13 @@ class AppErrorHandler:
     ) -> JSONResponse:
         if request.url.path in AppErrorHandler._IDENTITY_PUBLIC_PATHS:
             return AppErrorHandler._build_response(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 code='invalid_input',
                 message='Os dados enviados são inválidos.',
             )
 
         return AppErrorHandler._build_response(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             code='validation_error',
             message='Os dados enviados são inválidos.',
         )
@@ -310,7 +325,7 @@ class AppErrorHandler:
                 'unsupported_media_type',
                 'O formato do conteúdo enviado não é compatível.',
             ),
-            status.HTTP_422_UNPROCESSABLE_ENTITY: (
+            status.HTTP_422_UNPROCESSABLE_CONTENT: (
                 'validation_error',
                 'Os dados enviados são inválidos.',
             ),
@@ -369,6 +384,10 @@ class AppErrorHandler:
         app.add_exception_handler(
             ValidationError,
             AppErrorHandler.handle_validation_error,
+        )
+        app.add_exception_handler(
+            InvalidCurrentPasswordError,
+            AppErrorHandler.handle_invalid_current_password,
         )
         app.add_exception_handler(
             AuthorizationError,

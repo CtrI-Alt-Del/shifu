@@ -52,3 +52,11 @@ from .main_page_entered_event import (
     MainPageEnteredEvent as MainPageEnteredEvent,
     MainPageEnteredPayload as MainPageEnteredPayload,
 )
+from .account_erasure_requested_event import (
+    AccountErasureRequestedEvent as AccountErasureRequestedEvent,
+    AccountErasureRequestedPayload as AccountErasureRequestedPayload,
+)
+from .account_erasure_operational_alert_requested_event import (
+    AccountErasureOperationalAlertRequestedEvent as AccountErasureOperationalAlertRequestedEvent,
+    AccountErasureOperationalAlertRequestedPayload as AccountErasureOperationalAlertRequestedPayload,
+)

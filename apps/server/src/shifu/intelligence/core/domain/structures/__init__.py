@@ -17,6 +17,9 @@ from .mentor_attachment_source import MentorAttachmentSource as MentorAttachment
 from .mentor_attachment_upload_result import (
     MentorAttachmentUploadResult as MentorAttachmentUploadResult,
 )
+from .mentor_attachment_vision_result import (
+    MentorAttachmentVisionResult as MentorAttachmentVisionResult,
+)
 from .mentor_attachment_view import MentorAttachmentView as MentorAttachmentView
 from .mentor_context_hint import MentorContextHint as MentorContextHint
 from .mentor_conversation_summary_context import (

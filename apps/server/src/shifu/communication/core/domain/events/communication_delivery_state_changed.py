@@ -1,4 +1,5 @@
 from dataclasses import field
+from typing import ClassVar
 
 from shifu.communication.core.domain.enums import CommunicationDeliveryState
 from shifu.communication.core.domain.errors import InvalidCommunicationError
@@ -38,7 +39,8 @@ class CommunicationDeliveryStateChangedPayload:
 class CommunicationDeliveryStateChangedEvent(
     Event[CommunicationDeliveryStateChangedPayload]
 ):
-    name: str = field(default='communication.delivery-state-changed', init=False)
+    NAME: ClassVar[str] = 'communication.delivery-state-changed'
+    name: str = field(default=NAME, init=False)
 
 
 CommunicationDeliveryStateChanged = CommunicationDeliveryStateChangedEvent

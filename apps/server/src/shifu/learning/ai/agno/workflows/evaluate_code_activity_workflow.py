@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from agno.workflow.step import Step
 from agno.workflow.types import StepInput, StepOutput
@@ -30,18 +31,22 @@ from shifu.shared.core.domain.structures import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+
     from agno.run.workflow import WorkflowRunOutput
 
     from shifu.learning.core.domain.structures import PreparedCodeActivityEvaluation
     from shifu.learning.core.use_cases import (
         EvaluateChoiceActivityUseCase,
         FailCodeActivityEvaluationUseCase,
+        PersistActivityRubricDecisionUseCase,
         PrepareCodeActivityEvaluationUseCase,
     )
     from shifu.shared.providers.langfuse_telemetry_provider import (
         LangfuseTelemetryProvider,
     )
     from shifu.shared.core.interfaces import CodeRubricAssessorProvider
+    from shifu.shared.core.interfaces import AccountActivityProvider
     from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
@@ -73,15 +78,21 @@ class EvaluateCodeActivityWorkflow(Workflow):
         prepare_use_case: PrepareCodeActivityEvaluationUseCase,
         evaluate_use_case: EvaluateChoiceActivityUseCase,
         fail_use_case: FailCodeActivityEvaluationUseCase,
+        persist_decision_use_case: PersistActivityRubricDecisionUseCase,
         assessor: CodeRubricAssessorProvider,
         handoffs: AgentOSHandoffStore,
+        account_activity_provider: AccountActivityProvider,
+        attempt_account_id_resolver: Callable[[str], str | None],
         observability: LangfuseTelemetryProvider | None = None,
         telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         self._prepare_use_case = prepare_use_case
         self._evaluate_use_case = evaluate_use_case
         self._fail_use_case = fail_use_case
+        self._persist_decision_use_case = persist_decision_use_case
         self._assessor = assessor
+        self._account_activity_provider = account_activity_provider
+        self._attempt_account_id_resolver = attempt_account_id_resolver
         self._observability: LangfuseTelemetryProvider | None = observability
         self._telemetry_provider = telemetry_provider
         self._handoffs = handoffs
@@ -118,8 +129,11 @@ class EvaluateCodeActivityWorkflow(Workflow):
             self._prepare_use_case,
             self._evaluate_use_case,
             self._fail_use_case,
+            self._persist_decision_use_case,
             self._assessor,
             self._handoffs,
+            self._account_activity_provider,
+            self._attempt_account_id_resolver,
             self._observability,
             self._telemetry_provider,
         )
@@ -155,9 +169,10 @@ class EvaluateCodeActivityWorkflow(Workflow):
         if official is not None:
             execution.official = official
             try:
-                execution.prepared = self._prepare_use_case.execute(
-                    official.attempt_id, official.run_id
-                )
+                with self._account_activity_scope(official.attempt_id):
+                    execution.prepared = self._prepare_use_case.execute(
+                        official.attempt_id, official.run_id
+                    )
             except Exception:  # noqa: BLE001 - Core failures stay private to the run.
                 execution.failure = True
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
@@ -207,32 +222,54 @@ class EvaluateCodeActivityWorkflow(Workflow):
                 prepared = execution.prepared
                 if prepared is None:
                     return StepOutput(content='skipped')
-                execution.decisions = tuple(
-                    CodeQuestionAssessmentDecisions(
-                        question_key=item.question_key,
-                        decisions=self._assessor.assess(item.assessment_input),
+                question_decisions: list[CodeQuestionAssessmentDecisions] = []
+                saved_decisions = {
+                    decision.question_key: decision
+                    for decision in prepared.rubric_decisions
+                }
+                for item in prepared.questions:
+                    with self._account_activity_scope(
+                        prepared.attempt_id
+                    ) as account_id:
+                        saved_decision = saved_decisions.get(item.question_key)
+                        effect_id = uuid5(
+                            NAMESPACE_URL,
+                            'shifu:learning:code-rubric:'
+                            f'{prepared.attempt_id}:{prepared.run_id}:{item.question_key}',
+                        )
+                        with self._account_activity_provider.external_effect(
+                            account_id,
+                            effect_id,
+                            'learning.code-rubric.assess',
+                            allow_durable_result_recovery=saved_decision is not None,
+                        ) as should_assess:
+                            if saved_decision is not None:
+                                rubric_decisions = saved_decision.decisions
+                            else:
+                                self._require_external_assessment(should_assess)
+                                rubric_decisions = self._assessor.assess(
+                                    item.assessment_input
+                                )
+                                self._persist_decision_use_case.execute(
+                                    prepared.attempt_id,
+                                    prepared.run_id,
+                                    item.question_key,
+                                    'code',
+                                    rubric_decisions,
+                                )
+                    question_decisions.append(
+                        CodeQuestionAssessmentDecisions(
+                            question_key=item.question_key,
+                            decisions=rubric_decisions,
+                        )
                     )
-                    for item in prepared.questions
-                )
+                execution.decisions = tuple(question_decisions)
             elif execution.assessment is not None:
-                if execution.handoff_ref is None:
-                    execution.failure = True
-                    return StepOutput(content='unavailable')
-                decisions = self._assessor.assess(execution.assessment)
-                self._handoffs.complete(
-                    execution.handoff_ref,
-                    capability=_HANDOFF_CAPABILITY,
-                    result_value=decisions,
-                )
-                execution.decisions = (
-                    CodeQuestionAssessmentDecisions(
-                        question_key='', decisions=decisions
-                    ),
-                )
+                return self._assess_handoff_execution(execution)
             else:
                 execution.failure = True
                 return StepOutput(content='unavailable')
-        except Exception:  # noqa: BLE001 - Jev content never enters run state.
+        except Exception:  # noqa: BLE001 - provider content never enters run state.
             execution.failure = True
             if execution.handoff_ref is not None:
                 complete_unavailable(
@@ -242,6 +279,26 @@ class EvaluateCodeActivityWorkflow(Workflow):
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
             return StepOutput(content='unavailable')
         return StepOutput(content='assessed')
+
+    def _assess_handoff_execution(self, execution: _Execution) -> StepOutput:
+        if execution.handoff_ref is None or execution.assessment is None:
+            execution.failure = True
+            return StepOutput(content='unavailable')
+        decisions = self._assessor.assess(execution.assessment)
+        self._handoffs.complete(
+            execution.handoff_ref,
+            capability=_HANDOFF_CAPABILITY,
+            result_value=decisions,
+        )
+        execution.decisions = (
+            CodeQuestionAssessmentDecisions(question_key='', decisions=decisions),
+        )
+        return StepOutput(content='assessed')
+
+    @staticmethod
+    def _require_external_assessment(should_assess: bool) -> None:
+        if not should_assess:
+            raise ServiceUnavailableError(_UNAVAILABLE)
 
     def _apply(self, step_input: StepInput) -> StepOutput:
         execution = self._execution_for_step(step_input)
@@ -257,16 +314,20 @@ class EvaluateCodeActivityWorkflow(Workflow):
                 return StepOutput(content='stale')
             if execution.failure:
                 try:
-                    self._fail_use_case.execute(prepared.attempt_id, prepared.run_id)
+                    with self._account_activity_scope(prepared.attempt_id):
+                        self._fail_use_case.execute(
+                            prepared.attempt_id, prepared.run_id
+                        )
                 except Exception:  # noqa: BLE001 - persist only safe failure state.
                     raise ServiceUnavailableError(_UNAVAILABLE) from None
                 return StepOutput(content='failed')
             try:
-                committed = self._evaluate_use_case.execute(
-                    prepared.attempt_id,
-                    prepared.run_id,
-                    execution.decisions,
-                )
+                with self._account_activity_scope(prepared.attempt_id):
+                    committed = self._evaluate_use_case.execute(
+                        prepared.attempt_id,
+                        prepared.run_id,
+                        execution.decisions,
+                    )
             except Exception:  # noqa: BLE001 - only a safe class crosses the run boundary.
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
             if not committed:
@@ -276,6 +337,16 @@ class EvaluateCodeActivityWorkflow(Workflow):
         if execution.failure:
             return StepOutput(content='unavailable')
         return StepOutput(content='complete')
+
+    @contextmanager
+    def _account_activity_scope(self, attempt_id: str) -> Generator[str]:
+        account_id = self._attempt_account_id_resolver(attempt_id)
+        if account_id is None:
+            raise ServiceUnavailableError(_UNAVAILABLE)
+        with self._account_activity_provider.activity(account_id):
+            if self._attempt_account_id_resolver(attempt_id) != account_id:
+                raise ServiceUnavailableError(_UNAVAILABLE)
+            yield account_id
 
     def _emit_completion_telemetry(
         self,

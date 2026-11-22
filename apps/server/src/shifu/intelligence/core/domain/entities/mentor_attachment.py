@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from shifu.intelligence.core.domain.structures.mentor_attachment_extraction import (
         MentorAttachmentExtraction,
     )
+    from shifu.intelligence.core.domain.structures.mentor_attachment_vision_result import (
+        MentorAttachmentVisionResult,
+    )
 
 _ALLOWED_TRANSITIONS: dict[
     MentorAttachmentStatus, frozenset[MentorAttachmentStatus]
@@ -65,6 +68,7 @@ class MentorAttachment:
     illegible_pages: tuple[int, ...]
     uninterpreted_pages: tuple[int, ...]
     upload_completed_at: datetime | None = None
+    vision_results: tuple[MentorAttachmentVisionResult, ...] = ()
 
     @classmethod
     def create(
@@ -153,6 +157,7 @@ class MentorAttachment:
         if status != MentorAttachmentStatus.PROCESSING:
             self.execution_owner = None
             self.claim_expires_at = None
+            self.vision_results = ()
 
     def claim(self, execution_owner: str, now: datetime, expires_at: datetime) -> None:
         if self.status not in {
@@ -193,6 +198,37 @@ class MentorAttachment:
             self.execution_owner = None
             self.claim_expires_at = None
 
+    def record_vision_result(
+        self,
+        generation: int,
+        execution_owner: str,
+        result: MentorAttachmentVisionResult,
+    ) -> None:
+        if (
+            self.status is not MentorAttachmentStatus.PROCESSING
+            or self.generation != generation
+            or self.execution_owner != execution_owner
+        ):
+            raise MentorAttachmentConflictError
+        existing = next(
+            (
+                item
+                for item in self.vision_results
+                if item.page_number == result.page_number
+            ),
+            None,
+        )
+        if existing is not None:
+            if existing != result:
+                raise MentorAttachmentConflictError
+            return
+        self.vision_results = tuple(
+            sorted(
+                (*self.vision_results, result),
+                key=lambda item: item.page_number,
+            )
+        )
+
     def apply_extraction(
         self,
         extraction: MentorAttachmentExtraction,
@@ -212,6 +248,7 @@ class MentorAttachment:
         self.failure_code = failure_code
         self.execution_owner = None
         self.claim_expires_at = None
+        self.vision_results = ()
 
     def fail_extraction(
         self, extraction: MentorAttachmentExtraction, failure_code: str
@@ -225,8 +262,10 @@ class MentorAttachment:
         self.failure_code = failure_code
         self.execution_owner = None
         self.claim_expires_at = None
+        self.vision_results = ()
 
     def revoke(self) -> None:
+        self.vision_results = ()
         if self.status != MentorAttachmentStatus.REMOVED:
             self.status = MentorAttachmentStatus.REMOVED
             self.generation += 1

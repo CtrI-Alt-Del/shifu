@@ -11,6 +11,10 @@ from shifu.identity.core.domain.events import (
     AccountActivatedPayload,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from tests.messaging.inngest.jobs.gamification.account_activity_test_support import (
+    seed_active_account,
+    seed_deleted_account,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -25,6 +29,7 @@ class TestCreateProfileOnAccountActivatedJob:
     ) -> None:
         ids = SystemIdentifierProvider()
         account_id = ids.generate()
+        seed_active_account(inngest_fixture, account_id)
         activated_at = (
             datetime(2026, 1, 1, tzinfo=UTC).isoformat().replace('+00:00', 'Z')
         )
@@ -67,6 +72,39 @@ class TestCreateProfileOnAccountActivatedJob:
         inngest_fixture.wait_for_database(
             lambda session: _profile_count(session, account_id) == 1
         )
+
+    def test_should_not_create_profile_after_account_closes(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        account_id = ids.generate()
+        seed_deleted_account(inngest_fixture, account_id)
+        activated_at = (
+            datetime(2026, 1, 1, tzinfo=UTC).isoformat().replace('+00:00', 'Z')
+        )
+        event = AccountActivatedEvent(
+            payload=AccountActivatedPayload(
+                account_id=account_id,
+                activated_at=activated_at,
+            )
+        )
+        event_id = ids.generate()
+
+        inngest_fixture.publish(
+            event.name,
+            {
+                'account_id': event.payload.account_id,
+                'activated_at': event.payload.activated_at,
+            },
+            event_id=event_id,
+        )
+        inngest_fixture.wait_for_log(
+            f'"event":"job.completed","event_id":"{event_id}",'
+            '"job":"gamification.create_profile_on_account_activated"'
+        )
+
+        with inngest_fixture.inspection_session() as session:
+            assert _profile_count(session, account_id) == 0
 
 
 def _profile_count(session: 'Session', account_id: str) -> int:

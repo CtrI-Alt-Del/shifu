@@ -9,11 +9,12 @@ from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.gamification.core.use_cases import RecognizeSkillCompletedUseCase
+from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.shared.core.interfaces import AccountActivityProvider, ClockProvider
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
 )
-from shifu.shared.core.interfaces import ClockProvider
 
 
 class _Payload(BaseModel):
@@ -77,6 +78,7 @@ class RecognizeSkillCompletedJob:
         inngest: Inngest,
         use_case: RecognizeSkillCompletedUseCase,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
         *,
         telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
@@ -92,6 +94,7 @@ class RecognizeSkillCompletedJob:
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
+            account_id = _validate_payload(data).account_id
             normalized = await context.step.run(
                 'normalize_payload',
                 RecognizeSkillCompletedJob._normalize_payload,
@@ -102,6 +105,8 @@ class RecognizeSkillCompletedJob:
                 RecognizeSkillCompletedJob._recognize,
                 use_case,
                 clock_provider,
+                account_activity_provider,
+                account_id,
                 normalized,
             )
 
@@ -111,7 +116,6 @@ class RecognizeSkillCompletedJob:
     async def _normalize_payload(data: dict[str, object]) -> dict[str, str]:
         payload = _validate_payload(data)
         return {
-            'account_id': payload.account_id,
             'skill_id': payload.skill_id,
             'skill_experience_id': payload.skill_experience_id,
             'completed_at': payload.completed_at,
@@ -121,13 +125,19 @@ class RecognizeSkillCompletedJob:
     async def _recognize(
         use_case: RecognizeSkillCompletedUseCase,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
+        account_id: str,
         normalized: Mapping[str, str],
     ) -> None:
-        await asyncio.to_thread(
-            use_case.execute,
-            normalized['account_id'],
-            normalized['skill_id'],
-            normalized['skill_experience_id'],
-            occurred_at=_parse_utc_iso(normalized['completed_at']),
-            now=clock_provider.now(),
-        )
+        try:
+            async with account_activity_provider.async_activity(account_id):
+                await asyncio.to_thread(
+                    use_case.execute,
+                    account_id,
+                    normalized['skill_id'],
+                    normalized['skill_experience_id'],
+                    occurred_at=_parse_utc_iso(normalized['completed_at']),
+                    now=clock_provider.now(),
+                )
+        except AuthorizationError:
+            return

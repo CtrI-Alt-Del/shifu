@@ -23,6 +23,7 @@ from shifu.learning.rest.controllers.answer_request_shape import (
 )
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
     TranslationRubricAssessorProvider,
@@ -149,6 +150,10 @@ class PreviewActivityQuestionFeedbackController:
                 TranslationRubricAssessorProvider,
                 Depends(LearningPipe.get_translation_rubric_assessor_provider),
             ],
+            account_activity_provider: Annotated[
+                AccountActivityProvider,
+                Depends(LearningPipe.get_account_activity_provider),
+            ],
             max_assessment_bytes: Annotated[
                 int, Depends(LearningPipe.get_max_code_assessment_input_bytes)
             ],
@@ -194,7 +199,12 @@ class PreviewActivityQuestionFeedbackController:
                     selected_option_keys=payload.selected_option_keys or (),
                 )
             result: PreliminaryQuestionResult = PreviewActivityQuestionFeedbackUseCase(
-                database, provider, assessor, translation_assessor, max_assessment_bytes
+                database,
+                provider,
+                assessor,
+                translation_assessor,
+                account_activity_provider,
+                max_assessment_bytes,
             ).execute(
                 user.account_id,
                 goal_id,

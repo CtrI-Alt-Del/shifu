@@ -45,6 +45,7 @@ from shifu.intelligence.core.use_cases import (
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
     RecordMentorActionOutcomeUseCase,
+    RecordMentorAttachmentVisionResultUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
     RecordPlanningInferenceUsageUseCase,
@@ -151,6 +152,7 @@ if TYPE_CHECKING:
         SkillFoundationEntry,
     )
     from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
         CodeRubricAssessorProvider,
         CurriculumCatalogProvider,
         FileStorageProvider,
@@ -284,6 +286,7 @@ class IntelligenceWorkflowsRegistry:
         mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
+        account_activity_provider: AccountActivityProvider,
         quota_policy: AiQuotaPolicy,
         quota_calendar: AiQuotaCalendarProvider,
         telemetry_client: Langfuse | None = None,
@@ -301,6 +304,7 @@ class IntelligenceWorkflowsRegistry:
         self._database: IntelligenceDatabase = IntelligencePipe.create_database(
             outbox_engine
         )
+        self._account_activity_provider = account_activity_provider
         self._identifier_provider = SystemIdentifierProvider()
         self._clock_provider = SystemClockProvider()
         self._access_provider = access_provider
@@ -371,6 +375,7 @@ class IntelligenceWorkflowsRegistry:
             self._clock_provider,
             access_provider,
             self._storage_provider,
+            self._account_activity_provider,
         )
         complete_attachment = CompleteMentorAttachmentUseCase(
             self._database, self._clock_provider, access_provider
@@ -382,15 +387,21 @@ class IntelligenceWorkflowsRegistry:
             self._database, self._clock_provider, access_provider
         )
         release_attachment = ReleaseMentorAttachmentClaimUseCase(self._database)
+        record_attachment_vision = RecordMentorAttachmentVisionResultUseCase(
+            self._database, self._clock_provider
+        )
         prepare_workflow = AgnoPrepareMentorAttachmentWorkflow(
             prepare_use_case=prepare_attachment,
             complete_use_case=complete_attachment,
             fail_use_case=fail_attachment,
             renew_claim_use_case=renew_attachment,
             release_claim_use_case=release_attachment,
+            record_vision_result_use_case=record_attachment_vision,
             extractor_provider=self._extractor_provider,
             vision_agent=vision_agent,
             identifier_provider=self._identifier_provider,
+            account_activity_provider=self._account_activity_provider,
+            attachment_account_id_resolver=self._attachment_account_id,
             max_pdf_pages=settings.mentor_attachment_max_pdf_pages,
             usage_recorder=self._record_attachment_usage,
         )
@@ -541,6 +552,8 @@ class IntelligenceWorkflowsRegistry:
             ),
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
+            account_activity_provider=self._account_activity_provider,
+            attempt_account_id_resolver=self._attempt_account_id,
             telemetry=self._telemetry,
         )
         self._workflows = (
@@ -621,6 +634,7 @@ class IntelligenceWorkflowsRegistry:
             else cast('PlanningProposalAgent', _UnavailablePlanningAgent()),
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
+            account_activity_provider=self._account_activity_provider,
         )
         self._workflows = (*self._workflows, plan_goal_workflow)
         database_url = settings.agentos_database_url
@@ -670,6 +684,18 @@ class IntelligenceWorkflowsRegistry:
     @property
     def database(self) -> IntelligenceDatabase:
         return self._database
+
+    def _attempt_account_id(self, attempt_id: str) -> str | None:
+        """Resolve the sole account owner from a persisted response attempt."""
+        with self._database.transaction() as repositories:
+            attempt = repositories.mentor_response_attempts.find_by_id(attempt_id)
+        return attempt.account_id if attempt is not None else None
+
+    def _attachment_account_id(self, attachment_id: str) -> str | None:
+        """Resolve the owner from the persisted attachment row."""
+        with self._database.transaction() as repositories:
+            attachment = repositories.mentor_attachments.find_by_id(attachment_id)
+        return attachment.account_id if attachment is not None else None
 
     @property
     def code_rubric_assessor_provider(self) -> CodeRubricAssessorProvider:

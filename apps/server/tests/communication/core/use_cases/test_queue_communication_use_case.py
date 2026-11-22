@@ -22,7 +22,12 @@ from shifu.communication.core.interfaces import (
     SecretEnvelopeProvider,
 )
 from shifu.communication.core.use_cases import QueueCommunicationUseCase
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.identity.core.domain.errors import AccountNotActiveError
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    ClockProvider,
+    IdentifierProvider,
+)
 
 
 class TestQueueCommunicationUseCase:
@@ -49,6 +54,10 @@ class TestQueueCommunicationUseCase:
             SecretEnvelopeProvider,
             instance=True,
         )
+        self.account_activity_provider = create_autospec(
+            AccountActivityProvider,
+            instance=True,
+        )
         self.created_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
         self.clock_provider.now.return_value = self.created_at
         self.envelope_provider.encrypt.return_value = SecretEnvelope(
@@ -60,6 +69,7 @@ class TestQueueCommunicationUseCase:
             self.id_provider,
             self.clock_provider,
             self.envelope_provider,
+            self.account_activity_provider,
         )
         self.request = CommunicationRequest(
             communication_id='01JCOMMUNICATION000000000000001',
@@ -75,6 +85,7 @@ class TestQueueCommunicationUseCase:
                 text='Confirme',
             ),
         )
+        self.envelope_provider.decrypt.return_value = self.request.content
 
     def test_should_persist_preassigned_identity_and_id_only_queue_event(self) -> None:
         result = self.subject.execute(self.request)
@@ -96,6 +107,20 @@ class TestQueueCommunicationUseCase:
         assert event.payload.communication_id == result.id
         assert not hasattr(event.payload, 'account_id')
         assert not hasattr(event.payload, 'recipient_email')
+        self.account_activity_provider.activity.assert_called_once_with(
+            self.request.account_id,
+            allow_pending_confirmation=True,
+        )
+
+    def test_should_not_persist_communication_for_a_closed_account(self) -> None:
+        self.account_activity_provider.activity.return_value.__enter__.side_effect = (
+            AccountNotActiveError
+        )
+
+        with pytest.raises(AccountNotActiveError):
+            self.subject.execute(self.request)
+
+        self.communication_database.transaction.assert_not_called()
 
     def test_should_return_existing_request_without_reencrypting_or_republishing(
         self,
@@ -124,6 +149,35 @@ class TestQueueCommunicationUseCase:
         self.repositories.communications.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
         self.clock_provider.now.assert_not_called()
+
+    def test_should_reject_replay_when_incident_payload_changed(self) -> None:
+        existing = Communication.create(
+            id=self.request.communication_id,
+            account_id=self.request.account_id,
+            type=self.request.type,
+            channel=self.request.channel,
+            recipient_email=self.request.recipient_email,
+            recipient_name=self.request.recipient_name,
+            content=None,
+            status=CommunicationStatus.PENDING,
+            idempotency_key=self.request.idempotency_key,
+            created_at=self.created_at,
+            updated_at=self.created_at,
+            identity_action_token_id=self.request.identity_action_token_id,
+            encrypted_content=self.envelope_provider.encrypt.return_value,
+        )
+        self.repositories.communications.find_by_id.return_value = existing
+        self.envelope_provider.decrypt.return_value = MessageContent(
+            subject='Alterado',
+            html='<p>Alterado</p>',
+            text='Alterado',
+        )
+
+        with pytest.raises(InvalidCommunicationError):
+            self.subject.execute(self.request)
+
+        self.repositories.communications.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_reject_an_uncontrolled_message_type_before_transaction(
         self,

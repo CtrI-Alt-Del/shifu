@@ -182,6 +182,9 @@ class IntelligenceFixture:
 
     def mentor_app(self, account: AuthenticatedUser = MENTOR_ACCOUNT) -> FastAPI:
         """The Mentor application with controlled access and a stubbed title."""
+        with SqlalchemyIdentityDatabase(engine=self.postgres.engine).transaction() as repositories:
+            if repositories.accounts.find_by_id(account.account_id) is None:
+                repositories.accounts.add(AccountFaker.fake(id=account.account_id))
         app = FastAPIApp.register(self.postgres.engine)
         configure_mentor_access(app)
         app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: account

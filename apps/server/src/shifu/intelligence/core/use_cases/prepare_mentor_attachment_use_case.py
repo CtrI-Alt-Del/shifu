@@ -12,6 +12,9 @@ if TYPE_CHECKING:
         MentorAttachment,
         MentorAttachmentBatch,
     )
+    from shifu.intelligence.core.domain.structures import (
+        MentorAttachmentVisionResult,
+    )
     from shifu.intelligence.core.interfaces import (
         IntelligenceDatabase,
         IntelligenceDatabaseRepositories,
@@ -20,6 +23,7 @@ if TYPE_CHECKING:
     from shifu.shared.core.interfaces import (
         ClockProvider,
         FileStorageProvider,
+        AccountActivityProvider,
         MentorAccessProvider,
     )
 
@@ -45,6 +49,7 @@ class _ClaimedAttachment:
     media_type: str
     checksum: str
     grant: MentorAccessGrant
+    vision_results: tuple[MentorAttachmentVisionResult, ...]
 
 
 class PrepareMentorAttachmentUseCase:
@@ -56,11 +61,13 @@ class PrepareMentorAttachmentUseCase:
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
         storage_provider: FileStorageProvider,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
         self._access_provider = access_provider
         self._storage_provider = storage_provider
+        self._account_activity_provider = account_activity_provider
 
     def execute(
         self, attachment_id: str, generation: int, execution_owner: str
@@ -70,9 +77,15 @@ class PrepareMentorAttachmentUseCase:
         claimed = self._claim(attachment_id, generation, execution_owner)
         if claimed is None:
             return None
-        content = self._read_claimed(
-            attachment_id, generation, execution_owner, claimed
-        )
+        with self._account_activity_provider.activity(claimed.account_id):
+            self._access_provider.assert_current(claimed.grant)
+            if not self._is_current(
+                attachment_id, generation, execution_owner, claimed
+            ):
+                return None
+            content = self._read_claimed(
+                attachment_id, generation, execution_owner, claimed
+            )
         if content is None:
             return None
         self._access_provider.assert_current(claimed.grant)
@@ -84,6 +97,7 @@ class PrepareMentorAttachmentUseCase:
             execution_owner=execution_owner,
             media_type=claimed.media_type,
             content=content,
+            vision_results=claimed.vision_results,
         )
 
     def _claim(
@@ -98,21 +112,22 @@ class PrepareMentorAttachmentUseCase:
         grant = self._access_provider.authorize(account_id, attachment_id)
         self._access_provider.assert_current(grant)
         now = self._clock_provider.now()
-        return run_with_locked_mentor_attachment_scope(
-            self._database,
-            account_id,
-            batch_id,
-            lambda repositories, scope: self._claim_locked(
-                repositories,
-                scope,
+        with self._account_activity_provider.activity(account_id):
+            return run_with_locked_mentor_attachment_scope(
+                self._database,
                 account_id,
-                generation,
-                execution_owner,
-                grant,
-                now,
-            ),
-            attachment_id,
-        )
+                batch_id,
+                lambda repositories, scope: self._claim_locked(
+                    repositories,
+                    scope,
+                    account_id,
+                    generation,
+                    execution_owner,
+                    grant,
+                    now,
+                ),
+                attachment_id,
+            )
 
     def _claim_locked(
         self,
@@ -144,6 +159,7 @@ class PrepareMentorAttachmentUseCase:
             media_type=attachment.media_type,
             checksum=attachment.checksum,
             grant=grant,
+            vision_results=attachment.vision_results,
         )
 
     @staticmethod

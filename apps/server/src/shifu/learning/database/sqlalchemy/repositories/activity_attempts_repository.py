@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from shifu.learning.core.domain.entities import ActivityAttempt
 from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.learning.database.sqlalchemy.mappers import ActivityAttemptMapper
-from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
+from shifu.learning.database.sqlalchemy.models import (
+    ActivityAttemptModel,
+    GoalModel,
+    SkillExperienceModel,
+)
 
 
 class SqlalchemyActivityAttemptsRepository:
@@ -16,6 +20,33 @@ class SqlalchemyActivityAttemptsRepository:
             select(ActivityAttemptModel).where(ActivityAttemptModel.id == attempt_id)
         )
         return ActivityAttemptMapper.to_domain(model) if model is not None else None
+
+    def find_account_id_by_attempt_id(self, attempt_id: str) -> str | None:
+        return self._session.scalar(
+            select(GoalModel.account_id)
+            .join(
+                SkillExperienceModel,
+                SkillExperienceModel.goal_id == GoalModel.id,
+            )
+            .join(
+                ActivityAttemptModel,
+                ActivityAttemptModel.skill_experience_id == SkillExperienceModel.id,
+            )
+            .where(ActivityAttemptModel.id == attempt_id)
+        )
+
+    def find_ids_by_account_id(self, account_id: str) -> list[str]:
+        return list(
+            self._session.scalars(
+                select(ActivityAttemptModel.id)
+                .join(
+                    SkillExperienceModel,
+                    SkillExperienceModel.id == ActivityAttemptModel.skill_experience_id,
+                )
+                .join(GoalModel, GoalModel.id == SkillExperienceModel.goal_id)
+                .where(GoalModel.account_id == account_id)
+            ).all()
+        )
 
     def find_by_skill_experience_id_and_submission_key(
         self,

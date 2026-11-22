@@ -11,13 +11,16 @@ if TYPE_CHECKING:
     )
     from shifu.intelligence.core.interfaces import IntelligenceDatabase
     from shifu.shared.core.interfaces import ClockProvider, FileStorageProvider
-
 from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.core.domain.errors import (
     MentorAttachmentInvalidError,
     MentorAttachmentUnavailableError,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+
+_INTELLIGENCE_ACCOUNT_ERASURE_EVENT_NAMES = {
+    'intelligence/mentor-attachment.cleanup.requested',
+}
 
 
 class PurgeMentorAttachmentsUseCase:
@@ -66,6 +69,10 @@ class PurgeMentorAttachmentsUseCase:
             raise MentorAttachmentInvalidError
 
         with self._database.transaction() as repositories:
+            repositories.events.remove_by_account_id_and_names(
+                account_id,
+                _INTELLIGENCE_ACCOUNT_ERASURE_EVENT_NAMES,
+            )
             batches = repositories.mentor_attachment_batches.find_by_account_id(
                 account_id
             )

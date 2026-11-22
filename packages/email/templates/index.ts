@@ -2,6 +2,14 @@ export { EmailLayout } from './email-layout.js'
 export type { EmailLayoutProps } from './email-layout.js'
 
 export {
+  ACCOUNT_ERASURE_ALERT_SUBJECT,
+  ACCOUNT_ERASURE_ALERT_TEXT,
+  AccountErasureAlertEmail,
+  renderAccountErasureAlertEmail,
+} from './identity/account-erasure-alert-email.js'
+export type { AccountErasureAlertEmailProps } from './identity/account-erasure-alert-email.js'
+
+export {
   ACCOUNT_CONFIRMATION_SUBJECT,
   AccountConfirmationEmail,
   renderAccountConfirmationEmail,

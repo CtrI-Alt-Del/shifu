@@ -16,6 +16,8 @@ from pydantic import (
 )
 
 from shifu.intelligence.core.use_cases import RecordMentorActionOutcomeUseCase
+from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.shared.core.interfaces import AccountActivityProvider
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
@@ -92,6 +94,7 @@ class RecordMentorActionOutcomeJob:
         use_case: RecordMentorActionOutcomeUseCase,
         *,
         outcome_event_name: str,
+        account_activity_provider: AccountActivityProvider,
         telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
@@ -106,7 +109,8 @@ class RecordMentorActionOutcomeJob:
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
-            payload = await context.step.run(
+            account_id = _validate_payload(data).account_id
+            normalized = await context.step.run(
                 'normalize_payload',
                 RecordMentorActionOutcomeJob._normalize_payload,
                 data,
@@ -115,7 +119,9 @@ class RecordMentorActionOutcomeJob:
                 'record_mentor_action_outcome',
                 RecordMentorActionOutcomeJob._record,
                 use_case,
-                payload,
+                account_activity_provider,
+                account_id,
+                normalized,
             )
 
         return _
@@ -124,7 +130,6 @@ class RecordMentorActionOutcomeJob:
     async def _normalize_payload(data: dict[str, object]) -> dict[str, str | None]:
         payload = _validate_payload(data)
         return {
-            'account_id': payload.account_id,
             'confirmation_id': payload.confirmation_id,
             'operation': payload.operation,
             'outcome': payload.outcome,
@@ -137,16 +142,23 @@ class RecordMentorActionOutcomeJob:
 
     @staticmethod
     async def _record(
-        use_case: RecordMentorActionOutcomeUseCase, payload: dict[str, str | None]
+        use_case: RecordMentorActionOutcomeUseCase,
+        account_activity_provider: AccountActivityProvider,
+        account_id: str,
+        payload: dict[str, str | None],
     ) -> bool:
-        return await asyncio.to_thread(
-            use_case.execute,
-            cast('str', payload['account_id']),
-            cast('str', payload['confirmation_id']),
-            cast('str', payload['operation']),
-            cast('str', payload['outcome']),
-            payload['rejection_reason'],
-            cast('str', payload['goal_id']),
-            payload['skill_id'],
-            payload['skill_experience_id'],
-        )
+        try:
+            async with account_activity_provider.async_activity(account_id):
+                return await asyncio.to_thread(
+                    use_case.execute,
+                    account_id,
+                    cast('str', payload['confirmation_id']),
+                    cast('str', payload['operation']),
+                    cast('str', payload['outcome']),
+                    payload['rejection_reason'],
+                    cast('str', payload['goal_id']),
+                    payload['skill_id'],
+                    payload['skill_experience_id'],
+                )
+        except AuthorizationError:
+            return False

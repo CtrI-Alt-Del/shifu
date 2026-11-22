@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from contextlib import nullcontext
 from typing import cast
 from unittest.mock import Mock, call, create_autospec
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
 from shifu.intelligence.core.domain.entities import (
@@ -47,6 +49,7 @@ from shifu.intelligence.providers.mentor_title.unavailable_generate_mentor_title
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     IdentifierProvider,
     MentorAccessProvider,
@@ -88,6 +91,12 @@ class TestCreateMentorSessionUseCase(AiQuotaTestSetup):
             access_revision='revision',
             operation_key='operation',
         )
+        self.account_activity = create_autospec(AccountActivityProvider, instance=True)
+        self.account_activity.activity.return_value = nullcontext()
+        self.account_activity.external_effect.return_value = nullcontext(
+            enter_result=True
+        )
+        self.repositories.mentor_sessions.find_submission.return_value = None
         self.repositories.mentor_response_attempts.find_submission.return_value = None
         self.repositories.mentor_response_events.snapshot.return_value = None
         self.repositories.mentor_messages.find_all.return_value = (
@@ -108,7 +117,51 @@ class TestCreateMentorSessionUseCase(AiQuotaTestSetup):
             self.access,
             self.quota_policy,
             self.quota_calendar,
+            self.account_activity,
         )
+
+    def test_title_generation_uses_a_stable_account_receipt(self) -> None:
+        submission_key = str(uuid4())
+
+        self.subject.execute(
+            '01JACCOUNT000000000000000001', submission_key, 'Olá, preciso de ajuda'
+        )
+
+        self.account_activity.external_effect.assert_called_once_with(
+            '01JACCOUNT000000000000000001',
+            uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:mentor-title:{submission_key}',
+            ),
+            'intelligence.mentor-session.title',
+        )
+        self.title_provider.generate.assert_called_once_with('Olá, preciso de ajuda')
+
+    def test_settled_title_receipt_uses_fallback_without_calling_model(self) -> None:
+        submission_key = str(uuid4())
+        self.account_activity.external_effect.return_value = nullcontext(
+            enter_result=False
+        )
+
+        result = self.subject.execute(
+            '01JACCOUNT000000000000000001', submission_key, 'Ajuda com matemática'
+        )
+
+        self.title_provider.generate.assert_not_called()
+        assert result.detail.session.title == 'Ajuda com matemática'
+
+    def test_title_receipt_denial_blocks_model_call_and_session_writes(self) -> None:
+        self.account_activity.external_effect.side_effect = RuntimeError('revoked')
+
+        with pytest.raises(RuntimeError, match='revoked'):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                str(uuid4()),
+                'Olá, preciso de ajuda',
+            )
+
+        self.title_provider.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
 
     def test_should_atomically_persist_exact_first_message_and_final_title(
         self,
@@ -542,6 +595,7 @@ class TestCreateMentorSessionUseCase(AiQuotaTestSetup):
             self.access,
             self.quota_policy,
             self.quota_calendar,
+            self.account_activity,
         )
 
         result = subject.execute(
@@ -888,6 +942,7 @@ class TestCreateMentorSessionUseCase(AiQuotaTestSetup):
             '01JACCOUNT000000000000000001', '123e4567-e89b-42d3-a456-426614174000'
         )
         assert self.access.assert_current.call_args_list == [
+            call(self.access.authorize.return_value),
             call(self.access.authorize.return_value),
             call(self.access.authorize.return_value),
         ]

@@ -20,7 +20,10 @@ from .mentor_attachment_batch_model import (
 from .mentor_attachment_chunk_model import (
     MentorAttachmentChunkModel as MentorAttachmentChunkModel,
 )
-from .mentor_attachment_model import MentorAttachmentModel as MentorAttachmentModel
+from .mentor_attachment_model import (
+    MentorAttachmentModel as MentorAttachmentModel,
+    MentorAttachmentVisionResultRecord as MentorAttachmentVisionResultRecord,
+)
 from .mentor_embedding_version_model import (
     MentorEmbeddingVersionModel as MentorEmbeddingVersionModel,
 )

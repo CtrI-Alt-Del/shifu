@@ -21,4 +21,16 @@ from .password_recovery import (
 )
 
 from .account_profile_update import AccountProfileUpdate as AccountProfileUpdate
+from .account_erasure import (
+    AccountErasureOverdueParticipant as AccountErasureOverdueParticipant,
+    AccountErasureResult as AccountErasureResult,
+    BrowserCapabilityStatus as BrowserCapabilityStatus,
+    DeleteAccountInput as DeleteAccountInput,
+)
+from .account_external_effect_receipt import (
+    AccountExternalEffectReceiptAdmission as AccountExternalEffectReceiptAdmission,
+    AccountExternalEffectReceiptReconciliation as AccountExternalEffectReceiptReconciliation,
+    AccountExternalEffectReceiptResolution as AccountExternalEffectReceiptResolution,
+    AccountExternalEffectReceiptState as AccountExternalEffectReceiptState,
+)
 from .password_change_request import PasswordChangeRequest as PasswordChangeRequest

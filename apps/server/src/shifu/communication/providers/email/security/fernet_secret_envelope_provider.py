@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from shifu.communication.core.domain.errors import InvalidCommunicationError
 from shifu.communication.core.domain.structures import (
+    AccountErasureOperationalAlertValues,
     MessageContent,
     MessageTemplateValues,
     SecretEnvelope,
@@ -29,7 +30,9 @@ class FernetSecretEnvelopeProvider:
 
     def encrypt(
         self,
-        values: MessageContent | MessageTemplateValues,
+        values: MessageContent
+        | MessageTemplateValues
+        | AccountErasureOperationalAlertValues,
     ) -> SecretEnvelope:
         serialized = Serialization.serialize_value(values)
         if not isinstance(serialized, dict):
@@ -47,7 +50,7 @@ class FernetSecretEnvelopeProvider:
 
     def decrypt(
         self, envelope: SecretEnvelope
-    ) -> MessageContent | MessageTemplateValues:
+    ) -> MessageContent | MessageTemplateValues | AccountErasureOperationalAlertValues:
         try:
             raw_value = json.loads(
                 self._fernet.decrypt(envelope.ciphertext.encode('ascii')).decode(
@@ -59,6 +62,19 @@ class FernetSecretEnvelopeProvider:
         if not isinstance(raw_value, dict):
             raise InvalidCommunicationError
         value = cast('dict[str, object]', raw_value)
+        if {
+            'erasure_id',
+            'module',
+            'failure_code',
+            'closed_at',
+            'due_at',
+        } <= value.keys():
+            return cast(
+                'AccountErasureOperationalAlertValues',
+                Serialization.deserialize_value(
+                    value, AccountErasureOperationalAlertValues
+                ),
+            )
         if 'display_name' in value and 'action_url' in value:
             return cast(
                 'MessageTemplateValues',

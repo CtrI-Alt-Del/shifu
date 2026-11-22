@@ -18,6 +18,7 @@ from shifu.learning.ai.agno.workflows.evaluate_translation_activity_workflow imp
 from shifu.learning.core.use_cases import (
     EvaluateChoiceActivityUseCase,
     FailCodeActivityEvaluationUseCase,
+    PersistActivityRubricDecisionUseCase,
     PrepareCodeActivityEvaluationUseCase,
     PrepareTranslationActivityEvaluationUseCase,
 )
@@ -49,6 +50,7 @@ if TYPE_CHECKING:
 
     from shifu.learning.core.interfaces import LearningDatabase
     from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
         CodeRubricAssessorProvider,
         CurriculumContentProvider,
         MentorAccessProvider,
@@ -76,6 +78,7 @@ class LearningWorkflowsRegistry:
         curriculum_content_provider: CurriculumContentProvider,
         *,
         outbox_engine: Engine,
+        account_activity_provider: AccountActivityProvider,
         telemetry_client: Langfuse | None = None,
         telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
@@ -88,6 +91,7 @@ class LearningWorkflowsRegistry:
         self._assessor = assessor
         self._translation_assessor = translation_assessor
         self._access_provider = access_provider
+        self._account_activity_provider = account_activity_provider
         self._curriculum_content_provider = curriculum_content_provider
         self._database: LearningDatabase = LearningPipe.create_database(outbox_engine)
         self._clock_provider = SystemClockProvider()
@@ -96,6 +100,7 @@ class LearningWorkflowsRegistry:
             self._database, settings.max_code_assessment_input_bytes
         )
         fail = FailCodeActivityEvaluationUseCase(self._database)
+        persist_decision = PersistActivityRubricDecisionUseCase(self._database)
         evaluate = EvaluateChoiceActivityUseCase(
             self._database,
             self._clock_provider,
@@ -109,8 +114,11 @@ class LearningWorkflowsRegistry:
             prepare,
             evaluate,
             fail,
+            persist_decision,
             assessor,
             self._handoffs,
+            account_activity_provider,
+            self._attempt_account_id,
             observability,
             telemetry_provider,
         )
@@ -118,8 +126,11 @@ class LearningWorkflowsRegistry:
             prepare_translation,
             evaluate,
             fail,
+            persist_decision,
             translation_assessor,
             self._handoffs,
+            account_activity_provider,
+            self._attempt_account_id,
             observability,
         )
         self._runtime = (
@@ -162,6 +173,13 @@ class LearningWorkflowsRegistry:
     @property
     def database(self) -> LearningDatabase:
         return self._database_port
+
+    def _attempt_account_id(self, attempt_id: str) -> str | None:
+        """Resolve the persisted Learning owner before the account gate is entered."""
+        with self._database.transaction() as repositories:
+            return repositories.activity_attempts.find_account_id_by_attempt_id(
+                attempt_id
+            )
 
     @property
     def code_rubric_assessor_provider(self) -> CodeRubricAssessorProvider:

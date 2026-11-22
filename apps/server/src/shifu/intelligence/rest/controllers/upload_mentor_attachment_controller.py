@@ -26,6 +26,7 @@ from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.rest.schemas.mentor_session_schemas import MentorSessionSchemas
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     FileStorageProvider,
     IdentifierProvider,
@@ -83,6 +84,10 @@ class UploadMentorAttachmentController:
                 MentorAttachmentExtractorProvider,
                 Depends(IntelligencePipe.get_mentor_attachment_extractor_provider),
             ],
+            account_activity_provider: Annotated[
+                AccountActivityProvider,
+                Depends(SharedPipe.get_account_activity_provider),
+            ],
         ) -> Response:
             length = request.headers.get('content-length')
             if length is not None:
@@ -100,6 +105,7 @@ class UploadMentorAttachmentController:
                 access,
                 storage,
                 extractor,
+                account_activity_provider,
             ).execute(
                 user.account_id,
                 batch_id,

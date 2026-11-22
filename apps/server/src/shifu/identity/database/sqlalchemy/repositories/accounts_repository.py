@@ -65,5 +65,8 @@ class SqlalchemyAccountsRepository:
     def update(self, account: Account) -> None:
         self._session.merge(AccountMapper.to_model(account))
 
+    def remove_by_id(self, account_id: str) -> None:
+        self._session.execute(delete(AccountModel).where(AccountModel.id == account_id))
+
     def remove_all(self) -> None:
         self._session.execute(delete(AccountModel))

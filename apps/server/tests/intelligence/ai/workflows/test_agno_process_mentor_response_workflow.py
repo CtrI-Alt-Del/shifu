@@ -5,14 +5,14 @@ generation limit are real; the route, context and catalog providers are mocks.""
 from __future__ import annotations
 
 import asyncio
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import json
 import time
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from agno.metrics import RunMetrics
 from agno.run.agent import RunOutput
@@ -119,7 +119,7 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.providers.learning_mentor_context_provider import (
     LearningMentorContextProvider,
 )
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
 from shifu.shared.core.domain.structures import (
     AuthenticatedUser,
     MentorAccessGrant,
@@ -129,6 +129,7 @@ from shifu.shared.core.domain.structures import (
     MentorGoalDestinations,
 )
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     AccountTimeZoneProvider,
     MentorAccessProvider,
     MentorCatalogProvider,
@@ -151,7 +152,7 @@ from tests.fixtures.intelligence_fixture import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
 
     from shifu.curriculum.core.domain.entities import Skill
     from shifu.intelligence.core.domain.entities import MentorActionProposal
@@ -399,6 +400,9 @@ class Harness:
     context: Mock
     catalog: Mock
     destinations: Mock
+    account_activity: Mock
+    memory_analyzer: Mock
+    attempt_account_id_resolver: Mock
 
     def submit(self, account: AuthenticatedUser = MENTOR_ACCOUNT) -> tuple[str, str]:
         """Create a session over HTTP: one queued attempt for its first message."""
@@ -705,6 +709,38 @@ def build_harness(
     analyzer.concepts.return_value = ()
     similarity = Mock(spec=LearnerMemorySimilarityProvider)
     similarity.similarity.return_value = 0.0
+    account_activity = Mock(spec=AccountActivityProvider)
+
+    def active_account(_account_id: str) -> AbstractContextManager[None]:
+        return nullcontext()
+
+    account_activity.activity.side_effect = active_account
+    external_effects: dict[UUID, str] = {}
+
+    @contextmanager
+    def admit_external_effect(
+        _account_id: str, effect_id: UUID, _operation: str
+    ) -> Generator[bool]:
+        if external_effects.get(effect_id) == 'settled':
+            yield False
+            return
+        external_effects[effect_id] = 'in_flight'
+        try:
+            yield True
+        except BaseException:
+            external_effects[effect_id] = 'unknown'
+            raise
+        else:
+            external_effects[effect_id] = 'settled'
+
+    account_activity.external_effect.side_effect = admit_external_effect
+
+    def resolve_attempt_account_id(attempt_id: str) -> str | None:
+        with database.transaction() as repositories:
+            attempt = repositories.mentor_response_attempts.find_by_id(attempt_id)
+        return attempt.account_id if attempt is not None else None
+
+    attempt_account_id_resolver = Mock(side_effect=resolve_attempt_account_id)
     telemetry = Mock(spec=MentorTelemetryProvider)
     telemetry.scope.return_value = nullcontext()
     limit: MentorGenerationLimitProvider = (
@@ -780,6 +816,8 @@ def build_harness(
         finalizer=FinalizeMentorResponseUseCase(database, identifiers, clock, access),
         identifier_provider=identifiers,
         handoffs=handoffs or AgentOSHandoffStore(),
+        account_activity_provider=account_activity,
+        attempt_account_id_resolver=attempt_account_id_resolver,
         telemetry=telemetry,
     )
     return Harness(
@@ -793,6 +831,9 @@ def build_harness(
         context,
         catalog,
         destinations,
+        account_activity,
+        analyzer,
+        attempt_account_id_resolver,
     )
 
 
@@ -824,8 +865,46 @@ class TestAgnoProcessMentorResponseWorkflow:
             'generated-0:review:0',
         }
         assert harness.reviewer.review.call_count == 1
+        external_calls = harness.account_activity.external_effect.call_args_list
+        assert {call.args[2] for call in external_calls} == {
+            'intelligence.mentor-response.writer',
+            'intelligence.mentor-response.reviewer',
+        }
+        assert len({call.args[1] for call in external_calls}) == 2
         key = RedisMentorGenerationLimitProvider.key_for(MENTOR_ACCOUNT.account_id)
         assert redis_fixture.client.zcard(key) == 1  # pyright: ignore[reportUnknownMemberType]
+
+    def test_closed_account_skips_all_personal_work_and_model_calls(
+        self, harness: Harness
+    ) -> None:
+        session_id, attempt_id = harness.submit()
+        harness.account_activity.activity.side_effect = AuthorizationError
+
+        harness.run(attempt_id)
+
+        harness.assert_no_model_call()
+        harness.memory_analyzer.analyze.assert_not_called()
+        harness.account_activity.external_effect.assert_not_called()
+        assert block_keys(harness.snapshot(session_id)) == []
+
+    def test_removed_attempt_is_not_recreated_by_a_late_workflow_run(
+        self, harness: Harness
+    ) -> None:
+        session_id, attempt_id = harness.submit()
+        harness.delete_session(session_id)
+
+        harness.run(attempt_id)
+
+        harness.assert_no_model_call()
+        harness.memory_analyzer.analyze.assert_not_called()
+        with harness.fixture.database.transaction() as repositories:
+            assert repositories.mentor_response_attempts.find_by_id(attempt_id) is None
+            assert (
+                repositories.mentor_sessions.find_by_id(
+                    MENTOR_ACCOUNT.account_id, session_id
+                )
+                is None
+            )
 
     def test_publishes_the_second_version_after_one_rejection(
         self, harness: Harness

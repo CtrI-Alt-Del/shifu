@@ -12,7 +12,6 @@ from shifu.communication.core.domain.entities import Communication
 from shifu.communication.core.domain.enums import CommunicationStatus
 from shifu.communication.core.domain.events import (
     CommunicationQueuedEvent,
-    CommunicationQueuedPayload,
 )
 from shifu.communication.core.use_cases import DeliverCommunicationUseCase
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
@@ -55,9 +54,7 @@ class DeliverCommunicationJob:
     """Run at most five provider attempts for one stable communication ID."""
 
     FUNCTION_ID: ClassVar[str] = 'communication-deliver'
-    _EVENT_NAME: ClassVar[str] = CommunicationQueuedEvent(
-        payload=CommunicationQueuedPayload(communication_id='transport')
-    ).name
+    _EVENT_NAME: ClassVar[str] = CommunicationQueuedEvent.NAME
     _MAX_ATTEMPTS: ClassVar[int] = DeliverCommunicationUseCase.MAX_ATTEMPTS
 
     @staticmethod

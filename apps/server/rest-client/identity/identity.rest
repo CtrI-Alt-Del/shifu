@@ -1,6 +1,10 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
 @bffSharedSecret = replace-with-local-bff-secret
+@erasureId = 44c3e3b4-c9db-4c8a-a347-ec9109f69b62
+@browserCapability = replace-with-local-browser-capability
+@accountId = 01JACCOUNT000000000000000001
+@accessVersion = 1
 
 ### Identity sign-in
 POST {{baseUrl}}/identity/sign-in
@@ -124,3 +128,44 @@ x-shifu-bff-secret: {{bffSharedSecret}}
 Content-Type: application/json
 
 {"current_password": "replace-locally-current", "new_password": "replace-locally-new"}
+
+### Close own account (202 closed with pending/completed erasure state)
+POST {{baseUrl}}/identity/account-deletions
+Authorization: Bearer {{accessToken}}
+x-shifu-bff-secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{"erasure_id": "{{erasureId}}", "current_password": "replace-locally-current", "confirmed": true}
+
+### Read account erasure recovery status (200; 404 when absent)
+GET {{baseUrl}}/identity/internal/account-erasures/{{erasureId}}/status
+x-shifu-bff-secret: {{bffSharedSecret}}
+
+### Read pending account erasure target (200; 404 after completion)
+GET {{baseUrl}}/identity/internal/account-erasures/{{erasureId}}/target
+x-shifu-bff-secret: {{bffSharedSecret}}
+
+### Acknowledge an account erasure participant (200; duplicate is idempotent)
+POST {{baseUrl}}/identity/internal/account-erasures/{{erasureId}}/acknowledgements
+x-shifu-bff-secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{"participant": "learning"}
+
+### Admit a Better Auth account activity while its external shared gate is held (204; 401 when closed/stale)
+POST {{baseUrl}}/identity/internal/account-activity-admissions
+x-shifu-bff-secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{"account_id": "{{accountId}}", "access_version": {{accessVersion}}}
+
+### Issue an opaque browser data capability for the signed-in account (201)
+POST {{baseUrl}}/identity/browser-data-capabilities
+Authorization: Bearer {{accessToken}}
+x-shifu-bff-secret: {{bffSharedSecret}}
+
+### Validate a browser data capability online (200 active/revoked; no session required)
+POST {{baseUrl}}/identity/browser-data-validations
+Content-Type: application/json
+
+{"capability": "{{browserCapability}}"}

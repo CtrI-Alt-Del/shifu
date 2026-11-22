@@ -2,7 +2,6 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 from sqlalchemy import Engine
-from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.gamification.core.interfaces import GamificationDatabaseRepositories
 from shifu.gamification.database.sqlalchemy.repositories import (
@@ -33,11 +32,7 @@ class SqlalchemyGamificationDatabase:
 
     @contextmanager
     def transaction(self) -> Generator[GamificationDatabaseRepositories]:
-        with SqlalchemySession(
-            bind=self._engine,
-            autoflush=False,
-            expire_on_commit=False,
-        ) as session:
+        with Session.database_session(self._engine) as session:
             repositories = GamificationDatabaseRepositories(
                 profiles=SqlalchemyGamificationProfilesRepository(session),
                 xp_grants=SqlalchemyXpGrantsRepository(session),
@@ -54,9 +49,4 @@ class SqlalchemyGamificationDatabase:
                     id_provider=self._id_provider,
                 ),
             )
-            try:
-                yield repositories
-                session.commit()
-            except BaseException:
-                session.rollback()
-                raise
+            yield repositories

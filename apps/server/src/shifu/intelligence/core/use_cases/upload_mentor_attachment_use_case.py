@@ -5,7 +5,7 @@ import re
 from contextlib import suppress
 from datetime import timedelta
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     )
     from shifu.shared.core.domain.structures import MentorAccessGrant
     from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
         ClockProvider,
         FileStorageProvider,
         IdentifierProvider,
@@ -48,7 +49,11 @@ from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     attachment_view,
     run_with_locked_mentor_attachment_scope,
 )
-from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
+from shifu.shared.core.domain.errors import (
+    AuthorizationError,
+    ConflictError,
+    ServiceUnavailableError,
+)
 
 _MEDIA_TYPES = {
     '.png': 'image/png',
@@ -65,6 +70,10 @@ _MAX_FILE_SIZE = 2_000_000
 _BATCH_INACTIVITY = timedelta(hours=1)
 
 
+class _AttachmentStorageWriteUnavailableError(Exception):
+    pass
+
+
 class UploadMentorAttachmentUseCase:
     def __init__(
         self,
@@ -74,6 +83,7 @@ class UploadMentorAttachmentUseCase:
         access_provider: MentorAccessProvider,
         storage_provider: FileStorageProvider,
         extractor_provider: MentorAttachmentExtractorProvider,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._database = database
         self._identifier_provider = identifier_provider
@@ -81,6 +91,7 @@ class UploadMentorAttachmentUseCase:
         self._access_provider = access_provider
         self._storage_provider = storage_provider
         self._extractor_provider = extractor_provider
+        self._account_activity_provider = account_activity_provider
 
     def execute(
         self,
@@ -95,16 +106,17 @@ class UploadMentorAttachmentUseCase:
         checksum = hashlib.sha256(content).hexdigest()
         grant = self._access_provider.authorize(account_id, upload_key)
         self._access_provider.assert_current(grant)
-        attachment, created = self._reserve(
-            account_id,
-            batch_id,
-            upload_key,
-            filename,
-            media_type,
-            content,
-            checksum,
-            grant,
-        )
+        with self._account_activity_provider.activity(account_id):
+            attachment, created = self._reserve(
+                account_id,
+                batch_id,
+                upload_key,
+                filename,
+                media_type,
+                content,
+                checksum,
+                grant,
+            )
         should_resume = created or (
             attachment.status is MentorAttachmentStatus.UPLOADING
             and attachment.upload_completed_at is None
@@ -113,28 +125,75 @@ class UploadMentorAttachmentUseCase:
             return MentorAttachmentUploadResult(
                 attachment=attachment_view(attachment), created=False
             )
+
+        effect_id = uuid5(
+            NAMESPACE_URL,
+            'shifu:intelligence:mentor-attachment-upload:'
+            f'{attachment.id}:{attachment.generation}',
+        )
+        upload_object_available = False
         try:
-            self._storage_provider.put(attachment.object_key, content, media_type)
-        except ServiceUnavailableError:
-            failed = self._mark_storage_failure(attachment.id, account_id, batch_id)
+            with self._account_activity_provider.activity(account_id):
+                with self._account_activity_provider.external_effect(
+                    account_id,
+                    effect_id,
+                    'intelligence.mentor-attachment.upload',
+                ) as admitted:
+                    self._access_provider.assert_current(grant)
+                    if admitted:
+                        try:
+                            self._storage_provider.put(
+                                attachment.object_key, content, media_type
+                            )
+                        except ServiceUnavailableError as error:
+                            raise _AttachmentStorageWriteUnavailableError from error
+                    upload_object_available = True
+                result = self._complete_upload(account_id, batch_id, attachment, grant)
+                return MentorAttachmentUploadResult(
+                    attachment=result.attachment, created=created
+                )
+        except _AttachmentStorageWriteUnavailableError:
+            with self._account_activity_provider.activity(account_id):
+                failed = self._mark_storage_failure(attachment.id, account_id, batch_id)
             return MentorAttachmentUploadResult(
                 attachment=attachment_view(failed), created=created
             )
-        try:
-            result = self._complete_upload(account_id, batch_id, attachment, grant)
-            return MentorAttachmentUploadResult(
-                attachment=result.attachment, created=created
-            )
-        except ServiceUnavailableError:
-            # Leave private bytes for a retry when the completion transaction fails.
+        except (MentorAttachmentConflictError, AuthorizationError):
+            if upload_object_available:
+                with suppress(
+                    ServiceUnavailableError,
+                    AuthorizationError,
+                    ConflictError,
+                ):
+                    self._remove_after_failed_upload(account_id, attachment)
             raise
-        except SQLAlchemyError:
-            # The reservation transaction rolled back; replay will write these bytes again.
+        except (ServiceUnavailableError, SQLAlchemyError, ConflictError):
+            # A failed commit or unresolved receipt must never repeat an uncertain put.
             raise
         except Exception:
-            with suppress(ServiceUnavailableError):
-                self._storage_provider.remove(attachment.object_key)
+            with suppress(
+                ServiceUnavailableError,
+                AuthorizationError,
+                ConflictError,
+            ):
+                self._remove_after_failed_upload(account_id, attachment)
             raise
+
+    def _remove_after_failed_upload(
+        self, account_id: str, attachment: MentorAttachment
+    ) -> None:
+        effect_id = uuid5(
+            NAMESPACE_URL,
+            'shifu:intelligence:mentor-attachment-remove:'
+            f'{attachment.id}:{attachment.generation}',
+        )
+        with self._account_activity_provider.external_effect(
+            account_id,
+            effect_id,
+            'intelligence.mentor-attachment.remove',
+        ) as admitted:
+            if admitted:
+                self._storage_provider.remove(attachment.object_key)
 
     def _reserve(
         self,

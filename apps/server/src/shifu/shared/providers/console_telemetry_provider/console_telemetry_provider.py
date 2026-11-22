@@ -104,9 +104,13 @@ class ConsoleTelemetryProvider(TelemetryProvider):
             'gamification.recognize_competency_mastered',
             'gamification.purge_profile_on_account_deleted',
             'gamification.create_profile_on_account_activated',
+            'gamification.purge_profile_on_account_erasure',
             'communication.cancel_communication',
             'communication.deliver_communication',
+            'communication.purge_data_on_account_erasure',
             'learning.evaluate_choice_activity',
+            'learning.purge_data_on_account_erasure',
+            'intelligence.purge_account_data_on_account_erasure',
             'intelligence.purge_mentor_attachments_on_account_deleted',
             'intelligence.purge_mentor_summaries_on_account_deleted',
             'intelligence.purge_learner_memories_on_account_deleted',
@@ -117,6 +121,7 @@ class ConsoleTelemetryProvider(TelemetryProvider):
             'identity.log_main_page_entered',
             'identity.fan_out_unconfirmed_account_expiry',
             'identity.expire_unconfirmed_account',
+            'identity.sweep_account_erasures',
         }
     )
     _INTEGRATIONS: ClassVar[frozenset[str]] = frozenset(

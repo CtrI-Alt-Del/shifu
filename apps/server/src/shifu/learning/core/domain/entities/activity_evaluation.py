@@ -11,6 +11,7 @@ from shifu.learning.core.domain.errors import (
     EvaluationUnavailableError,
 )
 from shifu.learning.core.domain.structures import EvaluationPartResult
+from shifu.learning.core.domain.structures import ActivityRubricAssessmentDecision
 from shifu.shared.core.domain.entities import entity
 from shifu.shared.core.domain.structures import Percentage
 
@@ -27,6 +28,7 @@ class ActivityEvaluation:
     completed_at: datetime | None = None
     effect_applied_at: datetime | None = None
     run_id: str | None = None
+    rubric_decisions: tuple[ActivityRubricAssessmentDecision, ...] = ()
     progress_before: Decimal | None = None
     progress_after: Decimal | None = None
     status_before: CompetencyProgressStatus | None = None
@@ -58,6 +60,7 @@ class ActivityEvaluation:
         completed_at: datetime | None = None,
         effect_applied_at: datetime | None = None,
         run_id: str | None = None,
+        rubric_decisions: tuple[ActivityRubricAssessmentDecision, ...] = (),
         progress_before: Decimal | None = None,
         progress_after: Decimal | None = None,
         status_before: CompetencyProgressStatus | None = None,
@@ -74,6 +77,7 @@ class ActivityEvaluation:
             completed_at=completed_at,
             effect_applied_at=effect_applied_at,
             run_id=run_id,
+            rubric_decisions=rubric_decisions,
             progress_before=progress_before,
             progress_after=progress_after,
             status_before=status_before,
@@ -96,6 +100,7 @@ class ActivityEvaluation:
         self.status = ActivityEvaluationStatus.COMPLETED
         self.score = score
         self.parts = parts
+        self.rubric_decisions = ()
         self.completed_at = completed_at
         self.failure_code = None
 
@@ -108,6 +113,32 @@ class ActivityEvaluation:
 
         self.status = ActivityEvaluationStatus.FAILED
         self.failure_code = failure_code
+        self.rubric_decisions = ()
+
+    def record_rubric_decision(
+        self,
+        run_id: str,
+        decision: ActivityRubricAssessmentDecision,
+    ) -> bool:
+        if self.status is not ActivityEvaluationStatus.PENDING or self.run_id != run_id:
+            raise EvaluationUnavailableError
+
+        existing = next(
+            (
+                item
+                for item in self.rubric_decisions
+                if item.question_key == decision.question_key
+                and item.rubric_kind == decision.rubric_kind
+            ),
+            None,
+        )
+        if existing is not None:
+            if existing != decision:
+                raise EvaluationUnavailableError
+            return False
+
+        self.rubric_decisions = (*self.rubric_decisions, decision)
+        return True
 
     def retry(self, started_at: datetime, run_id: str | None = None) -> None:
         if self.status is not ActivityEvaluationStatus.FAILED:
@@ -118,6 +149,7 @@ class ActivityEvaluation:
         self.failure_code = None
         self.run_id = run_id
         self.parts = ()
+        self.rubric_decisions = ()
         self.score = None
         self.completed_at = None
         self.effect_applied_at = None

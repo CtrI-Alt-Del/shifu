@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
@@ -7,6 +8,9 @@ from shifu.communication.core.domain.entities import Communication
 from shifu.communication.core.domain.enums import CommunicationStatus
 from shifu.communication.database.sqlalchemy.mappers import CommunicationMapper
 from shifu.communication.database.sqlalchemy.models import CommunicationModel
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 
 class SqlalchemyCommunicationsRepository:
@@ -20,6 +24,22 @@ class SqlalchemyCommunicationsRepository:
             .with_for_update()
         )
         return CommunicationMapper.to_domain(model) if model is not None else None
+
+    def find_account_id_by_id(self, communication_id: str) -> str | None:
+        return self._session.scalar(
+            select(CommunicationModel.account_id).where(
+                CommunicationModel.id == communication_id
+            )
+        )
+
+    def find_ids_by_account_id(self, account_id: str) -> set[str]:
+        return set(
+            self._session.scalars(
+                select(CommunicationModel.id).where(
+                    CommunicationModel.account_id == account_id
+                )
+            ).all()
+        )
 
     def find_by_idempotency_key(
         self,
@@ -67,6 +87,19 @@ class SqlalchemyCommunicationsRepository:
 
     def update(self, communication: Communication) -> None:
         self._session.merge(CommunicationMapper.to_model(communication))
+
+    def remove_many_by_ids(self, communication_ids: set[str]) -> int:
+        if not communication_ids:
+            return 0
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                delete(CommunicationModel).where(
+                    CommunicationModel.id.in_(communication_ids)
+                )
+            ),
+        )
+        return result.rowcount or 0
 
     def remove_all(self) -> None:
         self._session.execute(delete(CommunicationModel))
