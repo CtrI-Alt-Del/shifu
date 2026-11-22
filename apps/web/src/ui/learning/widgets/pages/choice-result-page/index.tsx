@@ -8,6 +8,8 @@ import './choice-result-page.css'
 import type {
   ActivityQuestion,
   ActivityResultQuestion,
+  PracticalPreparationQuestion,
+  PracticalPreparationResultQuestion,
 } from '@/core/learning/choice-activity'
 import type { CompetencyProgressStatus } from '@/core/learning/competency-detail'
 import {
@@ -23,6 +25,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceResultDetail } from './choice-result-detail'
+import { PracticalPreparationAttempt } from './practical-preparation-attempt'
 import { SkillCompletedNotice } from './skill-completed-notice'
 import { type ChoiceResultPageProps, useChoiceResultPage } from './use-choice-result-page'
 
@@ -158,7 +161,17 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
 
   if (pageProps.state !== 'result') return null
 
-  const { activity, attempt, onOpenRecommendation, recommendation } = pageProps
+  const {
+    activity,
+    attempt,
+    buildPracticePhotoUrl,
+    onOpenRecommendation,
+    recommendation,
+  } = pageProps
+  const practicalQuestion = activity.questions.find(
+    (question): question is PracticalPreparationQuestion =>
+      question.kind === 'practical_preparation',
+  )
   const backToCompetencyLink = pageProps.detailIds ? (
     <Link
       className='inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md border border-control-border px-4 font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
@@ -173,6 +186,33 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
       Voltar para a Competência
     </Link>
   ) : null
+
+  if (practicalQuestion) {
+    const practicalResult = (attempt.questions ?? []).find(
+      (question): question is PracticalPreparationResultQuestion =>
+        'kind' in question && question.kind === 'practical_preparation',
+    )
+    return (
+      <main className='mx-auto w-full max-w-7xl pb-8'>
+        <PracticalPreparationAttempt
+          activityTitle={activity.title}
+          attempt={attempt}
+          buildPhotoUrl={buildPracticePhotoUrl}
+          canRetry={canRetry}
+          detailIds={pageProps.detailIds}
+          difficulty={activity.difficulty}
+          hasRetryError={hasRetryError}
+          isRetrying={isRetrying}
+          onOpenRecommendation={onOpenRecommendation}
+          onRetryEvaluation={() => void handleRetryEvaluation()}
+          question={practicalQuestion}
+          recommendation={recommendation}
+          result={practicalResult}
+          rewardBand={attempt.status === 'completed' ? rewardBand : null}
+        />
+      </main>
+    )
+  }
 
   if (attempt.status === 'pending') {
     return (
@@ -248,7 +288,9 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   const correctQuestionCount = resultQuestions.filter(
     (result) =>
       ('isCorrect' in result && result.isCorrect) ||
-      ('kind' in result && result.score === 100),
+      ('kind' in result &&
+        result.kind !== 'practical_preparation' &&
+        result.score === 100),
   ).length
 
   return (

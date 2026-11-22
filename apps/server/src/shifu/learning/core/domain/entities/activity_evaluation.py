@@ -86,7 +86,10 @@ class ActivityEvaluation:
         completed_at: datetime,
         parts: tuple[EvaluationPartResult, ...],
     ) -> None:
-        if self.status is ActivityEvaluationStatus.COMPLETED:
+        if self.status in {
+            ActivityEvaluationStatus.COMPLETED,
+            ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE,
+        }:
             raise EvaluationAlreadyCompletedError
 
         if self.status is ActivityEvaluationStatus.FAILED:
@@ -99,8 +102,24 @@ class ActivityEvaluation:
         self.completed_at = completed_at
         self.failure_code = None
 
+    def close_without_grade(
+        self, completed_at: datetime, parts: tuple[EvaluationPartResult, ...]
+    ) -> None:
+        """Terminal, distinct from failure and completion: no score and no effect."""
+        if self.status is not ActivityEvaluationStatus.PENDING:
+            raise EvaluationPendingError
+
+        self.status = ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE
+        self.score = None
+        self.parts = parts
+        self.completed_at = completed_at
+        self.failure_code = None
+
     def fail(self, failure_code: str) -> None:
-        if self.status is ActivityEvaluationStatus.COMPLETED:
+        if self.status in {
+            ActivityEvaluationStatus.COMPLETED,
+            ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE,
+        }:
             raise EvaluationAlreadyCompletedError
 
         if self.status is ActivityEvaluationStatus.FAILED:

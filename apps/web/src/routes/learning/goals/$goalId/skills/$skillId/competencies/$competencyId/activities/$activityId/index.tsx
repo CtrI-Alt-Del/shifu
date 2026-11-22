@@ -10,6 +10,7 @@ import { HtmlCssJsWebContainerPracticeRunner } from '@/provision/learning/html-c
 import { getDiagnosticRun } from '@/ui/learning/diagnostic-run-session'
 import { useDiagnosticLeaveGuard } from '@/ui/learning/hooks/use-diagnostic-leave-guard'
 import { ActivityPage } from '@/ui/learning/widgets/pages/activity-page'
+import type { UnsentAnswersReason } from '@/ui/learning/widgets/pages/activity-page/use-activity-page'
 
 export const Route = createFileRoute(
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/',
@@ -23,6 +24,7 @@ function ActivityIndexRoute() {
   const { navigateTo } = useNavigation()
   const navigate = useNavigate()
   const hasUnsentAnswersRef = useRef(false)
+  const unsentReasonRef = useRef<UnsentAnswersReason | undefined>(undefined)
   const diagnosticRun = getDiagnosticRun(ids.goalId, ids.skillId)
 
   useDiagnosticLeaveGuard({
@@ -36,7 +38,11 @@ function ActivityIndexRoute() {
     shouldBlockFn: () =>
       !diagnosticRun &&
       hasUnsentAnswersRef.current &&
-      !window.confirm('Suas respostas não foram enviadas. Deseja sair desta Atividade?'),
+      !window.confirm(
+        unsentReasonRef.current === 'practice-draft'
+          ? 'Há alterações no rascunho que ainda não foram salvas. Deseja sair desta Atividade?'
+          : 'Suas respostas não foram enviadas. Deseja sair desta Atividade?',
+      ),
     enableBeforeUnload: false,
   })
 
@@ -73,9 +79,13 @@ function ActivityIndexRoute() {
       }),
     [ids.goalId, ids.skillId, navigate],
   )
-  const onUnsentAnswersChange = useCallback((hasUnsent: boolean) => {
-    hasUnsentAnswersRef.current = hasUnsent
-  }, [])
+  const onUnsentAnswersChange = useCallback(
+    (hasUnsent: boolean, reason?: UnsentAnswersReason) => {
+      hasUnsentAnswersRef.current = hasUnsent
+      unsentReasonRef.current = reason
+    },
+    [],
+  )
 
   return (
     <ActivityPage

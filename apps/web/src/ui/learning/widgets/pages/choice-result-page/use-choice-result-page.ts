@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
+import { buildAttemptPracticePhotoPath } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
@@ -50,7 +51,13 @@ export type ChoiceResultRenderProps = ChoiceResultSlots &
         recommendation?: ActivityRecommendation | null
         adaptiveDetail?: AvailableCompetencyDetail | null
         adaptiveLoadError?: boolean
-        detailIds?: { goalId: string; skillId: string; competencyId: string }
+        detailIds?: {
+          goalId: string
+          skillId: string
+          competencyId: string
+          activityId?: string
+        }
+        buildPracticePhotoUrl?: (photoId: string) => string
         onRetryEvaluation: () => Promise<void>
         onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
       }
@@ -134,6 +141,8 @@ export const retryChoiceEvaluationAction = createServerFn({ method: 'POST' })
     },
   )
 
+const RETRY_POLLING_WINDOW_MS = 60_000
+
 export function useChoiceResultPage(props: ChoiceResultPageProps) {
   const routeProps = isRoutePageProps(props) ? props : null
   const routeMode = routeProps !== null
@@ -142,6 +151,10 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     : (props as ChoiceResultRenderProps)
   const [isRetrying, setIsRetrying] = useState(false)
   const [hasRetryError, setHasRetryError] = useState(false)
+  // After a retry the server may still answer 'failed' for a moment, so polling
+  // keeps going for a bounded window instead of stopping on that first answer.
+  const [isAwaitingRetry, setIsAwaitingRetry] = useState(false)
+  const isAwaitingRetryRef = useRef(false)
   const activityQuery = useQuery({
     queryKey: [
       'learning',
@@ -183,8 +196,14 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
       return result
     },
     retry: false,
-    refetchOnWindowFocus: (query) => query.state.data?.status === 'pending',
-    refetchInterval: (query) => (query.state.data?.status === 'pending' ? 3000 : false),
+    refetchOnWindowFocus: (query) =>
+      query.state.data?.status === 'pending' ||
+      (isAwaitingRetryRef.current && query.state.data?.status === 'failed'),
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ||
+      (isAwaitingRetryRef.current && query.state.data?.status === 'failed')
+        ? 3000
+        : false,
     refetchIntervalInBackground: false,
   })
   const adaptiveDetailQuery = useQuery({
@@ -241,7 +260,24 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
 
   const legacyAttempt = legacyProps?.state === 'result' ? legacyProps.attempt : null
   const legacyActivity = legacyProps?.state === 'result' ? legacyProps.activity : null
-  const attempt = routeMode ? (attemptQuery.data ?? null) : legacyAttempt
+  const loadedAttempt = routeMode ? (attemptQuery.data ?? null) : legacyAttempt
+  const attempt =
+    loadedAttempt && isAwaitingRetry && loadedAttempt.status === 'failed'
+      ? { ...loadedAttempt, status: 'pending' as const }
+      : loadedAttempt
+  const loadedStatus = loadedAttempt?.status
+
+  useEffect(() => {
+    isAwaitingRetryRef.current = isAwaitingRetry
+    if (!isAwaitingRetry) return
+    if (loadedStatus !== 'failed') {
+      setIsAwaitingRetry(false)
+      return
+    }
+    const timer = setTimeout(() => setIsAwaitingRetry(false), RETRY_POLLING_WINDOW_MS)
+    return () => clearTimeout(timer)
+  }, [isAwaitingRetry, loadedStatus])
+
   const activity = routeMode ? (activityQuery.data ?? null) : legacyActivity
   const canRetry = Boolean(
     attempt?.status === 'failed' && attempt.retryAllowed && !isRetrying,
@@ -268,11 +304,15 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
         })
         if (isActionFailure(result)) throw mapFailure(result)
 
+        isAwaitingRetryRef.current = true
+        setIsAwaitingRetry(true)
         await attemptQuery.refetch()
       } else if (legacyProps?.state === 'result') {
         await legacyProps.onRetryEvaluation()
       }
     } catch {
+      isAwaitingRetryRef.current = false
+      setIsAwaitingRetry(false)
       setHasRetryError(true)
     } finally {
       setIsRetrying(false)
@@ -296,7 +336,17 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
             goalId: routeProps.goalId,
             skillId: routeProps.skillId,
             competencyId: routeProps.competencyId,
+            activityId: routeProps.activityId,
           },
+          buildPracticePhotoUrl: (photoId: string) =>
+            buildAttemptPracticePhotoPath({
+              goalId: routeProps.goalId,
+              skillId: routeProps.skillId,
+              competencyId: routeProps.competencyId,
+              activityId: routeProps.activityId,
+              attemptId: routeProps.attemptId,
+              photoId,
+            }),
           onRetryEvaluation: handleRetryEvaluation,
           onOpenRecommendation: routeProps?.onOpenRecommendation,
         }

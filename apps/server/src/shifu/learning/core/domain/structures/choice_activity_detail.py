@@ -15,6 +15,9 @@ from shifu.learning.core.domain.structures.ordering_question_detail import (
 from shifu.learning.core.domain.structures.pair_matching_question_detail import (
     PairMatchingQuestionDetail,
 )
+from shifu.learning.core.domain.structures.practical_preparation_question_detail import (
+    PracticalPreparationQuestionDetail,
+)
 from shifu.learning.core.domain.structures.translation_question_detail import (
     TranslationQuestionDetail,
 )
@@ -31,7 +34,8 @@ class ChoiceActivityDetail:
         | OrderingQuestionDetail
         | FillBlanksQuestionDetail
         | TranslationQuestionDetail
-        | PairMatchingQuestionDetail,
+        | PairMatchingQuestionDetail
+        | PracticalPreparationQuestionDetail,
         ...,
     ]
     can_submit: bool

@@ -10,6 +10,7 @@ from shifu.curriculum.core.domain.structures import (
     ReactFastifyQuestion,
     OrderingQuestion,
     PairMatchingQuestion,
+    PracticalPreparationQuestion,
     TranslationQuestion,
     TranslationRubricEvaluationPart,
 )
@@ -105,11 +106,14 @@ class Activity:
                     OrderingQuestion,
                     TranslationQuestion,
                     PairMatchingQuestion,
+                    PracticalPreparationQuestion,
                 ),
             )
             for question in self.questions
         ):
             raise InvalidActivityError
+
+        self._validate_practical_preparation(question_keys, part_keys)
 
         if _has_invalid_ordering_part(self.questions, self.evaluation_rule.parts):
             raise InvalidActivityError
@@ -135,6 +139,29 @@ class Activity:
                 not isinstance(part, CorrectnessEvaluationPart)
                 for part in self.evaluation_rule.parts
                 if part.question_key in fill_blanks_keys
+            )
+        ):
+            raise InvalidActivityError
+
+    def _validate_practical_preparation(
+        self, question_keys: set[str], part_keys: set[str]
+    ) -> None:
+        practical_keys = {
+            question.key
+            for question in self.questions
+            if isinstance(question, PracticalPreparationQuestion)
+        }
+        if not practical_keys:
+            return
+
+        if (
+            len(self.questions) != 1
+            or self.activity_type != ActivityType.LEARNING
+            or part_keys != question_keys
+            or any(
+                not isinstance(part, CorrectnessEvaluationPart)
+                or part.weight_percentage != 100
+                for part in self.evaluation_rule.parts
             )
         ):
             raise InvalidActivityError

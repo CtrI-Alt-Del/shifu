@@ -1,0 +1,1 @@
+"""Practice photo assessment adapters."""

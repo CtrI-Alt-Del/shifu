@@ -22,6 +22,7 @@ from shifu.learning.core.domain.structures import (
     FillBlanksPlacement,
     PairMatchingAnswer,
     PairMatchingSelection,
+    PracticalPreparationAnswerSubmission,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
@@ -84,6 +85,7 @@ class AnswerRequest(BaseModel):
             'fill_blanks',
             'translation',
             'pair_matching',
+            'practical_preparation',
         ]
         | None
     ) = None
@@ -93,6 +95,10 @@ class AnswerRequest(BaseModel):
     placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
     pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
+    draft_revision: int | None = Field(default=None, ge=0)
+    # Accepted for client symmetry only: the server freezes the reflection saved in
+    # the draft, so this value never reaches the attempt.
+    reflection: str | None = Field(default=None, max_length=4000)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
@@ -104,6 +110,7 @@ class AnswerRequest(BaseModel):
             self.ordered_step_keys,
             self.placements,
             self.pairs,
+            self.draft_revision,
         )
         return self
 
@@ -229,6 +236,11 @@ class SubmitChoiceActivityController:
                             ),
                         )
                         if answer.kind == 'pair_matching'
+                        else PracticalPreparationAnswerSubmission(
+                            question_key=answer.question_key,
+                            draft_revision=answer.draft_revision or 0,
+                        )
+                        if answer.kind == 'practical_preparation'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

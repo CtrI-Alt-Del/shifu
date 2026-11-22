@@ -14,6 +14,7 @@ from shifu.curriculum.core.domain.structures import (
     MultipleSelectionQuestion,
     OrderingQuestion,
     PairMatchingQuestion,
+    PracticalPreparationQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
@@ -71,6 +72,12 @@ from shifu.shared.core.domain.structures import (
     CurriculumPairMatchingItemSnapshot,
     CurriculumPairMatchingPairSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
+    CurriculumPracticalPreparationCriterionSnapshot,
+    CurriculumPracticalPreparationInsufficiencyRuleSnapshot,
+    CurriculumPracticalPreparationLevelSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
+    CurriculumPracticalPreparationRecordSnapshot,
+    CurriculumPracticalPreparationReferenceSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
@@ -91,6 +98,7 @@ _FULL_SCALE_EVIDENCE_QUESTIONS = (
     ReactFastifyQuestion,
     FillBlanksQuestion,
     TranslationQuestion,
+    PracticalPreparationQuestion,
 )
 
 
@@ -512,7 +520,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 or activity.id != activity_id
                 or activity.activity_type.value != activity_type
                 or (
-                    not 3 <= len(activity.questions) <= 5
+                    not has_valid_learning_question_count(activity)
                     if activity_type == 'learning'
                     else not activity.questions
                 )
@@ -540,6 +548,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumFillBlanksQuestionSnapshot
                 | CurriculumTranslationQuestionSnapshot
                 | CurriculumPairMatchingQuestionSnapshot
+                | CurriculumPracticalPreparationQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot
@@ -547,7 +556,14 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumTranslationRubricPartSnapshot
             ] = []
             for question in activity.questions:
-                if isinstance(question, OrderingQuestion):
+                if isinstance(question, PracticalPreparationQuestion):
+                    if activity_type != 'learning' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    questions.append(practical_preparation_snapshot(question))
+                elif isinstance(question, OrderingQuestion):
                     if (
                         activity_type != 'learning'
                         or not question.accepted_orders
@@ -1204,6 +1220,85 @@ def has_executable_evidence(activity: Activity, maximum: dict[str, int]) -> bool
         == {question.key for question in activity.questions}
         and (
             activity.activity_type.value == 'diagnostic'
-            or 3 <= len(activity.questions) <= 5
+            or has_valid_learning_question_count(activity)
         )
+    )
+
+
+def has_valid_learning_question_count(activity: Activity) -> bool:
+    if any(
+        isinstance(question, PracticalPreparationQuestion)
+        for question in activity.questions
+    ):
+        return len(activity.questions) == 1
+
+    return 3 <= len(activity.questions) <= 5
+
+
+def practical_preparation_snapshot(
+    question: PracticalPreparationQuestion,
+) -> CurriculumPracticalPreparationQuestionSnapshot:
+    return CurriculumPracticalPreparationQuestionSnapshot(
+        key=question.key,
+        kind='practical_preparation',
+        prompt=question.prompt,
+        guidance=question.guidance,
+        references=tuple(
+            CurriculumPracticalPreparationReferenceSnapshot(
+                label=reference.label, accessible_text=reference.accessible_text
+            )
+            for reference in question.references
+        ),
+        difficulty=question.difficulty,
+        records=tuple(
+            CurriculumPracticalPreparationRecordSnapshot(
+                key=record.key, label=record.label, must_show=record.must_show
+            )
+            for record in question.records
+        ),
+        criteria=tuple(
+            CurriculumPracticalPreparationCriterionSnapshot(
+                key=criterion.key,
+                name=criterion.name,
+                description=criterion.description,
+                weight=criterion.weight,
+                levels=tuple(
+                    CurriculumPracticalPreparationLevelSnapshot(
+                        score=level.score,
+                        description=level.description,
+                        comment_key=level.comment_key,
+                    )
+                    for level in criterion.levels
+                ),
+                inconclusive_when=criterion.inconclusive_when,
+            )
+            for criterion in question.criteria
+        ),
+        insufficiency_rules=tuple(
+            CurriculumPracticalPreparationInsufficiencyRuleSnapshot(
+                record_key=rule.record_key,
+                criterion_keys=rule.criterion_keys,
+                comment=rule.comment,
+            )
+            for rule in question.insufficiency_rules
+        ),
+        concept_criteria=tuple(
+            CurriculumChoiceConceptCriterionSnapshot(
+                concept_id=criterion.concept_id,
+                criterion=criterion.criterion,
+                examples=criterion.examples,
+                limits=criterion.limits,
+                correct_score=(
+                    Decimal(criterion.correct_score)
+                    if criterion.correct_score is not None
+                    else None
+                ),
+                incorrect_score=(
+                    Decimal(criterion.incorrect_score)
+                    if criterion.incorrect_score is not None
+                    else None
+                ),
+            )
+            for criterion in question.concept_criteria
+        ),
     )
