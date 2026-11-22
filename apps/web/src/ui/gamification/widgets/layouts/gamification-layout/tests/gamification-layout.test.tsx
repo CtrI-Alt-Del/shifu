@@ -26,9 +26,9 @@ describe('GamificationLayout', () => {
       </GamificationLayout>,
     )
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Gamificação' })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: 'Progresso' })).toBeVisible()
     expect(
-      screen.getByText('Sua constância, seus marcos e o XP que você conquistou.'),
+      screen.getByText('Sua aprendizagem e sua constância em um só lugar.'),
     ).toBeVisible()
     expect(screen.getByText('Conteúdo da seção')).toBeVisible()
   })
@@ -36,7 +36,7 @@ describe('GamificationLayout', () => {
   it('links every section to its own route, in order', () => {
     render(<GamificationLayout />)
 
-    const navigation = screen.getByRole('navigation', { name: 'Seções da gamificação' })
+    const navigation = screen.getByRole('navigation', { name: 'Seções do progresso' })
     const links = within(navigation).getAllByRole('link')
 
     expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([

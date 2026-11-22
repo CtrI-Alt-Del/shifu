@@ -44,7 +44,9 @@ export const getOverview = createServerFn({ method: 'GET' }).handler(
   },
 )
 
-export function useOverviewQuery() {
+// Consumed by the Engajamento summary and section: both read the same cache
+// entry, so TanStack Query issues one request for the two widgets.
+export function useGamificationOverviewQuery() {
   const {
     data: overview = null,
     error: overviewError,

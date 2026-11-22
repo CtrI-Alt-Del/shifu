@@ -40,7 +40,68 @@ const LEGEND_ENTRIES = [
   },
 ] as const
 
-export const CalendarLegend = () => {
+// The panel's month card draws its cells by fill and border (see
+// `COMPACT_CALENDAR_DAY_PRESENTATION`), so its legend uses the matching swatches. Neutral
+// days carry no mark and need no entry.
+const COMPACT_LEGEND_ENTRIES = [
+  {
+    label: 'Sequência atual',
+    description: 'Dia que faz parte da sequência ativa.',
+    swatchClassName: 'bg-latao-fill',
+  },
+  {
+    label: 'Dia de prática',
+    description: 'Houve prática fora da sequência atual.',
+    swatchClassName: 'border border-latao-solid/50! bg-latao-tint',
+  },
+  {
+    label: 'Hoje, ainda dá para praticar',
+    description: 'O dia ainda pode contar para a sequência.',
+    swatchClassName: 'border border-dashed border-latao-solid!',
+  },
+  {
+    label: 'Sem prática',
+    description: 'Dia encerrado sem registro de prática.',
+    swatchClassName: 'border border-control-border!',
+  },
+] as const
+
+export type CalendarLegendProps = {
+  // Label-only legend for narrow containers such as the panel's month card;
+  // each state's description stays available to screen readers.
+  compact?: boolean
+}
+
+export const CalendarLegend = ({ compact = false }: CalendarLegendProps) => {
+  if (compact) {
+    return (
+      <motion.section
+        aria-labelledby='gamification-legend-title'
+        variants={ENTRANCE_SECTION}
+      >
+        <h3 className='sr-only' id='gamification-legend-title'>
+          Estados dos dias
+        </h3>
+        <motion.ul className='flex flex-wrap gap-x-4 gap-y-2' variants={ENTRANCE_STAGGER}>
+          {COMPACT_LEGEND_ENTRIES.map((entry) => (
+            <motion.li
+              className='flex items-center gap-2'
+              key={entry.label}
+              variants={ENTRANCE_POP}
+            >
+              <span
+                aria-hidden='true'
+                className={`size-4 shrink-0 rounded-[4px] ${entry.swatchClassName}`}
+              />
+              <span className='text-[13px] text-secondary-foreground'>{entry.label}</span>
+              <span className='sr-only'>. {entry.description}</span>
+            </motion.li>
+          ))}
+        </motion.ul>
+      </motion.section>
+    )
+  }
+
   return (
     <motion.section
       aria-labelledby='gamification-legend-title'
