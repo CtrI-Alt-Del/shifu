@@ -12,6 +12,7 @@ import { FillBlanksQuestion } from './fill-blanks-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
 import { HtmlCssJsQuestion } from './html-css-js-question'
+import { ImageChoiceQuestion } from './image-choice-question'
 import { ReactFastifyQuestion } from './react-fastify-question'
 import { OrderingQuestion } from './ordering-question'
 import { PairMatchingQuestion } from './pair-matching-question'
@@ -245,7 +246,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
     currentQuestion.kind !== 'react_fastify' &&
     currentQuestion.kind !== 'fill_blanks' &&
     currentQuestion.kind !== 'translation' &&
-    currentQuestion.kind !== 'pair_matching' ? (
+    currentQuestion.kind !== 'pair_matching' &&
+    currentQuestion.kind !== 'image_choice' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -483,6 +485,25 @@ export const ActivityPage = (props: ActivityPageProps) => {
             totalQuestions={totalQuestions}
             value={translationAnswerText}
           />
+        ) : currentQuestion.kind === 'image_choice' ? (
+          <ImageChoiceQuestion
+            activityTitle={activity.title}
+            difficulty={activity.difficulty}
+            disabled={
+              !activity.canSubmit ||
+              isSubmitting ||
+              isQuestionReadOnly ||
+              isAssessing ||
+              Boolean(feedback || frozenAnswer)
+            }
+            feedback={feedback}
+            key={currentQuestion.key}
+            onSelectOption={handleToggleOption}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            selectedOptionKey={selectedOptionKeys[0] ?? null}
+            totalQuestions={totalQuestions}
+          />
         ) : isDiagnosticChoice ? (
           <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>
             {choiceQuestion}
@@ -613,7 +634,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
                                 ? 'Próxima competência'
                                 : 'Próxima questão'
                             : 'Próxima questão'
-                          : currentQuestion.kind === 'ordering'
+                          : currentQuestion.kind === 'ordering' ||
+                              currentQuestion.kind === 'image_choice'
                             ? !feedback
                               ? frozenAnswer
                                 ? 'Tentar avaliação novamente'

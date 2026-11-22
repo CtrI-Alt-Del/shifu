@@ -2,6 +2,8 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
+  ImageChoiceAnswer,
+  ImageChoiceQuestion,
   PairMatchingAnswer,
   PairMatchingQuestion,
   PreliminaryQuestionResult,
@@ -107,5 +109,96 @@ describe('QuestionFeedback for pair matching', () => {
     })
 
     expect(screen.getByText(/ghost\s+—\s+cachorro/)).toBeInTheDocument()
+  })
+})
+
+const IMAGE_QUESTION: ImageChoiceQuestion = {
+  key: 'image-1',
+  kind: 'image_choice',
+  prompt: 'Qual destas cebolas está caramelizada?',
+  options: [
+    {
+      key: 'opt-1',
+      imagePath: '/curriculum/images/2d165276ed215938.webp',
+      description: 'Crua.',
+    },
+    {
+      key: 'opt-2',
+      imagePath: '/curriculum/images/655fecc77404ac40.webp',
+      description: 'Escura.',
+    },
+  ],
+}
+const IMAGE_ANSWER: ImageChoiceAnswer = {
+  kind: 'image_choice',
+  questionKey: 'image-1',
+  selectedOptionKeys: ['opt-2'],
+}
+
+describe('QuestionFeedback for image choice', () => {
+  beforeEach(() => {
+    useQuestionFeedbackMock.mockReturnValue({
+      feedbackElementRef: { current: null },
+      fillBlanksOutcome: null,
+      pairMatchingOutcome: null,
+    })
+  })
+
+  afterEach(cleanup)
+
+  function renderImageFeedback(feedback: PreliminaryQuestionResult) {
+    render(
+      <QuestionFeedback
+        feedback={feedback}
+        frozenAnswer={IMAGE_ANSWER}
+        question={IMAGE_QUESTION}
+      />,
+    )
+  }
+
+  it('shows the correct outcome with icon, option line, explanation and the provisional notice', () => {
+    renderImageFeedback({
+      status: 'conclusive',
+      score: 100,
+      isCorrect: true,
+      optionFeedback: 'Você reconheceu a cebola caramelizada.',
+      explanation: 'Ela fica marrom-âmbar e macia.',
+    })
+
+    expect(screen.getByRole('heading', { name: 'Resposta correta' })).toBeVisible()
+    expect(screen.getByText('Você reconheceu a cebola caramelizada.')).toBeVisible()
+    expect(screen.getByText('Ela fica marrom-âmbar e macia.')).toBeVisible()
+    expect(
+      screen.getByText(
+        'Retorno provisório. O resultado oficial aparece ao enviar a Atividade.',
+      ),
+    ).toBeVisible()
+    expect(screen.queryByText(/Pontuação/)).not.toBeInTheDocument()
+  })
+
+  it('shows the incorrect outcome without identifying the correct image', () => {
+    renderImageFeedback({
+      status: 'conclusive',
+      score: 0,
+      isCorrect: false,
+      optionFeedback: 'Essa cebola passou do ponto e queimou.',
+      explanation: 'Revise a cor e a textura.',
+    })
+
+    expect(screen.getByRole('heading', { name: 'Resposta incorreta' })).toBeVisible()
+    expect(screen.getByText('Essa cebola passou do ponto e queimou.')).toBeVisible()
+    expect(screen.queryByText('Resposta correta')).not.toBeInTheDocument()
+    expect(screen.queryByText(/opt-1/)).not.toBeInTheDocument()
+  })
+
+  it('asks for a new verification when the result is inconclusive', () => {
+    renderImageFeedback({ status: 'inconclusive', score: null })
+
+    expect(
+      screen.getByText(
+        'Não foi possível concluir esta avaliação. Reavalie a mesma resposta.',
+      ),
+    ).toBeVisible()
+    expect(screen.queryByRole('heading', { name: /Resposta/ })).not.toBeInTheDocument()
   })
 })

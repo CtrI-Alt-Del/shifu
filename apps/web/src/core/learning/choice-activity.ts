@@ -164,6 +164,19 @@ export type PairMatchingQuestion = {
   translations: readonly PairMatchingItem[]
 }
 
+export type ImageChoiceOption = {
+  key: string
+  imagePath: string
+  description: string
+}
+
+export type ImageChoiceQuestion = {
+  key: string
+  kind: 'image_choice'
+  prompt: string
+  options: readonly ImageChoiceOption[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
@@ -174,6 +187,7 @@ export type ActivityQuestion =
   | FillBlanksQuestion
   | TranslationQuestion
   | PairMatchingQuestion
+  | ImageChoiceQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -228,6 +242,12 @@ export type PairMatchingAnswer = {
   pairs: readonly PairMatchingPair[]
 }
 
+export type ImageChoiceAnswer = {
+  kind: 'image_choice'
+  questionKey: string
+  selectedOptionKeys: readonly [string]
+}
+
 export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
 
 export type ActivityAnswer =
@@ -237,6 +257,7 @@ export type ActivityAnswer =
   | FillBlanksAnswer
   | TranslationAnswer
   | PairMatchingAnswer
+  | ImageChoiceAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -258,6 +279,7 @@ export type PreliminaryQuestionResult = {
   correctPairCount?: number
   totalPairCount?: number
   outcome?: PairMatchingOutcome
+  optionFeedback?: string
 }
 
 export type ChoiceSubmission = {
@@ -365,6 +387,19 @@ export type PairMatchingResultQuestion = {
   disclosedCorrectPairs?: readonly PairMatchingPair[]
 }
 
+export type ImageChoiceResultQuestion = {
+  kind: 'image_choice'
+  key: string
+  prompt: string
+  options: readonly ImageChoiceOption[]
+  selectedOptionKey: string
+  score: number
+  isCorrect: boolean
+  optionFeedback: string
+  explanation: string
+  disclosedCorrectOptionKey?: string
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
@@ -372,6 +407,7 @@ export type ActivityResultQuestion =
   | FillBlanksResultQuestion
   | TranslationResultQuestion
   | PairMatchingResultQuestion
+  | ImageChoiceResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

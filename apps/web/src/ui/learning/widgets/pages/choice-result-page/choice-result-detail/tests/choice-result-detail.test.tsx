@@ -7,6 +7,8 @@ import type {
   ChoiceQuestion,
   CodeResultQuestion,
   HtmlCssJsQuestion,
+  ImageChoiceQuestion,
+  ImageChoiceResultQuestion,
   ChoiceResultQuestion,
   PairMatchingQuestion,
   PairMatchingResultQuestion,
@@ -673,6 +675,124 @@ describe('ChoiceResultDetail', () => {
 
       const expected = screen.getByRole('list', { name: 'Pares esperados' })
       expect(within(expected).getByText('house — casa')).toBeInTheDocument()
+    })
+  })
+  describe('image choice result', () => {
+    const IMAGE_QUESTION: ImageChoiceQuestion = {
+      key: 'image-1',
+      kind: 'image_choice',
+      prompt: 'Qual destas cebolas está caramelizada?',
+      options: [
+        {
+          key: 'opt-1',
+          imagePath: '/curriculum/images/2d165276ed215938.webp',
+          description: 'Fatias brancas e firmes.',
+        },
+        {
+          key: 'opt-3',
+          imagePath: '/curriculum/images/5c8a6a6b47848a6f.webp',
+          description: 'Tiras marrons e macias.',
+        },
+        {
+          key: 'opt-4',
+          imagePath: '/curriculum/images/655fecc77404ac40.webp',
+          description: 'Fatias escuras.',
+        },
+      ],
+    }
+    const result = (
+      overrides: Partial<ImageChoiceResultQuestion> = {},
+    ): ImageChoiceResultQuestion => ({
+      kind: 'image_choice',
+      key: 'image-1',
+      prompt: IMAGE_QUESTION.prompt,
+      options: IMAGE_QUESTION.options,
+      selectedOptionKey: 'opt-4',
+      score: 0,
+      isCorrect: false,
+      optionFeedback: 'Essa cebola passou do ponto e queimou.',
+      explanation: 'Revise a cor e a textura.',
+      ...overrides,
+    })
+
+    it('shows the chosen image, grade, option line and explanation as text and icon', () => {
+      render(
+        <ChoiceResultDetail
+          question={IMAGE_QUESTION}
+          questionNumber={2}
+          result={result()}
+        />,
+      )
+
+      expect(screen.getByText(/Questão 2 · escolha por imagem · incorreta/)).toBeVisible()
+      expect(screen.getByLabelText('Nota 0 de 100')).toBeVisible()
+      expect(
+        screen.getByRole('heading', { name: 'Resposta incorreta' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText('Essa cebola passou do ponto e queimou.'),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Revise a cor e a textura.')).toBeInTheDocument()
+      const chosen = screen.getByRole('radio', { name: 'Opção 3' })
+      expect(chosen).toBeChecked()
+      expect(chosen).toBeDisabled()
+      expect(chosen.closest('label')).toHaveAttribute('data-tone', 'incorrect')
+    })
+
+    it('keeps the correct image hidden until the server releases it', () => {
+      render(
+        <ChoiceResultDetail
+          question={IMAGE_QUESTION}
+          questionNumber={2}
+          result={result()}
+        />,
+      )
+
+      expect(screen.queryByText('Resposta correta')).not.toBeInTheDocument()
+      expect(document.querySelectorAll('[data-tone="correct"]')).toHaveLength(0)
+    })
+
+    it('identifies the correct image when the server discloses its key', () => {
+      render(
+        <ChoiceResultDetail
+          question={IMAGE_QUESTION}
+          questionNumber={2}
+          result={result({ disclosedCorrectOptionKey: 'opt-3' })}
+        />,
+      )
+
+      const correct = screen.getByRole('radio', { name: 'Opção 2' }).closest('label')
+      expect(correct).toHaveAttribute('data-tone', 'correct')
+      expect(
+        within(correct as HTMLElement).getByText('Resposta correta'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('radio', { name: 'Opção 3' }).closest('label'),
+      ).toHaveAttribute('data-tone', 'incorrect')
+    })
+
+    it('labels a correct answer with the correct outcome and grade', () => {
+      render(
+        <ChoiceResultDetail
+          question={IMAGE_QUESTION}
+          questionNumber={2}
+          result={result({
+            selectedOptionKey: 'opt-3',
+            score: 100,
+            isCorrect: true,
+            optionFeedback: 'Você reconheceu a cebola caramelizada.',
+          })}
+        />,
+      )
+
+      expect(screen.getByText(/Questão 2 · escolha por imagem · correta/)).toBeVisible()
+      expect(screen.getByLabelText('Nota 100 de 100')).toBeVisible()
+      expect(
+        screen.getByRole('heading', { name: 'Resposta correta' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('radio', { name: 'Opção 2' }).closest('label'),
+      ).toHaveAttribute('data-tone', 'correct')
     })
   })
 })
