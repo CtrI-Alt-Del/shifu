@@ -18,3 +18,5 @@ from .mentor_action_receipt_model import (
 )
 from .ordering_passage_model import OrderingPassageModel as OrderingPassageModel
 from .skill_experience_model import SkillExperienceModel as SkillExperienceModel
+from .practice_draft_model import PracticeDraftModel as PracticeDraftModel
+from .practice_photo_model import PracticePhotoModel as PracticePhotoModel

@@ -18,6 +18,7 @@ from shifu.curriculum.core.domain.structures import (
     MultipleSelectionQuestion,
     OrderingQuestion,
     PairMatchingQuestion,
+    PracticalPreparationQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
     TestCasesEvaluationPart,
@@ -37,6 +38,7 @@ _KIND_QUESTION_TYPES = {
     'html_css_js': HtmlCssJsQuestion,
     'translation': TranslationQuestion,
     'pair_matching': PairMatchingQuestion,
+    'practical_preparation': PracticalPreparationQuestion,
 }
 
 
@@ -82,11 +84,12 @@ class ActivityMapper:
         | FillBlanksQuestion
         | TranslationQuestion
         | PairMatchingQuestion
+        | PracticalPreparationQuestion
     ):
         question_type = _KIND_QUESTION_TYPES.get(str(data.get('kind')))
         if question_type is not None:
             return cast(
-                'OrderingQuestion | FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion',
+                'OrderingQuestion | FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion | PracticalPreparationQuestion',
                 Serialization.deserialize_value(data, question_type),
             )
 
@@ -146,7 +149,8 @@ class ActivityMapper:
             | OrderingQuestion
             | FillBlanksQuestion
             | TranslationQuestion
-            | PairMatchingQuestion,
+            | PairMatchingQuestion
+            | PracticalPreparationQuestion,
             ...,
         ],
     ) -> (

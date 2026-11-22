@@ -1,3 +1,4 @@
+import re
 from asyncio import to_thread
 from datetime import timedelta
 from collections.abc import AsyncGenerator
@@ -82,12 +83,16 @@ from shifu.intelligence.rest.mentor_attachment_error_handler import (
     MentorAttachmentErrorHandler,
 )
 from shifu.learning.rest.learning_error_handler import LearningErrorHandler
+from shifu.learning.rest.practice_photo_body_limit_middleware import (
+    PracticePhotoBodyLimitMiddleware,
+)
 from shifu.intelligence.messaging.inngest.intelligence_inngest_messaging import (
     IntelligenceInngestMessaging,
 )
 from shifu.learning.ai.learning_workflows_registry import (
     LearningWorkflowsRegistry,
 )
+from shifu.learning.core.use_cases import PurgePracticePhotosUseCase
 from shifu.learning.core.use_cases.get_competency_detail_use_case import (
     GetCompetencyDetailUseCase,
 )
@@ -117,6 +122,7 @@ from shifu.shared.core.interfaces.telemetry_provider import (
     TelemetryProvider,
 )
 from shifu.shared.database.sqlalchemy.session import Session
+from shifu.shared.pipes.file_storage_pipe import FileStoragePipe
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
     RedisCacheProvider,
@@ -196,13 +202,20 @@ class PrivateMentorNoStoreMiddleware:
         '/intelligence/mentor-sessions',
         '/intelligence/learner-memories',
     )
+    _PRACTICE_PHOTO_PATH: ClassVar[re.Pattern[str]] = re.compile(
+        r'^/learning/goals/[^/]+/skills/[^/]+/competencies/[^/]+'
+        r'/activities/[^/]+(/practice-draft(/|$)|/attempts/[^/]+/practice-photos/)'
+    )
 
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get('path', ''))
-        if scope['type'] != 'http' or not path.startswith(self._PRIVATE_PATH_PREFIXES):
+        if scope['type'] != 'http' or not (
+            path.startswith(self._PRIVATE_PATH_PREFIXES)
+            or self._PRACTICE_PHOTO_PATH.match(path)
+        ):
             await self._app(scope, receive, send)
             return
 
@@ -371,6 +384,9 @@ class FastAPIApp:
             telemetry=mentor_telemetry_provider,
             curriculum_catalog_provider=curriculum_catalog_provider,
         )
+        practice_photo_storage_provider = (
+            FileStoragePipe.create_learning_practice_photo_storage_provider(settings)
+        )
         learning_registry = LearningWorkflowsRegistry(
             settings,
             None,
@@ -378,6 +394,8 @@ class FastAPIApp:
             intelligence_registry.translation_rubric_assessor_provider,
             mentor_access_provider,
             curriculum_content_provider,
+            intelligence_registry.practice_photo_assessor_provider,
+            practice_photo_storage_provider,
             outbox_engine=database_engine,
         )
         authentication_provider = JwksJwtAuthenticationProvider(
@@ -406,6 +424,7 @@ class FastAPIApp:
                 await cache_provider.close()
                 await intelligence_registry.close()
                 await learning_registry.close()
+                practice_photo_storage_provider.close()
                 database_engine.dispose()
                 raise ServiceUnavailableError(
                     message='O Redis está indisponível; o servidor não pode iniciar.'
@@ -465,6 +484,7 @@ class FastAPIApp:
                     await to_thread(close_agent_monitoring_client, monitoring)
                 finally:
                     await cache_provider.close()
+                    practice_photo_storage_provider.close()
                     database_engine.dispose()
                     _emit_telemetry(
                         telemetry_provider,
@@ -537,6 +557,10 @@ class FastAPIApp:
                     max_code_assessment_input_bytes=(
                         settings.max_code_assessment_input_bytes
                     ),
+                    purge_practice_photos_use_case=PurgePracticePhotosUseCase(
+                        learning_database, practice_photo_storage_provider
+                    ),
+                    account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                     telemetry_provider=telemetry,
                 ),
                 lambda inngest, telemetry: GamificationInngestMessaging.register_jobs(
@@ -613,6 +637,7 @@ class FastAPIApp:
             intelligence_registry.learner_memory_analyzer_provider
         )
         app.state.file_storage_provider = intelligence_registry.file_storage_provider
+        app.state.practice_photo_storage_provider = practice_photo_storage_provider
         app.state.mentor_attachment_extractor_provider = (
             intelligence_registry.attachment_extractor_provider
         )
@@ -628,6 +653,7 @@ class FastAPIApp:
         )
         app.add_middleware(PrivateMentorNoStoreMiddleware)
         app.add_middleware(MentorAttachmentBodyLimitMiddleware)
+        app.add_middleware(PracticePhotoBodyLimitMiddleware)
         app.add_middleware(TelemetryMiddleware)
         return app
 

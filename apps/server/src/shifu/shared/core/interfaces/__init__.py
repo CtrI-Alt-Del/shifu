@@ -31,6 +31,9 @@ from .mentor_goal_destinations_provider import (
 )
 from .outbox_event import OutboxEvent as OutboxEvent
 from .planned_goal_provider import PlannedGoalProvider as PlannedGoalProvider
+from .practice_photo_assessor_provider import (
+    PracticePhotoAssessorProvider as PracticePhotoAssessorProvider,
+)
 from .translation_rubric_assessor_provider import (
     TranslationRubricAssessorProvider as TranslationRubricAssessorProvider,
 )

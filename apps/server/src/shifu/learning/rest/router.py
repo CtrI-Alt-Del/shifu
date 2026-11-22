@@ -7,6 +7,13 @@ from shifu.learning.rest.controllers import (
     CreateGoalController,
     GetChoiceActivityController,
     CompleteDiagnosticController,
+    DiscardPracticeDraftController,
+    GetPracticeAttemptPhotoController,
+    GetPracticeDraftController,
+    GetPracticePhotoController,
+    RemovePracticePhotoController,
+    SavePracticeReflectionController,
+    UploadPracticePhotoController,
     GetChoiceAttemptController,
     GetCompetencyDetailController,
     GetDiagnosticController,
@@ -54,6 +61,13 @@ class LearningRouter:
         SubmitChoiceActivityController.handle(router)
         SubmitDiagnosticBatchController.handle(router)
         GetChoiceAttemptController.handle(router)
+        GetPracticeAttemptPhotoController.handle(router)
         RetryChoiceEvaluationController.handle(router)
         GetSkillExperienceDetailController.handle(router)
+        GetPracticeDraftController.handle(router)
+        SavePracticeReflectionController.handle(router)
+        UploadPracticePhotoController.handle(router)
+        RemovePracticePhotoController.handle(router)
+        GetPracticePhotoController.handle(router)
+        DiscardPracticeDraftController.handle(router)
         return router

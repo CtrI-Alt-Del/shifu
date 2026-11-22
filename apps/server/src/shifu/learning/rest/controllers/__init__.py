@@ -61,3 +61,24 @@ from .submit_diagnostic_batch_controller import (
 from .preview_activity_question_feedback_controller import (
     PreviewActivityQuestionFeedbackController as PreviewActivityQuestionFeedbackController,
 )
+from .discard_practice_draft_controller import (
+    DiscardPracticeDraftController as DiscardPracticeDraftController,
+)
+from .get_practice_attempt_photo_controller import (
+    GetPracticeAttemptPhotoController as GetPracticeAttemptPhotoController,
+)
+from .get_practice_draft_controller import (
+    GetPracticeDraftController as GetPracticeDraftController,
+)
+from .get_practice_photo_controller import (
+    GetPracticePhotoController as GetPracticePhotoController,
+)
+from .remove_practice_photo_controller import (
+    RemovePracticePhotoController as RemovePracticePhotoController,
+)
+from .save_practice_reflection_controller import (
+    SavePracticeReflectionController as SavePracticeReflectionController,
+)
+from .upload_practice_photo_controller import (
+    UploadPracticePhotoController as UploadPracticePhotoController,
+)

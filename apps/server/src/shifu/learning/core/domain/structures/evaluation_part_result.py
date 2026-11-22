@@ -11,6 +11,9 @@ from shifu.learning.core.domain.structures.fill_blanks_evaluation_result import 
 from shifu.learning.core.domain.structures.pair_matching_evaluation_result import (
     PairMatchingEvaluationResult,
 )
+from shifu.learning.core.domain.structures.practical_preparation_result import (
+    PracticalPreparationResult,
+)
 from shifu.learning.core.domain.structures.qualitative_evaluation_result import (
     QualitativeEvaluationResult,
 )
@@ -26,4 +29,5 @@ type EvaluationPartResult = (
     | FillBlanksEvaluationResult
     | TranslationRubricResult
     | PairMatchingEvaluationResult
+    | PracticalPreparationResult
 )

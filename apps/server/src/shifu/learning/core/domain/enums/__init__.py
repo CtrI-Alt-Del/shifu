@@ -16,3 +16,8 @@ from .mentor_action_outcome import MentorActionOutcome as MentorActionOutcome
 from .mentor_action_rejection_reason import (
     MentorActionRejectionReason as MentorActionRejectionReason,
 )
+from .practice_draft_status import PracticeDraftStatus as PracticeDraftStatus
+from .practice_photo_owner_kind import (
+    PracticePhotoOwnerKind as PracticePhotoOwnerKind,
+)
+from .practice_photo_state import PracticePhotoState as PracticePhotoState

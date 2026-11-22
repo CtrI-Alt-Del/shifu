@@ -1,5 +1,6 @@
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
 import boto3
@@ -14,26 +15,16 @@ _MEDIA_TYPE = re.compile(r'^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$')
 _UNAVAILABLE = 'O armazenamento de arquivos está temporariamente indisponível.'
 
 
-class S3FileStorageSettings(Protocol):
-    @property
-    def mentor_attachment_storage_bucket(self) -> str: ...
+@dataclass(frozen=True)
+class S3FileStorageSettings:
+    """Module-neutral S3-compatible storage configuration."""
 
-    @property
-    def mentor_attachment_storage_region(self) -> str: ...
-
-    @property
-    def mentor_attachment_storage_endpoint_url(self) -> HttpUrl | None: ...
-
-    @property
-    def mentor_attachment_storage_addressing_style(
-        self,
-    ) -> Literal['auto', 'path', 'virtual']: ...
-
-    @property
-    def mentor_attachment_storage_access_key(self) -> str | SecretStr | None: ...
-
-    @property
-    def mentor_attachment_storage_secret_key(self) -> str | SecretStr | None: ...
+    bucket: str
+    region: str = 'us-east-1'
+    endpoint_url: HttpUrl | None = None
+    addressing_style: Literal['auto', 'path', 'virtual'] = 'auto'
+    access_key: str | SecretStr | None = None
+    secret_key: str | SecretStr | None = None
 
 
 class _StreamingBody(Protocol):
@@ -58,13 +49,13 @@ class S3FileStorageProvider:
         settings: S3FileStorageSettings,
         client: BaseClient | None = None,
     ) -> None:
-        bucket = settings.mentor_attachment_storage_bucket.strip()
+        bucket = settings.bucket.strip()
         if not bucket:
-            raise ValueError('Attachment storage bucket is required')
-        access_key = self._secret(settings.mentor_attachment_storage_access_key)
-        secret_key = self._secret(settings.mentor_attachment_storage_secret_key)
+            raise ValueError('File storage bucket is required')
+        access_key = self._secret(settings.access_key)
+        secret_key = self._secret(settings.secret_key)
         if bool(access_key) != bool(secret_key):
-            raise ValueError('Attachment storage credentials must be paired')
+            raise ValueError('File storage credentials must be paired')
         self._bucket = bucket
         self._client: _S3Client = (
             cast('_S3Client', client)
@@ -73,19 +64,17 @@ class S3FileStorageProvider:
                 '_S3Client',
                 boto3.client(  # pyright: ignore[reportUnknownMemberType] - boto3 has no complete client protocol stubs.
                     's3',
-                    region_name=settings.mentor_attachment_storage_region,
+                    region_name=settings.region,
                     endpoint_url=(
-                        str(settings.mentor_attachment_storage_endpoint_url)
-                        if settings.mentor_attachment_storage_endpoint_url is not None
+                        str(settings.endpoint_url)
+                        if settings.endpoint_url is not None
                         else None
                     ),
                     aws_access_key_id=access_key,
                     aws_secret_access_key=secret_key,
                     config=Config(
                         signature_version='s3v4',
-                        s3={
-                            'addressing_style': settings.mentor_attachment_storage_addressing_style
-                        },
+                        s3={'addressing_style': settings.addressing_style},
                     ),
                 ),
             )
