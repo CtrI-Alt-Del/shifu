@@ -1,32 +1,41 @@
-from datetime import date, datetime, timedelta
+from calendar import monthrange
+from datetime import date, datetime, time, timedelta
+from fractions import Fraction
 from zoneinfo import ZoneInfo
 
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
 from shifu.gamification.core.domain.achievement_criterion_label import (
     achievement_criterion_label,
 )
+from shifu.gamification.core.domain.achievement_criterion_progress import (
+    achievement_criterion_progress,
+)
 from shifu.gamification.core.domain.current_practice_run import current_practice_run
 from shifu.gamification.core.domain.derived_practice_streak import (
     derived_practice_streak,
 )
-from shifu.gamification.core.domain.entities import EarnedAchievement
+from shifu.gamification.core.domain.entities import EarnedAchievement, XpGrant
 from shifu.gamification.core.domain.entities.gamification_profile import (
     GamificationProfile,
 )
+from shifu.gamification.core.domain.enums import MilestoneKind
 from shifu.gamification.core.domain.practice_day_state import practice_day_state
-from shifu.shared.core.domain.resolved_time_zone import resolved_time_zone
 from shifu.gamification.core.domain.structures import (
     AchievementsSummary,
     CalendarDay,
     GamificationOverview,
+    NextAchievement,
     PracticeStreak,
     RecentAchievement,
     StreakOverview,
+    WeeklyXp,
 )
 from shifu.gamification.core.interfaces import GamificationDatabase
+from shifu.shared.core.domain.local_week_start import local_week_start
+from shifu.shared.core.domain.resolved_time_zone import resolved_time_zone
 
-_WINDOW_DAYS = 7
 _RECENT_LIMIT = 3
+_WEEKS = 12
 
 
 class GetGamificationOverviewUseCase:
@@ -35,8 +44,9 @@ class GetGamificationOverviewUseCase:
     The three reads share one transaction so the level, the streak and the
     achievement summary describe one consistent snapshot even while an XP
     cascade commits concurrently. Every derivation is either a stored value or
-    one of the shared `core/domain` functions the practice calendar also uses,
-    so the two surfaces cannot report different streaks for the same instant.
+    one of the shared `core/domain` functions the practice calendar and the
+    Conquistas tab also use, so the surfaces cannot report different streaks or
+    achievement progress for the same instant.
     """
 
     def __init__(self, database: GamificationDatabase) -> None:
@@ -45,13 +55,25 @@ class GetGamificationOverviewUseCase:
     def execute(
         self, account_id: str, *, time_zone: str | None, now: datetime
     ) -> GamificationOverview:
-        today = now.astimezone(ZoneInfo(resolved_time_zone(time_zone))).date()
+        zone = ZoneInfo(resolved_time_zone(time_zone))
+        today = now.astimezone(zone).date()
+        first_week_start = local_week_start(today) - timedelta(weeks=_WEEKS - 1)
+        window_start = datetime.combine(first_week_start, time.min, tzinfo=zone)
 
         with self._database.transaction() as repositories:
             profile = repositories.profiles.find_by_account_id(account_id)
             dates = repositories.practice_days.find_many_dates_by_account_id(account_id)
             earned = repositories.earned_achievements.find_many_by_account_id(
                 account_id
+            )
+            milestone_counts = {
+                kind: repositories.rewarded_milestones.count_by_account_id_and_kind(
+                    account_id, kind
+                )
+                for kind in MilestoneKind
+            }
+            grants = repositories.xp_grants.find_many_by_account_id_occurred_since(
+                account_id, window_start
             )
 
         # An account whose profile row has not been created yet reads the
@@ -74,7 +96,15 @@ class GetGamificationOverviewUseCase:
                 total_xp, current_level_xp=current_level_xp, next_level_xp=next_level_xp
             ),
             streak=self._streak_for(stored_streak, dates, today=today),
-            achievements=self._achievements_for(earned),
+            achievements=self._achievements_for(
+                earned,
+                level=level,
+                longest_streak=stored_streak.longest,
+                milestone_counts=milestone_counts,
+            ),
+            weekly_xp=self._weekly_xp_for(
+                grants, first_week_start=first_week_start, zone=zone
+            ),
         )
 
     @staticmethod
@@ -88,9 +118,8 @@ class GetGamificationOverviewUseCase:
             ((total_xp - current_level_xp) * 100) // (next_level_xp - current_level_xp),
         )
 
-    @staticmethod
     def _streak_for(
-        stored: PracticeStreak, dates: tuple[date, ...], *, today: date
+        self, stored: PracticeStreak, dates: tuple[date, ...], *, today: date
     ) -> StreakOverview:
         ordered = tuple(sorted(set(dates)))
         earliest = ordered[0] if ordered else None
@@ -98,15 +127,11 @@ class GetGamificationOverviewUseCase:
         run = current_practice_run(ordered, today=today)
         run_dates = frozenset(run)
 
-        window = tuple(
-            today - timedelta(days=offset) for offset in reversed(range(_WINDOW_DAYS))
-        )
-
         return StreakOverview(
             streak=derived_practice_streak(
                 stored, ordered_dates=ordered, current_run=run
             ),
-            last_seven_days=tuple(
+            current_month=tuple(
                 CalendarDay(
                     day=day,
                     state=practice_day_state(
@@ -117,15 +142,24 @@ class GetGamificationOverviewUseCase:
                         current_run=run_dates,
                     ),
                 )
-                for day in window
+                for day in self._days_of_month(today)
             ),
             today=today,
-            is_today_pending=today not in practiced,
         )
 
     @staticmethod
+    def _days_of_month(today: date) -> tuple[date, ...]:
+        _, length = monthrange(today.year, today.month)
+        return tuple(date(today.year, today.month, day) for day in range(1, length + 1))
+
+    @classmethod
     def _achievements_for(
+        cls,
         earned: tuple[EarnedAchievement, ...],
+        *,
+        level: int,
+        longest_streak: int,
+        milestone_counts: dict[MilestoneKind, int],
     ) -> AchievementsSummary:
         # The cascade can unlock several achievements sharing one instant, so
         # the id tiebreak is what fixes a stable order across repeated reads.
@@ -154,4 +188,61 @@ class GetGamificationOverviewUseCase:
                 1 for item in earned if item.achievement_id in active_ids
             ),
             catalog_count=len(active_ids),
+            next_achievement=cls._next_achievement_for(
+                {item.achievement_id for item in earned},
+                level=level,
+                longest_streak=longest_streak,
+                milestone_counts=milestone_counts,
+            ),
         )
+
+    @staticmethod
+    def _next_achievement_for(
+        earned_ids: set[str],
+        *,
+        level: int,
+        longest_streak: int,
+        milestone_counts: dict[MilestoneKind, int],
+    ) -> NextAchievement | None:
+        # A strict comparison keeps the earlier catalog entry on a tie.
+        chosen: NextAchievement | None = None
+        chosen_ratio = Fraction(-1)
+        for achievement in ACHIEVEMENT_CATALOG:
+            if not achievement.is_active or achievement.id in earned_ids:
+                continue
+            current, target = achievement_criterion_progress(
+                achievement.criterion,
+                level=level,
+                longest_streak=longest_streak,
+                milestone_counts=milestone_counts,
+            )
+            clamped = min(current, target)
+            ratio = Fraction(clamped, target)
+            if ratio <= chosen_ratio:
+                continue
+            chosen_ratio = ratio
+            chosen = NextAchievement(
+                achievement_id=achievement.id,
+                name=achievement.name,
+                criterion_label=achievement_criterion_label(
+                    achievement.criterion.kind, achievement.criterion.target
+                ),
+                criterion_kind=achievement.criterion.kind,
+                xp_reward=achievement.xp_reward,
+                progress_current=clamped,
+                progress_target=target,
+            )
+        return chosen
+
+    @staticmethod
+    def _weekly_xp_for(
+        grants: tuple[XpGrant, ...], *, first_week_start: date, zone: ZoneInfo
+    ) -> tuple[WeeklyXp, ...]:
+        totals = {
+            first_week_start + timedelta(weeks=offset): 0 for offset in range(_WEEKS)
+        }
+        for grant in grants:
+            week = local_week_start(grant.occurred_at.astimezone(zone).date())
+            if week in totals:
+                totals[week] += grant.amount
+        return tuple(WeeklyXp(week_start=week, xp=xp) for week, xp in totals.items())

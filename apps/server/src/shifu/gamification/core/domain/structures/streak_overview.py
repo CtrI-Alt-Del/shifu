@@ -9,11 +9,10 @@ from shifu.shared.core.domain.structures import structure
 class StreakOverview:
     """The overview's constância block; not a persisted entity.
 
-    `last_seven_days` holds exactly seven days, oldest first and ending
-    today, each carrying the same five states the monthly calendar uses.
+    `current_month` holds every day of the viewer's current local month,
+    oldest first, each carrying the same five states the monthly calendar uses.
     """
 
     streak: PracticeStreak
-    last_seven_days: tuple[CalendarDay, ...]
+    current_month: tuple[CalendarDay, ...]
     today: date
-    is_today_pending: bool
