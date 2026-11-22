@@ -80,7 +80,7 @@ resource "aws_ecs_task_definition" "web" {
         { name = "SHIFU_WEB_APP_PORT", value = "7000" },
         { name = "SHIFU_WEB_APP_URL", value = local.public_origin },
         { name = "SHIFU_USE_SECURE_COOKIES", value = tostring(local.is_https_enabled) },
-        { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.server_discovery_name}:7777" },
+        { name = "SHIFU_IDENTITY_API_URL", value = local.identity_api_url },
         { name = "SHIFU_TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
       secrets = [
@@ -136,6 +136,7 @@ resource "aws_ecs_task_definition" "server" {
         { name = "SHIFU_AUTH_JWKS_URL", value = "${local.public_origin}/api/auth/jwks" },
         { name = "SHIFU_EMAIL_PROVIDER", value = "resend" },
         { name = "SHIFU_CONFIRMATION_ACTION_ORIGIN", value = local.public_origin },
+        { name = "SHIFU_BFF_BASE_URL", value = local.public_origin },
         { name = "SHIFU_EMAIL_TIMEOUT_SECONDS", value = "10" },
         { name = "INNGEST_APP_ID", value = local.name },
         { name = "INNGEST_DEV", value = "0" },
@@ -244,6 +245,11 @@ resource "aws_ecs_service" "server" {
     # and points the service at it. Terraform owns everything else, so it must not
     # move the service back to the revision it created.
     ignore_changes = [task_definition]
+
+    precondition {
+      condition     = !var.services_enabled
+      error_message = "Staging services cannot be enabled until the BFF-to-API connection supports end-to-end HTTPS for the shared secret."
+    }
   }
 }
 
