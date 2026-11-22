@@ -1,3 +1,4 @@
+import io
 import json
 from collections.abc import Callable
 from contextlib import suppress
@@ -6,6 +7,8 @@ from textwrap import dedent
 from typing import Protocol, cast
 
 from agno.media import Image
+from PIL import Image as PilImage
+from PIL import ImageOps
 from agno.run.agent import RunOutput
 
 from shifu.intelligence.ai.agno.agents.mentor_agent import (
@@ -20,6 +23,8 @@ from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import PracticePhotoAssessmentInput
 
 _IMAGE_FORMATS = {'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp'}
+_MAX_SIDE = 1568
+_JPEG_QUALITY = 85
 _UNAVAILABLE = 'Practice photo assessment is unavailable.'
 _PROFILE = 'practice-photo-assessment'
 
@@ -61,6 +66,10 @@ class PracticePhotoAssessmentAgent(MentorAgent):
                 critério, devolva level nulo e comment_key nulo. Para cada registro,
                 marque sufficient=false se a foto não mostra o que o registro pede
                 de modo que permita avaliar, e sufficient=true caso contrário.
+                Coerência obrigatória: devolva level nulo para um critério somente
+                quando marcar sufficient=false no registro cuja foto o avaliaria. Se
+                todos os registros estiverem sufficient=true, todo critério precisa
+                de um nível, o mais próximo do que as fotos mostram.
                 Devolva todos os critérios e todos os registros, sem repetir nem
                 acrescentar chaves. Não escreva nota, texto livre, conselho ou
                 recomendação. Retorne somente o schema solicitado.
@@ -91,8 +100,8 @@ class PracticePhotoAssessmentAgent(MentorAgent):
                         input=self._input(request),
                         images=[
                             Image(
-                                content=photos[record.key].content,
-                                format=_IMAGE_FORMATS[photos[record.key].media_type],
+                                content=self._model_image(photos[record.key].content),
+                                format='jpeg',
                             )
                             for record in request.records
                         ],
@@ -121,6 +130,19 @@ class PracticePhotoAssessmentAgent(MentorAgent):
                             used_tokens=received_tokens,
                         )
                     )
+
+    @staticmethod
+    def _model_image(content: bytes) -> bytes:
+        """Downscale and re-encode for the model only; the stored original is untouched.
+
+        Phone photos are several MB; a longest side of 1568 px keeps what the rubric
+        needs while cutting upload size and latency."""
+        with PilImage.open(io.BytesIO(content)) as source:
+            image = ImageOps.exif_transpose(source).convert('RGB')
+        image.thumbnail((_MAX_SIDE, _MAX_SIDE))
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=_JPEG_QUALITY)
+        return buffer.getvalue()
 
     @staticmethod
     def _input(request: PracticePhotoAssessmentInput) -> str:

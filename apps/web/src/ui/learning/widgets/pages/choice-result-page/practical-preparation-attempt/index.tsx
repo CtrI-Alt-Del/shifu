@@ -61,6 +61,7 @@ export const PracticalPreparationAttempt = ({
 }: PracticalPreparationAttemptProps) => {
   const idPrefix = `practical-attempt-${question.key}`
   const { status } = attempt
+  const score = attempt.score ?? result?.score ?? null
   const photos = (result?.photos ?? []).map((photo) => ({
     ...photo,
     label: result?.records.find(({ key }) => key === photo.recordKey)?.label ?? '',
@@ -290,13 +291,13 @@ export const PracticalPreparationAttempt = ({
               <p className='text-sm text-foreground'>
                 Confira os critérios observados nas fotos da sua preparação.
               </p>
-              {attempt.score !== undefined && attempt.score !== null ? (
+              {score !== null ? (
                 <output
-                  aria-label={`Nota da Atividade ${NUMBER_FORMATTER.format(attempt.score)} de 100`}
+                  aria-label={`Nota da Atividade ${NUMBER_FORMATTER.format(score)} de 100`}
                   className='flex items-end gap-3 text-success'
                 >
                   <span className='font-mono text-5xl font-semibold leading-none'>
-                    {NUMBER_FORMATTER.format(attempt.score)}
+                    {NUMBER_FORMATTER.format(score)}
                   </span>
                   <span className='pb-1 text-sm text-muted-foreground'>
                     de 100 · Nota da Atividade

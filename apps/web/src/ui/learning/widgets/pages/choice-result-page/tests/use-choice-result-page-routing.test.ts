@@ -419,6 +419,7 @@ describe('useChoiceResultPage routed result consumers', () => {
           records: [{ key: 'cuts', label: 'Cortes' }],
           photos: [{ recordKey: 'cuts', photoId: 'photo-1' }],
           reflection: '',
+          score: null,
           criteria: [
             {
               key: 'cut',
@@ -475,6 +476,54 @@ describe('useChoiceResultPage routed result consumers', () => {
         `/api${learningAttemptsPath(IDS)}/${IDS.attemptId}/practice-photos/photo-1`,
       )
     })
+
+    it('keeps polling after a retry until a review attempt completes without progress fields', async () => {
+      const reviewCompleted = {
+        ...attemptWire('completed', [{ ...practicalWire, score: '80' }]),
+        score: null,
+        progress_before: undefined,
+        progress_after: undefined,
+        status_before: undefined,
+        status_after: undefined,
+        next_action: undefined,
+      }
+      respondWithAttempt(attemptWire('failed'))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.canRetry).toBe(true))
+      // The server still answers 'failed' right after the retry, then completes.
+      let reads = 0
+      mocks.post.mockImplementation(async () => {
+        mocks.get.mockImplementation(async (path: string) => {
+          if (path === ATTEMPT_PATH) {
+            reads += 1
+            return new RestResponse({
+              statusCode: 200,
+              body: reads < 3 ? attemptWire('failed') : reviewCompleted,
+            })
+          }
+          if (path === learningActivityPath(IDS))
+            return new RestResponse({ statusCode: 200, body: ACTIVITY_WIRE })
+          return new RestResponse({
+            statusCode: 200,
+            body: { availability: 'unavailable' },
+          })
+        })
+        return new RestResponse({ statusCode: 200, body: {} })
+      })
+
+      await act(async () => result.current.handleRetryEvaluation())
+      expect(result.current.attempt?.status).toBe('pending')
+      expect(result.current.canRetry).toBe(false)
+      await waitFor(() => expect(result.current.attempt?.status).toBe('completed'), {
+        timeout: 12_000,
+      })
+
+      expect(result.current.attempt?.questions?.[0]).toMatchObject({
+        score: 80,
+        closedWithoutGrade: false,
+      })
+      expect(result.current.attempt?.score).toBeNull()
+    }, 20_000)
 
     it('treats a closed attempt without grade as terminal and never retryable', async () => {
       respondWithAttempt({

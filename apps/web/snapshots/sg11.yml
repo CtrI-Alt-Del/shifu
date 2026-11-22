@@ -1,0 +1,103 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - banner [ref=f3e3]:
+      - generic [ref=f3e4]:
+        - generic [ref=f3e5]:
+          - link "Shifu — Objetivos" [ref=f3e6] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f3e7]: Shifu
+            - generic [ref=f3e8]: 師
+          - navigation "Navegação principal" [ref=f3e9]:
+            - link "Objetivos" [ref=f3e10] [cursor=pointer]:
+              - /url: /
+            - link "Progresso" [ref=f3e11] [cursor=pointer]:
+              - /url: /gamification
+            - link "Mentor" [ref=f3e12] [cursor=pointer]:
+              - /url: /intelligence
+        - generic [ref=f3e13]:
+          - 'link "Uso da IA: 1% da cota mensal" [ref=f3e45] [cursor=pointer]':
+            - /url: /account/ai-usage
+            - generic [ref=f3e46]: IA · 1%
+          - button "Abrir menu da conta" [ref=f3e15] [cursor=pointer]
+    - main [ref=f3e20]:
+      - region "Prepare legumes salteados e registre o resultado." [ref=f3e49]:
+        - generic [ref=f3e50]:
+          - generic [ref=f3e51]:
+            - generic [ref=f3e52]:
+              - 'heading "Preparação prática: legumes salteados" [level=1] [ref=f3e53]'
+              - text: Fácil
+            - paragraph [ref=f3e54]:
+              - generic [ref=f3e55]: Questão 1 de 1
+              - text: · preparação prática
+          - progressbar "Progresso da Atividade" [ref=f3e56]
+        - generic [ref=f3e57]:
+          - heading [level=2] [ref=f3e58]:
+            - paragraph [ref=f3e59]: Prepare legumes salteados e registre o resultado.
+          - paragraph [ref=f3e60]: Registre as fotos pedidas e envie. Seus critérios estão disponíveis antes de começar.
+        - generic [ref=f3e61]:
+          - generic [ref=f3e62]:
+            - region "O que você vai preparar" [ref=f3e63]:
+              - heading "O que você vai preparar" [level=2] [ref=f3e64]
+              - list [ref=f3e65]:
+                - listitem [ref=f3e66]: Use fogo alto e mexa os legumes com frequência.
+              - generic [ref=f3e67]:
+                - heading "Referências" [level=3] [ref=f3e68]
+                - list [ref=f3e69]:
+                  - listitem [ref=f3e70]:
+                    - text: Técnica de salteado
+                    - generic [ref=f3e71]: ": Legumes cortados em pedaços iguais, em fogo alto."
+            - region "O que será avaliado" [ref=f3e72]:
+              - heading "O que será avaliado" [level=2] [ref=f3e73]
+              - list [ref=f3e74]:
+                - listitem [ref=f3e75]:
+                  - paragraph [ref=f3e76]:
+                    - generic [ref=f3e77]: Regularidade dos cortes
+                    - generic [ref=f3e78]: Peso 40%
+                  - paragraph [ref=f3e79]: Os pedaços têm tamanho e formato parecidos.
+                - listitem [ref=f3e80]:
+                  - paragraph [ref=f3e81]:
+                    - generic [ref=f3e82]: Técnica observável
+                    - generic [ref=f3e83]: Peso 40%
+                  - paragraph [ref=f3e84]: A técnica de salteado é visível durante o preparo.
+                - listitem [ref=f3e85]:
+                  - paragraph [ref=f3e86]:
+                    - generic [ref=f3e87]: Apresentação
+                    - generic [ref=f3e88]: Peso 20%
+                  - paragraph [ref=f3e89]: O prato final está organizado e limpo.
+              - paragraph [ref=f3e90]: A avaliação considera apenas o que as fotos permitem observar.
+          - generic [ref=f3e91]:
+            - heading "Sua preparação" [level=2] [ref=f3e92]
+            - paragraph [ref=f3e93]: "Formatos aceitos: JPEG, PNG ou WebP. Tamanho máximo: 10 MB por foto."
+            - generic [ref=f3e94]:
+              - paragraph [ref=f3e95]:
+                - generic [ref=f3e99]: Rascunho salvo na sua conta
+              - paragraph [ref=f3e100]: Continue de onde parou, inclusive em outro dispositivo.
+            - list "Registros fotográficos" [ref=f3e101]:
+              - listitem [ref=f3e102]:
+                - generic [ref=f3e103]:
+                  - heading "1. Cortes" [level=3] [ref=f3e104]
+                  - generic [ref=f3e105]: Obrigatória
+                - button [aria-hidden] [ref=f3e106]
+                - 'button "Adicionar foto: Cortes" [ref=f3e107] [cursor=pointer]': Adicionar foto
+                - paragraph [ref=f3e111]: "Mostre: Os legumes já cortados, na tábua ou em um recipiente."
+              - listitem [ref=f3e112]:
+                - generic [ref=f3e113]:
+                  - heading "2. Durante o preparo" [level=3] [ref=f3e114]
+                  - generic [ref=f3e115]: Obrigatória
+                - button [aria-hidden] [ref=f3e116]
+                - 'button "Adicionar foto: Durante o preparo" [ref=f3e117] [cursor=pointer]': Adicionar foto
+                - paragraph [ref=f3e121]: "Mostre: Os legumes na panela ou frigideira durante o salteado."
+              - listitem [ref=f3e122]:
+                - generic [ref=f3e123]:
+                  - heading "3. Prato final" [level=3] [ref=f3e124]
+                  - generic [ref=f3e125]: Obrigatória
+                - button [aria-hidden] [ref=f3e126]
+                - 'button "Adicionar foto: Prato final" [ref=f3e127] [cursor=pointer]': Adicionar foto
+                - paragraph [ref=f3e131]: "Mostre: O prato pronto, servido."
+            - generic [ref=f3e132]:
+              - button "Sua percepção · opcional" [ref=f3e133] [cursor=pointer]
+              - paragraph [ref=f3e137]: Conte como ficaram o sabor, o aroma e a textura. Sua reflexão não altera a nota.
+            - button "Enviar Atividade" [disabled] [ref=f3e141] [cursor=pointer]
+            - paragraph [ref=f3e142]: Adicione as 3 fotos para enviar a Atividade.
+  - button "Abrir Mentor" [ref=f3e41] [cursor=pointer]
+  - region "Notifications alt+T"

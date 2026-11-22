@@ -1,0 +1,41 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - generic [ref=f2e5]:
+          - link "Shifu — Objetivos" [ref=f2e6] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f2e7]: Shifu
+            - generic [ref=f2e8]: 師
+          - navigation "Navegação principal" [ref=f2e9]:
+            - link "Objetivos" [ref=f2e10] [cursor=pointer]:
+              - /url: /
+            - link "Progresso" [ref=f2e11] [cursor=pointer]:
+              - /url: /gamification
+            - link "Mentor" [ref=f2e12] [cursor=pointer]:
+              - /url: /intelligence
+        - generic [ref=f2e13]:
+          - 'link "Uso da IA: 1% da cota mensal" [ref=f2e39] [cursor=pointer]':
+            - /url: /account/ai-usage
+            - generic [ref=f2e40]: IA · 1%
+          - button "Abrir menu da conta" [ref=f2e15] [cursor=pointer]
+    - main [ref=f2e20]:
+      - generic [ref=f2e162]:
+        - generic [ref=f2e163]:
+          - heading "Diagnóstico" [level=1] [ref=f2e164]
+          - 'heading "Diagnóstico: precedência de regras" [level=2] [ref=f2e165]'
+          - paragraph [ref=f2e166]: O resultado aparecerá apenas no resumo consolidado. Materiais de apoio e dicas não estão disponíveis nesta Atividade.
+        - region "Urgência tem prioridade sobre ordem de chegada; a pessoa chegou depois e é urgente. Quem vai primeiro?" [ref=f2e169]:
+          - paragraph [ref=f2e172]: escolha uma alternativa
+          - heading [level=2] [ref=f2e174]:
+            - paragraph [ref=f2e175]: Urgência tem prioridade sobre ordem de chegada; a pessoa chegou depois e é urgente. Quem vai primeiro?
+          - radiogroup "Urgência tem prioridade sobre ordem de chegada; a pessoa chegou depois e é urgente. Quem vai primeiro?" [ref=f2e176]:
+            - generic [ref=f2e178] [cursor=pointer]:
+              - radio "A pessoa urgente" [ref=f2e179]
+              - generic [ref=f2e181]: A pessoa urgente
+            - generic [ref=f2e183] [cursor=pointer]:
+              - radio "Quem chegou antes" [ref=f2e184]
+              - generic [ref=f2e186]: Quem chegou antes
+        - button "Enviar diagnóstico" [disabled] [ref=f2e190] [cursor=pointer]
+  - button "Abrir Mentor" [ref=f2e35] [cursor=pointer]
+  - region "Notifications alt+T"

@@ -685,6 +685,7 @@ describe('ChoiceResultPage', () => {
           comment: 'Não foi possível observar o ponto.',
         },
       ],
+      score: 45,
       closedWithoutGrade: false,
       unassessableRecords: [],
       guidance: null,
@@ -952,6 +953,41 @@ describe('ChoiceResultPage', () => {
       expect(
         screen.getByRole('link', { name: 'Voltar para a Competência' }),
       ).toBeVisible()
+    })
+
+    it('renders a completed review attempt with null progress fields using the question score', () => {
+      renderAttempt({
+        attemptId: 'attempt-review',
+        activityId: 'activity-1',
+        status: 'completed',
+        submittedAt: '2026-09-23T12:00:00Z',
+        retryAllowed: false,
+        completesSkill: false,
+        score: null,
+        progressBefore: null,
+        progressAfter: null,
+        statusBefore: null,
+        statusAfter: null,
+        nextAction: null,
+        questions: [{ ...GRADED_QUESTION, score: 80 }],
+      })
+
+      expect(screen.getByRole('heading', { name: 'Atividade avaliada' })).toBeVisible()
+      expect(screen.getByLabelText('Nota da Atividade 80 de 100')).toBeVisible()
+      expect(screen.getByText('75 / 100')).toBeVisible()
+      expect(screen.getByText('Cortes quase uniformes.')).toBeVisible()
+      expect(screen.getAllByText('Peso 40%').length).toBeGreaterThan(0)
+    })
+
+    it('shows no score block when neither the attempt nor the question carries one', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        score: null,
+        questions: [{ ...GRADED_QUESTION, score: null }],
+      })
+
+      expect(screen.queryByText(/Nota da Atividade/)).not.toBeInTheDocument()
+      expect(screen.getByText('Cortes quase uniformes.')).toBeVisible()
     })
 
     it('opens the recommended next Activity from a completed result', () => {

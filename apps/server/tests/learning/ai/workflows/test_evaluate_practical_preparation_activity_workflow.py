@@ -112,6 +112,17 @@ class Harness:
 
 
 @pytest.fixture
+def failure_lines(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    lines: list[str] = []
+    monkeypatch.setattr(
+        'shifu.learning.ai.agno.workflows.'
+        'evaluate_practical_preparation_activity_workflow.log_warning',
+        lines.append,
+    )
+    return lines
+
+
+@pytest.fixture
 def harness(postgres_database: PostgresDatabase) -> Harness:
     return Harness(postgres_database)
 
@@ -221,7 +232,7 @@ class TestEvaluatePracticalPreparationActivityWorkflow:
         assert evaluation.score is None
 
     def test_logs_only_the_stage_and_error_class_of_a_failure(
-        self, harness: Harness, caplog: pytest.LogCaptureFixture
+        self, harness: Harness, failure_lines: list[str]
     ) -> None:
         harness.assessor.assess.side_effect = ServiceUnavailableError(
             'secret provider detail'
@@ -229,7 +240,7 @@ class TestEvaluatePracticalPreparationActivityWorkflow:
 
         harness.run_official()
 
-        messages = [record.getMessage() for record in caplog.records]
+        messages = failure_lines
         failure = next(item for item in messages if 'evaluation failed' in item)
         assert 'stage=assess' in failure
         assert 'error_class=ServiceUnavailableError' in failure
@@ -276,7 +287,7 @@ class TestEvaluatePracticalPreparationActivityWorkflow:
         assert part.unassessable_record_keys == ('during',)
 
     def test_fails_recoverably_for_uncertainty_that_does_not_prove_insufficiency(
-        self, harness: Harness, caplog: pytest.LogCaptureFixture
+        self, harness: Harness, failure_lines: list[str]
     ) -> None:
         # The criterion is inconclusive but the record is reported sufficient, so no
         # insufficiency rule is satisfied.
@@ -287,11 +298,7 @@ class TestEvaluatePracticalPreparationActivityWorkflow:
         evaluation = harness.seeded.current_evaluation()
         assert evaluation.status is ActivityEvaluationStatus.FAILED
         assert evaluation.status is not ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE
-        failure = next(
-            record.getMessage()
-            for record in caplog.records
-            if 'evaluation failed' in record.getMessage()
-        )
+        (failure,) = failure_lines
         assert 'stage=apply' in failure
         assert 'error_class=EvaluationUnavailableError' in failure
 
@@ -409,3 +416,23 @@ class TestEvaluatePracticalPreparationActivityWorkflow:
             harness.seeded.current_evaluation().status
             is ActivityEvaluationStatus.PENDING
         )
+
+    def test_settles_the_attempt_as_failed_when_the_framework_breaks_a_step(
+        self,
+        harness: Harness,
+        failure_lines: list[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def broken(_execution: object) -> object:
+            raise RuntimeError('framework detail')
+
+        monkeypatch.setattr(harness.workflow, '_apply_execution', broken)
+
+        harness.run_official()
+
+        evaluation = harness.seeded.current_evaluation()
+        assert evaluation.status is ActivityEvaluationStatus.FAILED
+        assert evaluation.failure_code == 'evaluation_failed'
+        (line,) = failure_lines
+        assert 'failure_code=evaluation_failed' in line
+        assert 'framework detail' not in line

@@ -432,6 +432,7 @@ export type PracticalPreparationResultQuestion = {
     level: number | null
     comment: string | null
   }[]
+  score: number | null
   closedWithoutGrade: boolean
   unassessableRecords: readonly { key: string; label: string; comment: string }[]
   guidance: string | null

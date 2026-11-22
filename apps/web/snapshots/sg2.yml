@@ -1,0 +1,65 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e25]:
+    - banner [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - link "Shifu — Objetivos" [ref=e29] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e30]: Shifu
+            - generic [ref=e31]: 師
+          - navigation "Navegação principal" [ref=e32]:
+            - link "Objetivos" [ref=e33] [cursor=pointer]:
+              - /url: /
+            - link "Progresso" [ref=e34] [cursor=pointer]:
+              - /url: /gamification
+            - link "Mentor" [ref=e35] [cursor=pointer]:
+              - /url: /intelligence
+        - generic [ref=e36]:
+          - 'link "Uso da IA: 1% da cota mensal" [ref=e37] [cursor=pointer]':
+            - /url: /account/ai-usage
+            - generic [ref=e38]: IA · 1%
+          - button "Abrir menu da conta" [ref=e40] [cursor=pointer]
+    - main [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "O que você quer aprender?" [level=1] [ref=e48]
+          - paragraph [ref=e49]: Descreva com suas palavras. O Shifu monta uma proposta com Habilidades reais e você confirma antes de criar.
+          - generic [ref=e50]:
+            - generic [ref=e51]: O que você quer aprender?
+            - textbox "O que você quer aprender?" [ref=e54]:
+              - /placeholder: "Ex.: quero conseguir automatizar tarefas repetitivas com Python"
+            - generic [ref=e55]:
+              - link "Criar manualmente" [ref=e56] [cursor=pointer]:
+                - /url: /learning/goals/new
+              - button "Planejar com IA" [ref=e57] [cursor=pointer]
+        - region "Seus Objetivos" [ref=e58]:
+          - generic [ref=e59]:
+            - heading "Seus Objetivos" [level=2] [ref=e60]
+            - generic [ref=e61]: 4 objetivos
+          - generic [ref=e62]:
+            - link "Aprender a programar Construir uma base prática para resolver problemas com código. 5 Habilidades" [ref=e103] [cursor=pointer]:
+              - /url: /learning/goals/01SHF000000000000000000012
+              - generic [ref=e65]:
+                - heading "Aprender a programar" [level=3] [ref=e66]
+                - paragraph [ref=e67]: Construir uma base prática para resolver problemas com código.
+              - generic [ref=e68]: 5 Habilidades
+            - link "Laboratório de progresso adaptativo Comece pelo diagnóstico e acompanhe a evolução de duas Competências. 1 Habilidade" [ref=e104] [cursor=pointer]:
+              - /url: /learning/goals/01SHF000000000000000000070
+              - generic [ref=e74]:
+                - heading "Laboratório de progresso adaptativo" [level=3] [ref=e75]
+                - paragraph [ref=e76]: Comece pelo diagnóstico e acompanhe a evolução de duas Competências.
+              - generic [ref=e77]: 1 Habilidade
+            - link "Testar diagnóstico inicial Percurso limpo para testar o diagnóstico nas competências, conceitos e recomendações. 1 Habilidade" [ref=e105] [cursor=pointer]:
+              - /url: /learning/goals/01SHF000000000000000000220
+              - generic [ref=e83]:
+                - heading "Testar diagnóstico inicial" [level=3] [ref=e84]
+                - paragraph [ref=e85]: Percurso limpo para testar o diagnóstico nas competências, conceitos e recomendações.
+              - generic [ref=e86]: 1 Habilidade
+            - link "Inglês para o dia a dia Pratique o presente simples completando frases com um banco de palavras. 1 Habilidade" [ref=e106] [cursor=pointer]:
+              - /url: /learning/goals/01SHFEN0000000000000000201
+              - generic [ref=e92]:
+                - heading "Inglês para o dia a dia" [level=3] [ref=e93]
+                - paragraph [ref=e94]: Pratique o presente simples completando frases com um banco de palavras.
+              - generic [ref=e95]: 1 Habilidade
+  - button "Abrir Mentor" [ref=e99] [cursor=pointer]
+  - region "Notifications alt+T"

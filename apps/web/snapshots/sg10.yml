@@ -1,0 +1,65 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - generic [ref=f2e5]:
+          - link "Shifu — Objetivos" [ref=f2e6] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f2e7]: Shifu
+            - generic [ref=f2e8]: 師
+          - navigation "Navegação principal" [ref=f2e9]:
+            - link "Objetivos" [ref=f2e10] [cursor=pointer]:
+              - /url: /
+            - link "Progresso" [ref=f2e11] [cursor=pointer]:
+              - /url: /gamification
+            - link "Mentor" [ref=f2e12] [cursor=pointer]:
+              - /url: /intelligence
+        - generic [ref=f2e13]:
+          - 'link "Uso da IA: 1% da cota mensal" [ref=f2e39] [cursor=pointer]':
+            - /url: /account/ai-usage
+            - generic [ref=f2e40]: IA · 1%
+          - button "Abrir menu da conta" [ref=f2e15] [cursor=pointer]
+    - main [ref=f2e20]:
+      - main [ref=f2e196]:
+        - generic [ref=f2e197]:
+          - generic [ref=f2e198]:
+            - heading "Seu ponto de partida" [level=1] [ref=f2e199]
+            - paragraph [ref=f2e200]: Este resumo consolidado mostra a base observada para cada Competência. Respostas e correções individuais não são exibidas.
+          - region "Resultado geral" [ref=f2e201]:
+            - heading "Resultado geral" [level=2] [ref=f2e202]
+            - paragraph [ref=f2e203]: 0%
+            - paragraph [ref=f2e204]: Progresso demonstrado em todos os Conceitos da Habilidade. O status de cada Competência considera os Conceitos avaliados.
+          - region "Ponto de partida por Competência (0–100)" [ref=f2e205]:
+            - heading "Ponto de partida por Competência (0–100)" [level=2] [ref=f2e206]
+            - region "Competências desta Habilidade" [ref=f2e208]:
+              - heading "Competências desta Habilidade" [level=2] [ref=f2e209]
+              - list [ref=f2e210]:
+                - listitem [ref=f2e211]:
+                  - link "1 Escolher caminhos 0% Em aprendizagem Em foco" [ref=f2e212] [cursor=pointer]:
+                    - /url: /learning/goals/01M82EKR8SZJTCZRJVR1JDNY6D/skills/01SHF000000000000000000032/competencies/01SHF000000000000000000033
+                    - generic [ref=f2e213]:
+                      - generic [ref=f2e214]: "1"
+                      - generic [ref=f2e215]: Escolher caminhos
+                      - generic [ref=f2e216]: 0%
+                    - generic [ref=f2e221]:
+                      - generic [ref=f2e222]: Em aprendizagem
+                      - generic [ref=f2e223]: Em foco
+              - paragraph [ref=f2e224]: Uma Competência bloqueada explica o requisito de liberação sem sair desta página.
+          - generic [ref=f2e225]:
+            - heading "Próximo passo recomendado" [level=2] [ref=f2e226]
+            - paragraph [ref=f2e227]: "practice Conceito em foco: Avaliar condições."
+            - region "Decisões na fila" [ref=f2e228]:
+              - generic [ref=f2e229]:
+                - paragraph [ref=f2e230]:
+                  - generic [ref=f2e231]: Fácil
+                  - generic [ref=f2e232]: Atividade nova
+                - heading "Decisões na fila" [level=2] [ref=f2e233]
+              - generic [ref=f2e234]:
+                - link "Continuar praticando" [ref=f2e235] [cursor=pointer]:
+                  - /url: /learning/goals/01M82EKR8SZJTCZRJVR1JDNY6D/skills/01SHF000000000000000000032/competencies/01SHF000000000000000000033/activities/01SHF000000000000000000039
+                - link "Ler material de apoio" [ref=f2e236] [cursor=pointer]:
+                  - /url: /learning/goals/01M82EKR8SZJTCZRJVR1JDNY6D/skills/01SHF000000000000000000032/competencies/01SHF000000000000000000033/materials/01SHF000000000000000000035
+                - link "Ver Habilidade" [ref=f2e237] [cursor=pointer]:
+                  - /url: /learning/goals/01M82EKR8SZJTCZRJVR1JDNY6D/skills/01SHF000000000000000000032
+  - button "Abrir Mentor" [ref=f2e35] [cursor=pointer]
+  - region "Notifications alt+T"

@@ -531,6 +531,7 @@ type AttemptWire = {
           level?: number | null
           comment?: string | null
         }[]
+        score?: number | string | null
         closed_without_grade: boolean
         unassessable_records: { key: string; label: string; comment: string }[]
         guidance?: string | null
@@ -679,6 +680,10 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
             level: criterion.level ?? null,
             comment: criterion.comment ?? null,
           })),
+          score:
+            question.score === undefined || question.score === null
+              ? null
+              : Number(question.score),
           closedWithoutGrade: question.closed_without_grade,
           unassessableRecords: question.unassessable_records,
           guidance: question.guidance ?? null,

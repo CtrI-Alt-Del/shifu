@@ -207,13 +207,17 @@ class TestEvaluatePracticalPreparationUseCase:
             self.database, self.clock, self.curriculum
         )
 
-    def _use_snapshot(self, grading: CurriculumLearningActivitySnapshot) -> None:
+    def _use_snapshot(
+        self,
+        grading: CurriculumLearningActivitySnapshot,
+        kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+    ) -> None:
         self.attempt = ActivityAttempt.create(
             id='attempt-1',
             skill_experience_id=EXPERIENCE_ID,
             competency_id=COMPETENCY_ID,
             activity_id=ACTIVITY_ID,
-            kind=ActivityAttemptKind.LEARNING,
+            kind=kind,
             answers=(
                 PracticalPreparationAnswer(
                     question_key=QUESTION_KEY,
@@ -483,3 +487,41 @@ class TestEvaluatePracticalPreparationUseCase:
         assert self.evaluation.parts == ()
         self.repositories.events.add.assert_not_called()
         self.repositories.concept_observations.add_many.assert_not_called()
+
+    def _as_review(self) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self._use_snapshot(snapshot(), ActivityAttemptKind.REVIEW)
+
+    def test_should_grade_a_review_attempt_without_new_evidence_or_xp(self) -> None:
+        self._as_review()
+
+        assert (
+            self.subject.execute(
+                'attempt-1', 'run-1', practical_decisions=decisions(100, 50, 0)
+            )
+            is True
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal(60)
+        assert self.evaluation.effect_applied_at == NOW
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_close_a_review_attempt_without_grade_and_settle_it(self) -> None:
+        self._as_review()
+
+        assert (
+            self.subject.execute(
+                'attempt-1',
+                'run-1',
+                practical_decisions=decisions(None, 75, 50, cuts_sufficient=False),
+            )
+            is True
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE
+        assert self.evaluation.effect_applied_at is None
+        self.repositories.activity_evaluations.update.assert_called_once_with(
+            self.evaluation
+        )

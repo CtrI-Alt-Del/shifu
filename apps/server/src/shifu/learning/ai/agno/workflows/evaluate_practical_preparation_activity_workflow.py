@@ -7,13 +7,13 @@ short status strings cross the step boundaries.
 
 from __future__ import annotations
 
-import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from agno.utils.log import log_warning  # pyright: ignore[reportUnknownVariableType] - Agno lacks complete SDK stubs.
 from agno.workflow.step import Step
 from agno.workflow.types import StepInput, StepOutput
 from agno.workflow.workflow import Workflow
@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     )
 
 
-_logger = logging.getLogger(__name__)
 _UNAVAILABLE = 'Practical preparation assessment is unavailable.'
 WORKFLOW_ID = 'learning-evaluate-practical-preparation-activity'
 
@@ -65,6 +64,7 @@ class _Execution:
     failure: bool = False
     stage: str | None = None
     error_class: str | None = None
+    settled: bool = False
 
 
 class EvaluatePracticalPreparationActivityWorkflow(Workflow):
@@ -138,9 +138,55 @@ class EvaluatePracticalPreparationActivityWorkflow(Workflow):
         execution = _Execution(raw_input=input)
         token = self._execution.set(execution)
         try:
-            return super().run(input=safe_native_input(input, _UNAVAILABLE))
+            try:
+                execution.official = OfficialRunInput.model_validate_json(
+                    safe_native_input(input, _UNAVAILABLE), strict=True
+                )
+            except (ServiceUnavailableError, ValidationError):
+                execution.official = None
+            try:
+                return super().run(input=safe_native_input(input, _UNAVAILABLE))
+            except Exception as error:
+                self._mark_failure(execution, 'framework', error)
+                raise
+            finally:
+                self._settle_if_open(execution)
         finally:
             self._execution.reset(token)
+
+    def _settle_if_open(self, execution: _Execution) -> None:
+        """A run that ended without reaching a terminal step output (an error in the
+        framework or between steps) still leaves the attempt recoverable, not pending."""
+        official = execution.official
+        if execution.settled or official is None:
+            return
+
+        execution.settled = True
+        self._log_failure(execution)
+        try:
+            self._fail_use_case.execute(official.attempt_id, official.run_id)
+        except Exception as error:  # noqa: BLE001 - nothing more can be persisted safely.
+            self._log_failure(
+                execution, stage='settle', error_class=type(error).__name__
+            )
+
+    @staticmethod
+    def _log_failure(
+        execution: _Execution,
+        *,
+        stage: str | None = None,
+        error_class: str | None = None,
+    ) -> None:
+        """One sanitized line: stage, exception class chain and failure code only.
+
+        It goes through the Agno logger, which prints it as is; the root logger would
+        reduce any warning to a generic framework event without its message."""
+        log_warning(
+            'Practical preparation evaluation failed: '
+            f'stage={stage or execution.stage or "unknown"} '
+            f'error_class={error_class or execution.error_class or "unknown"} '
+            'failure_code=evaluation_failed'
+        )
 
     def _execution_for_step(self, step_input: StepInput) -> _Execution:
         return execution_for_step(
@@ -224,7 +270,9 @@ class EvaluatePracticalPreparationActivityWorkflow(Workflow):
     def _apply_practical(self, step_input: StepInput) -> StepOutput:
         execution = self._execution_for_step(step_input)
         try:
-            return self._apply_execution(execution)
+            output = self._apply_execution(execution)
+            execution.settled = True
+            return output
         finally:
             self._execution.set(None)
 
@@ -251,12 +299,7 @@ class EvaluatePracticalPreparationActivityWorkflow(Workflow):
 
         # Technical failure, invalid result or uncertainty that does not prove
         # insufficiency: keep the same attempt recoverable. Never close without grade.
-        _logger.warning(
-            'Practical preparation evaluation failed: stage=%s error_class=%s '
-            'failure_code=evaluation_failed',
-            execution.stage or 'unknown',
-            execution.error_class or 'unknown',
-        )
+        self._log_failure(execution)
         try:
             self._fail_use_case.execute(official.attempt_id, official.run_id)
         except Exception:  # noqa: BLE001 - persist only safe failure state.
