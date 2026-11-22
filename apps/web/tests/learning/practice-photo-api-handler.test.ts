@@ -19,7 +19,7 @@ const DRAFT_PHOTO_PATH = buildPracticePhotoPath({ ...IDS, recordKey: 'cuts' })
 const ATTEMPT_PHOTO_PATH = buildAttemptPracticePhotoPath({
   ...IDS,
   attemptId: ATTEMPT_ID,
-  photoId: 'photo-1',
+  photoId: '01J7T8AC91Z5K8M4JQ8C2D6F0G',
 })
 
 async function putPhoto(
