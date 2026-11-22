@@ -13,6 +13,8 @@ if (!port || !identityOrigin)
 // real server functions and their error classification run.
 const FAULT_SCENARIO = 'account-unavailable'
 const QUOTA_SCENARIO = 'ai-quota-exhausted'
+const ERASURE_ACK_UNAVAILABLE_SCENARIO = 'account-erasure-ack-unavailable'
+const ERASURE_TARGET_GONE_SCENARIO = 'account-erasure-target-gone'
 const QUOTA_REFUSED_ROUTES = [
   /^\/intelligence\/mentor-sessions\/?$/,
   /^\/intelligence\/mentor-sessions\/[^/]+\/messages\/?$/,
@@ -21,12 +23,20 @@ const QUOTA_REFUSED_ROUTES = [
   /^\/intelligence\/planning-sessions\/[^/]+\/(?:restart|retry)\/?$/,
 ]
 const scenarios = new Map()
+const erasureOwners = new Map()
 async function readScenarioKind(request) {
   let text = ''
   for await (const chunk of request) text += chunk
   if (!text) return FAULT_SCENARIO
   try {
-    return JSON.parse(text).scenario === QUOTA_SCENARIO ? QUOTA_SCENARIO : FAULT_SCENARIO
+    const scenario = JSON.parse(text).scenario
+    return [
+      QUOTA_SCENARIO,
+      ERASURE_ACK_UNAVAILABLE_SCENARIO,
+      ERASURE_TARGET_GONE_SCENARIO,
+    ].includes(scenario)
+      ? scenario
+      : FAULT_SCENARIO
   } catch {
     return FAULT_SCENARIO
   }
@@ -64,6 +74,51 @@ const server = createServer(async (request, response) => {
     ).sub
   } catch {
     accountId = undefined
+  }
+  if (request.method === 'POST' && url.pathname === '/identity/account-deletions') {
+    const chunks = []
+    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('end', () => {
+      try {
+        const erasureId = JSON.parse(Buffer.concat(chunks).toString()).erasure_id
+        if (typeof erasureId === 'string' && accountId) {
+          erasureOwners.set(erasureId, accountId)
+        }
+      } catch {
+        // Invalid requests are handled by the real Identity API.
+      }
+    })
+  }
+  const erasureTarget = /^\/identity\/internal\/account-erasures\/([^/]+)\/target$/.exec(
+    url.pathname,
+  )
+  const erasureAcknowledgement =
+    /^\/identity\/internal\/account-erasures\/([^/]+)\/acknowledgements$/.exec(
+      url.pathname,
+    )
+  const erasureOwnerId = erasureTarget?.[1] ?? erasureAcknowledgement?.[1]
+  const erasureOwner = erasureOwnerId ? erasureOwners.get(erasureOwnerId) : undefined
+  const erasureScenario = erasureOwner ? scenarios.get(erasureOwner) : undefined
+  if (erasureTarget && erasureScenario?.kind === ERASURE_TARGET_GONE_SCENARIO) {
+    request.resume()
+    response.writeHead(404, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(JSON.stringify({ code: 'not_found' }))
+    return
+  }
+  if (
+    erasureAcknowledgement &&
+    erasureScenario?.kind === ERASURE_ACK_UNAVAILABLE_SCENARIO
+  ) {
+    request.resume()
+    response.writeHead(503, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(JSON.stringify({ code: 'service_unavailable' }))
+    return
   }
   const scenario = scenarios.get(accountId)
   if (

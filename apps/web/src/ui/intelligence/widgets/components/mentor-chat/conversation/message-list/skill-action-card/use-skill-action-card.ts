@@ -100,7 +100,7 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
   const [declineError, setDeclineError] = useState<string | null>(null)
   const lockedRequest = useRef<ConfirmationRequest | null>(null)
   const isConfirming = useRef(false)
-  const resultRef = useRef<HTMLDivElement | null>(null)
+  const resultRef = useRef<HTMLOutputElement | null>(null)
   const titleRef = useRef<HTMLHeadingElement | null>(null)
 
   const isAddition = proposal.kind === 'add_skill'

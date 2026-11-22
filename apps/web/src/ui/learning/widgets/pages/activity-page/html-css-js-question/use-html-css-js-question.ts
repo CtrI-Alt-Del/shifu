@@ -113,6 +113,8 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
   filesRef.current = files
   const [selectedPath, setSelectedPath] = useState(initialFiles[0]?.path ?? '')
   const [draftLoaded, setDraftLoaded] = useState(false)
+  const [connectivityRevision, setConnectivityRevision] = useState(0)
+  const connectivityRevisionRef = useRef(0)
   const [generation, setGeneration] = useState(0)
   const generationRef = useRef(0)
   const [isSaving, setIsSaving] = useState(false)
@@ -143,6 +145,7 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
   const runnerRef = useRef<HtmlCssJsPracticeRunner | null>(null)
   const saveTimeoutRef = useRef<number | null>(null)
   const scopeVersionRef = useRef(0)
+  const isAccountRevokedRef = useRef(false)
   const currentScopeRef = useRef(scopeKey)
   currentScopeRef.current = scopeKey
   const onFilesChangeRef = useRef(props.onFilesChange)
@@ -152,6 +155,7 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
 
   useEffect(() => {
     let cancelled = false
+    const restorationConnectivityRevision = connectivityRevision
     if (loadedScopeRef.current !== scopeKey) {
       loadedScopeRef.current = null
       scopeVersionRef.current += 1
@@ -160,6 +164,7 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
       setDraftLoaded(false)
       setIsDraftInvalidated(false)
       setHasSaveError(false)
+      isAccountRevokedRef.current = false
       setFiles(initialFiles)
       filesRef.current = initialFiles
       setSelectedPath(initialFiles[0]?.path ?? '')
@@ -171,10 +176,39 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
     }
     if (!props.isOnlineAuthority || !navigator.onLine || props.disabled) return
     const scopeVersion = ++scopeVersionRef.current
+    let restorationAllowed = false
     void props.draftStore
-      .read(draftKey)
+      .validateAccountCapability(draftKey.accountId)
+      .then(async (capabilityState) => {
+        if (
+          cancelled ||
+          restorationConnectivityRevision !== connectivityRevisionRef.current ||
+          scopeVersion !== scopeVersionRef.current
+        )
+          return null
+        if (capabilityState === 'revoked') {
+          isAccountRevokedRef.current = true
+          setIsDraftInvalidated(true)
+          setDraftLoaded(true)
+          setFiles(initialFiles)
+          filesRef.current = initialFiles
+          setSelectedPath(initialFiles[0]?.path ?? '')
+          onFilesChangeRef.current?.(copyFiles(initialFiles))
+          onValidityChangeRef.current?.(false)
+          return null
+        }
+        restorationAllowed = true
+        return props.draftStore.read(draftKey)
+      })
       .then(async (draft) => {
-        if (cancelled || scopeVersion !== scopeVersionRef.current) return
+        if (
+          cancelled ||
+          restorationConnectivityRevision !== connectivityRevisionRef.current ||
+          !restorationAllowed ||
+          isAccountRevokedRef.current ||
+          scopeVersion !== scopeVersionRef.current
+        )
+          return
         if (draft?.tombstone) {
           setIsDraftInvalidated(true)
           const nextGeneration = await props.draftStore.clearTombstone(
@@ -217,9 +251,18 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
       })
       .catch(() => setHasSaveError(true))
       .finally(() => {
-        if (!cancelled && scopeVersion === scopeVersionRef.current) {
-          loadedScopeRef.current = scopeKey
-          setDraftLoaded(true)
+        if (
+          !cancelled &&
+          restorationConnectivityRevision === connectivityRevisionRef.current &&
+          scopeVersion === scopeVersionRef.current
+        ) {
+          if (restorationAllowed && !isAccountRevokedRef.current) {
+            loadedScopeRef.current = scopeKey
+            setDraftLoaded(true)
+          } else {
+            loadedScopeRef.current = null
+            setDraftLoaded(isAccountRevokedRef.current)
+          }
         }
       })
     return () => {
@@ -227,6 +270,7 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
     }
   }, [
     draftKey,
+    connectivityRevision,
     initialFiles,
     props.disabled,
     props.draftStore,
@@ -236,14 +280,7 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
   ])
 
   useEffect(() => {
-    if (
-      !draftKey ||
-      !props.isOnlineAuthority ||
-      !draftLoaded ||
-      isFrozen ||
-      !navigator.onLine
-    )
-      return
+    if (!draftKey || !props.isOnlineAuthority || !draftLoaded || isFrozen) return
     setIsSaving(true)
     const version = editVersion
     const scopeVersion = scopeVersionRef.current
@@ -319,6 +356,17 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
     if (!draftKey) return
     let cancelled = false
     const unsubscribe = props.draftStore.subscribe(draftKey, (event) => {
+      if (event.accountRevoked) {
+        isAccountRevokedRef.current = true
+        setDraftLoaded(true)
+        setIsDraftInvalidated(true)
+        setFiles(initialFiles)
+        filesRef.current = initialFiles
+        setSelectedPath(initialFiles[0]?.path ?? '')
+        onFilesChangeRef.current?.(copyFiles(initialFiles))
+        onValidityChangeRef.current?.(false)
+        return
+      }
       void props.draftStore
         .read(draftKey)
         .then((draft) => {
@@ -353,7 +401,26 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
       cancelled = true
       unsubscribe()
     }
-  }, [draftKey, isFrozen, props.draftStore, props.question])
+  }, [draftKey, initialFiles, isFrozen, props.draftStore, props.question])
+
+  useEffect(() => {
+    const handleOffline = () => {
+      loadedScopeRef.current = null
+      connectivityRevisionRef.current += 1
+      setConnectivityRevision(connectivityRevisionRef.current)
+      onValidityChangeRef.current?.(false)
+    }
+    const handleOnline = () => {
+      connectivityRevisionRef.current += 1
+      setConnectivityRevision(connectivityRevisionRef.current)
+    }
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [])
 
   useEffect(() => {
     if (!draftKey || !props.isOnlineAuthority || !props.activityRevision) return
@@ -376,12 +443,18 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
     if (!draftLoaded || !matchesEditableFiles(files, props.question)) return
     onFilesChangeRef.current?.(copyFiles(files))
     onValidityChangeRef.current?.(
-      Boolean(props.canSubmit !== false && (props.isOnlineAuthority || !draftKey)),
+      Boolean(
+        props.canSubmit !== false &&
+          (props.isOnlineAuthority || !draftKey) &&
+          !isDraftInvalidated &&
+          !isAccountRevokedRef.current,
+      ),
     )
   }, [
     draftKey,
     draftLoaded,
     files,
+    isDraftInvalidated,
     props.canSubmit,
     props.isOnlineAuthority,
     props.question,
@@ -443,7 +516,13 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
   )
 
   function handleFileChange(path: string, content: string) {
-    if (isFrozen || !props.question.editablePaths.includes(path)) return
+    if (
+      isFrozen ||
+      isAccountRevokedRef.current ||
+      isDraftInvalidated ||
+      !props.question.editablePaths.includes(path)
+    )
+      return
     const next = files.map((file) => (file.path === path ? { path, content } : file))
     if (!matchesEditableFiles(next, props.question)) {
       setHasFileError(true)
@@ -465,6 +544,8 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
   async function handleAssess() {
     if (
       isFrozen ||
+      isAccountRevokedRef.current ||
+      isDraftInvalidated ||
       !props.onAssess ||
       !draftLoaded ||
       !matchesEditableFiles(files, props.question) ||
@@ -476,6 +557,12 @@ export function useHtmlCssJsQuestion(props: HtmlCssJsQuestionProps) {
     const snapshot = copyFiles(filesRef.current)
     try {
       if (draftKey) {
+        const capabilityState = await props.draftStore.validateAccountCapability(
+          draftKey.accountId,
+          true,
+        )
+        if (capabilityState !== 'active')
+          throw new Error('Os dados desta conta foram invalidados.')
         if (saveTimeoutRef.current !== null) window.clearTimeout(saveTimeoutRef.current)
         await writeQueueRef.current.catch(() => undefined)
         const nextGeneration = await props.draftStore.write(

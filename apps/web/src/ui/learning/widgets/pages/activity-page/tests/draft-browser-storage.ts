@@ -3,15 +3,26 @@ import { vi } from 'vitest'
 /** Deterministic browser ports; persistence behavior is asserted through page consumers. */
 export function installDraftBrowserStorage() {
   const records = new Map<IDBValidKey, unknown>()
+  const capabilityRecords = new Map<IDBValidKey, unknown>()
+  const objectStoreNames = new Set<string>()
   const channels = new Set<BroadcastChannelMock>()
   type Failure = {
     mode: IDBTransactionMode | 'open'
     operation: 'get' | 'cursor' | 'open'
     event: 'request-error' | 'transaction-error' | 'abort'
+    storeName?: string
   }
   let pendingFailure: Failure | null = null
-  function takeFailure(mode: Failure['mode'], operation: Failure['operation']) {
-    if (pendingFailure?.mode !== mode || pendingFailure.operation !== operation)
+  function takeFailure(
+    mode: Failure['mode'],
+    operation: Failure['operation'],
+    storeName?: string,
+  ) {
+    if (
+      pendingFailure?.mode !== mode ||
+      pendingFailure.operation !== operation ||
+      (pendingFailure.storeName !== undefined && pendingFailure.storeName !== storeName)
+    )
       return null
     const failure = pendingFailure
     pendingFailure = null
@@ -31,81 +42,97 @@ export function installDraftBrowserStorage() {
     }
   }
   const database = {
-    createObjectStore: vi.fn(),
+    objectStoreNames: {
+      contains(name: string) {
+        return objectStoreNames.has(name)
+      },
+    },
+    createObjectStore: vi.fn((name: string) => {
+      objectStoreNames.add(name)
+      return {}
+    }),
     close: vi.fn(),
-    transaction: vi.fn((_storeName: string, mode: IDBTransactionMode) => {
+    transaction: vi.fn((_storeName: string | string[], mode: IDBTransactionMode) => {
       const transaction = {
         error: new DOMException('Local draft storage failed', 'AbortError'),
         oncomplete: null as (() => void) | null,
         onerror: null as (() => void) | null,
         onabort: null as (() => void) | null,
-        objectStore: () => ({
-          get(key: IDBValidKey) {
-            const failure = takeFailure(mode, 'get')
-            const request = {
-              result: undefined as unknown,
-              error: new DOMException('Draft read failed', 'UnknownError'),
-              onsuccess: null as (() => void) | null,
-              onerror: null as (() => void) | null,
-            }
-            queueMicrotask(() => {
-              if (failure) {
-                if (failure.event === 'request-error') request.onerror?.()
-                else if (failure.event === 'abort') transaction.onabort?.()
-                else transaction.onerror?.()
-                return
+        objectStore: (name: string) => {
+          const storeRecords =
+            name === 'account-capabilities' ? capabilityRecords : records
+          return {
+            get(key: IDBValidKey) {
+              const failure = takeFailure(mode, 'get', name)
+              const request = {
+                result: undefined as unknown,
+                error: new DOMException('Draft read failed', 'UnknownError'),
+                onsuccess: null as (() => void) | null,
+                onerror: null as (() => void) | null,
               }
-              request.result = records.get(key)
-              request.onsuccess?.()
-              setTimeout(() => transaction.oncomplete?.(), 0)
-            })
-            return request
-          },
-          put(value: unknown, key: IDBValidKey) {
-            records.set(key, structuredClone(value))
-            return {}
-          },
-          openCursor() {
-            const failure = takeFailure(mode, 'cursor')
-            const entries = [...records.entries()]
-            let index = 0
-            const request = {
-              result: null as null | {
-                value: unknown
-                delete: () => void
-                update: (value: unknown) => void
-                continue: () => void
-              },
-              onsuccess: null as (() => void) | null,
-            }
-            function next() {
               queueMicrotask(() => {
-                const entry = entries[index++]
-                request.result = entry
-                  ? {
-                      value: entry[1],
-                      delete: () => {
-                        records.delete(entry[0])
-                      },
-                      update: (value) => {
-                        records.set(entry[0], structuredClone(value))
-                      },
-                      continue: next,
-                    }
-                  : null
+                if (failure) {
+                  if (failure.event === 'request-error') request.onerror?.()
+                  else if (failure.event === 'abort') transaction.onabort?.()
+                  else transaction.onerror?.()
+                  return
+                }
+                request.result = storeRecords.get(key)
                 request.onsuccess?.()
-                if (!entry) setTimeout(() => transaction.oncomplete?.(), 0)
+                setTimeout(() => transaction.oncomplete?.(), 0)
               })
-            }
-            if (failure) {
-              queueMicrotask(() => {
-                if (failure.event === 'abort') transaction.onabort?.()
-                else transaction.onerror?.()
-              })
-            } else next()
-            return request
-          },
-        }),
+              return request
+            },
+            put(value: unknown, key?: IDBValidKey) {
+              const accountId = (value as { accountId?: string }).accountId
+              const recordKey = key ?? accountId
+              if (recordKey !== undefined)
+                storeRecords.set(recordKey, structuredClone(value))
+              setTimeout(() => transaction.oncomplete?.(), 0)
+              return {}
+            },
+            openCursor() {
+              const failure = takeFailure(mode, 'cursor', name)
+              const entries = [...storeRecords.entries()]
+              let index = 0
+              const request = {
+                result: null as null | {
+                  value: unknown
+                  delete: () => void
+                  update: (value: unknown) => void
+                  continue: () => void
+                },
+                onsuccess: null as (() => void) | null,
+              }
+              function next() {
+                queueMicrotask(() => {
+                  const entry = entries[index++]
+                  request.result = entry
+                    ? {
+                        value: entry[1],
+                        delete: () => {
+                          storeRecords.delete(entry[0])
+                        },
+                        update: (value) => {
+                          storeRecords.set(entry[0], structuredClone(value))
+                        },
+                        continue: next,
+                      }
+                    : null
+                  request.onsuccess?.()
+                  if (!entry) setTimeout(() => transaction.oncomplete?.(), 0)
+                })
+              }
+              if (failure) {
+                queueMicrotask(() => {
+                  if (failure.event === 'abort') transaction.onabort?.()
+                  else transaction.onerror?.()
+                })
+              } else next()
+              return request
+            },
+          }
+        },
       }
       return transaction
     }),
@@ -134,12 +161,14 @@ export function installDraftBrowserStorage() {
   })
   return {
     records,
+    capabilityRecords,
     rejectNext(
       mode: Failure['mode'],
       operation: Failure['operation'],
       event: Failure['event'],
+      storeName?: string,
     ) {
-      pendingFailure = { mode, operation, event }
+      pendingFailure = { mode, operation, event, storeName }
     },
     publish(data: unknown) {
       for (const channel of channels) channel.onmessage?.({ data } as MessageEvent)

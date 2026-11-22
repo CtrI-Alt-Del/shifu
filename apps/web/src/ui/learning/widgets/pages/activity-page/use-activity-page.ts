@@ -35,6 +35,7 @@ import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
+import { CookieSessionAuthProvider } from '@/provision/auth/cookie-session-auth-provider'
 import {
   clearDiagnosticRun,
   getDiagnosticRun,
@@ -115,6 +116,7 @@ type GetActivityFailure = Extract<
 >
 
 const HTTP_CONFLICT_STATUS_CODE = 409
+const ACCOUNT_CLOSURE_COMMITTED_KEY = 'shifu:account-closure-committed'
 
 class StaleDiagnosticRunError extends RestError {}
 class DiagnosticEntryRequiredError extends RestError {}
@@ -445,9 +447,12 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
   )
 
 export function useActivityPage(props: ActivityPageProps) {
+  const browserDataCapabilityClient = useMemo(() => CookieSessionAuthProvider(), [])
   const reactDraftStore = useMemo(
-    () => props.reactDraftStore ?? IndexedDbReactQuestionDraftStore(),
-    [props.reactDraftStore],
+    () =>
+      props.reactDraftStore ??
+      IndexedDbReactQuestionDraftStore(browserDataCapabilityClient),
+    [browserDataCapabilityClient, props.reactDraftStore],
   )
   const injected = 'activity' in props
   const goalId = injected ? null : props.goalId
@@ -592,6 +597,25 @@ export function useActivityPage(props: ActivityPageProps) {
   const isOnlineAuthority = Boolean(
     accountId && activityQuery.isSuccess && isBrowserOnline && !needsAuthorityRefresh,
   )
+  useEffect(() => {
+    if (!accountId) return
+    const revalidateCapability = () => {
+      if (!navigator.onLine) return
+      void reactDraftStore
+        .validateAccountCapability(accountId, true)
+        .catch(() => undefined)
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === ACCOUNT_CLOSURE_COMMITTED_KEY && event.newValue)
+        revalidateCapability()
+    }
+    window.addEventListener(ACCOUNT_CLOSURE_COMMITTED_KEY, revalidateCapability)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener(ACCOUNT_CLOSURE_COMMITTED_KEY, revalidateCapability)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [accountId, reactDraftStore])
   const isRouteError = activityQuery.isError && !injected
   const isPrivateAbsence =
     activityQuery.error instanceof RestError &&
@@ -1106,6 +1130,24 @@ export function useActivityPage(props: ActivityPageProps) {
     setIsSubmitting(true)
     setHasSubmissionError(false)
     try {
+      const containsPersistedCodeAnswer = submissionAnswers.some(
+        (answer) =>
+          answer &&
+          !activity.isDiagnostic &&
+          (answer.kind === 'react' ||
+            answer.kind === 'html_css_js' ||
+            answer.kind === 'react_fastify'),
+      )
+      if (accountId && containsPersistedCodeAnswer) {
+        const capabilityState = await reactDraftStore.validateAccountCapability(
+          accountId,
+          true,
+        )
+        if (capabilityState !== 'active') {
+          setHasSubmissionError(true)
+          return
+        }
+      }
       const submission: ChoiceSubmission = {
         answers: submissionAnswers as ActivityAnswer[],
         ...(activity.activityRevision

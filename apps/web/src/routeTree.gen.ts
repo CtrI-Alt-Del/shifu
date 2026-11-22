@@ -35,9 +35,14 @@ import { Route as GamificationCalendarIndexRouteImport } from './routes/gamifica
 import { Route as GamificationOverviewIndexRouteImport } from './routes/gamification/overview/index'
 import { Route as GamificationXpHistoryIndexRouteImport } from './routes/gamification/xp-history/index'
 import { Route as IntelligenceMemoriesIndexRouteImport } from './routes/intelligence/memories/index'
+import { Route as ApiIdentityBrowserDataCapabilitiesIndexRouteImport } from './routes/api/identity/browser-data-capabilities/index'
+import { Route as ApiIdentityBrowserDataValidationsIndexRouteImport } from './routes/api/identity/browser-data-validations/index'
+import { Route as ApiInternalIdentityAccountClosureRouteImport } from './routes/api/internal/identity/account-closure'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
+import { Route as ApiAuthAccountDeletionIndexRouteImport } from './routes/api/auth/account/deletion/index'
+import { Route as ApiAuthAccountDeletionPrepareRouteImport } from './routes/api/auth/account/deletion/prepare'
 import { Route as ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRouteImport } from './routes/api/intelligence/mentor-attachment-batches/$batchId/attachments/index'
 import { Route as ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport } from './routes/api/intelligence/mentor-sessions/$sessionId/events/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/index'
@@ -186,6 +191,24 @@ const IntelligenceMemoriesIndexRoute =
     path: '/intelligence/memories/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIdentityBrowserDataCapabilitiesIndexRoute =
+  ApiIdentityBrowserDataCapabilitiesIndexRouteImport.update({
+    id: '/api/identity/browser-data-capabilities/',
+    path: '/api/identity/browser-data-capabilities/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIdentityBrowserDataValidationsIndexRoute =
+  ApiIdentityBrowserDataValidationsIndexRouteImport.update({
+    id: '/api/identity/browser-data-validations/',
+    path: '/api/identity/browser-data-validations/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiInternalIdentityAccountClosureRoute =
+  ApiInternalIdentityAccountClosureRouteImport.update({
+    id: '/api/internal/identity/account-closure',
+    path: '/api/internal/identity/account-closure',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const IntelligencePlannerPlanningIdIndexRoute =
   IntelligencePlannerPlanningIdIndexRouteImport.update({
     id: '/intelligence/planner/$planningId/',
@@ -203,6 +226,18 @@ const LearningGoalsNewIndexRoute = LearningGoalsNewIndexRouteImport.update({
   path: '/learning/goals/new/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthAccountDeletionIndexRoute =
+  ApiAuthAccountDeletionIndexRouteImport.update({
+    id: '/api/auth/account/deletion/',
+    path: '/api/auth/account/deletion/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAuthAccountDeletionPrepareRoute =
+  ApiAuthAccountDeletionPrepareRouteImport.update({
+    id: '/api/auth/account/deletion/prepare',
+    path: '/api/auth/account/deletion/prepare',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute =
   ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRouteImport.update(
     {
@@ -313,9 +348,14 @@ export interface FileRoutesByFullPath {
   '/gamification/overview/': typeof GamificationOverviewIndexRoute
   '/gamification/xp-history/': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
+  '/api/internal/identity/account-closure': typeof ApiInternalIdentityAccountClosureRoute
+  '/api/identity/browser-data-capabilities/': typeof ApiIdentityBrowserDataCapabilitiesIndexRoute
+  '/api/identity/browser-data-validations/': typeof ApiIdentityBrowserDataValidationsIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/auth/account/deletion/prepare': typeof ApiAuthAccountDeletionPrepareRoute
+  '/api/auth/account/deletion/': typeof ApiAuthAccountDeletionIndexRoute
   '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
@@ -353,9 +393,14 @@ export interface FileRoutesByTo {
   '/gamification/overview': typeof GamificationOverviewIndexRoute
   '/gamification/xp-history': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories': typeof IntelligenceMemoriesIndexRoute
+  '/api/internal/identity/account-closure': typeof ApiInternalIdentityAccountClosureRoute
+  '/api/identity/browser-data-capabilities': typeof ApiIdentityBrowserDataCapabilitiesIndexRoute
+  '/api/identity/browser-data-validations': typeof ApiIdentityBrowserDataValidationsIndexRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
+  '/api/auth/account/deletion/prepare': typeof ApiAuthAccountDeletionPrepareRoute
+  '/api/auth/account/deletion': typeof ApiAuthAccountDeletionIndexRoute
   '/api/intelligence/mentor-attachment-batches/$batchId/attachments': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
@@ -395,9 +440,14 @@ export interface FileRoutesById {
   '/gamification/overview/': typeof GamificationOverviewIndexRoute
   '/gamification/xp-history/': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
+  '/api/internal/identity/account-closure': typeof ApiInternalIdentityAccountClosureRoute
+  '/api/identity/browser-data-capabilities/': typeof ApiIdentityBrowserDataCapabilitiesIndexRoute
+  '/api/identity/browser-data-validations/': typeof ApiIdentityBrowserDataValidationsIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/auth/account/deletion/prepare': typeof ApiAuthAccountDeletionPrepareRoute
+  '/api/auth/account/deletion/': typeof ApiAuthAccountDeletionIndexRoute
   '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
@@ -439,9 +489,14 @@ export interface FileRouteTypes {
     | '/gamification/overview/'
     | '/gamification/xp-history/'
     | '/intelligence/memories/'
+    | '/api/internal/identity/account-closure'
+    | '/api/identity/browser-data-capabilities/'
+    | '/api/identity/browser-data-validations/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/auth/account/deletion/prepare'
+    | '/api/auth/account/deletion/'
     | '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
     | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
@@ -479,9 +534,14 @@ export interface FileRouteTypes {
     | '/gamification/overview'
     | '/gamification/xp-history'
     | '/intelligence/memories'
+    | '/api/internal/identity/account-closure'
+    | '/api/identity/browser-data-capabilities'
+    | '/api/identity/browser-data-validations'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
     | '/learning/goals/new'
+    | '/api/auth/account/deletion/prepare'
+    | '/api/auth/account/deletion'
     | '/api/intelligence/mentor-attachment-batches/$batchId/attachments'
     | '/api/intelligence/mentor-sessions/$sessionId/events'
     | '/learning/goals/$goalId/skills/$skillId'
@@ -520,9 +580,14 @@ export interface FileRouteTypes {
     | '/gamification/overview/'
     | '/gamification/xp-history/'
     | '/intelligence/memories/'
+    | '/api/internal/identity/account-closure'
+    | '/api/identity/browser-data-capabilities/'
+    | '/api/identity/browser-data-validations/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/auth/account/deletion/prepare'
+    | '/api/auth/account/deletion/'
     | '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
     | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
@@ -553,9 +618,14 @@ export interface RootRouteChildren {
   ResetPasswordIndexRoute: typeof ResetPasswordIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IntelligenceMemoriesIndexRoute: typeof IntelligenceMemoriesIndexRoute
+  ApiInternalIdentityAccountClosureRoute: typeof ApiInternalIdentityAccountClosureRoute
+  ApiIdentityBrowserDataCapabilitiesIndexRoute: typeof ApiIdentityBrowserDataCapabilitiesIndexRoute
+  ApiIdentityBrowserDataValidationsIndexRoute: typeof ApiIdentityBrowserDataValidationsIndexRoute
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
   LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
+  ApiAuthAccountDeletionPrepareRoute: typeof ApiAuthAccountDeletionPrepareRoute
+  ApiAuthAccountDeletionIndexRoute: typeof ApiAuthAccountDeletionIndexRoute
   ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute: typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute: typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   LearningGoalsGoalIdSkillsSkillIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
@@ -749,6 +819,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntelligenceMemoriesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/identity/browser-data-capabilities/': {
+      id: '/api/identity/browser-data-capabilities/'
+      path: '/api/identity/browser-data-capabilities'
+      fullPath: '/api/identity/browser-data-capabilities/'
+      preLoaderRoute: typeof ApiIdentityBrowserDataCapabilitiesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/identity/browser-data-validations/': {
+      id: '/api/identity/browser-data-validations/'
+      path: '/api/identity/browser-data-validations'
+      fullPath: '/api/identity/browser-data-validations/'
+      preLoaderRoute: typeof ApiIdentityBrowserDataValidationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/identity/account-closure': {
+      id: '/api/internal/identity/account-closure'
+      path: '/api/internal/identity/account-closure'
+      fullPath: '/api/internal/identity/account-closure'
+      preLoaderRoute: typeof ApiInternalIdentityAccountClosureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/intelligence/planner/$planningId/': {
       id: '/intelligence/planner/$planningId/'
       path: '/intelligence/planner/$planningId'
@@ -768,6 +859,20 @@ declare module '@tanstack/react-router' {
       path: '/learning/goals/new'
       fullPath: '/learning/goals/new/'
       preLoaderRoute: typeof LearningGoalsNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/account/deletion/': {
+      id: '/api/auth/account/deletion/'
+      path: '/api/auth/account/deletion'
+      fullPath: '/api/auth/account/deletion/'
+      preLoaderRoute: typeof ApiAuthAccountDeletionIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/account/deletion/prepare': {
+      id: '/api/auth/account/deletion/prepare'
+      path: '/api/auth/account/deletion/prepare'
+      fullPath: '/api/auth/account/deletion/prepare'
+      preLoaderRoute: typeof ApiAuthAccountDeletionPrepareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': {
@@ -942,10 +1047,18 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordIndexRoute: ResetPasswordIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   IntelligenceMemoriesIndexRoute: IntelligenceMemoriesIndexRoute,
+  ApiInternalIdentityAccountClosureRoute:
+    ApiInternalIdentityAccountClosureRoute,
+  ApiIdentityBrowserDataCapabilitiesIndexRoute:
+    ApiIdentityBrowserDataCapabilitiesIndexRoute,
+  ApiIdentityBrowserDataValidationsIndexRoute:
+    ApiIdentityBrowserDataValidationsIndexRoute,
   IntelligencePlannerPlanningIdIndexRoute:
     IntelligencePlannerPlanningIdIndexRoute,
   LearningGoalsGoalIdIndexRoute: LearningGoalsGoalIdIndexRoute,
   LearningGoalsNewIndexRoute: LearningGoalsNewIndexRoute,
+  ApiAuthAccountDeletionPrepareRoute: ApiAuthAccountDeletionPrepareRoute,
+  ApiAuthAccountDeletionIndexRoute: ApiAuthAccountDeletionIndexRoute,
   ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute:
     ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute,
   ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute:

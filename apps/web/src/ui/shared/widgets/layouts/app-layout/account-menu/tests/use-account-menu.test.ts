@@ -1,4 +1,4 @@
-import { act, fireEvent, renderHook, waitFor } from '@testing-library/react'
+import { act, fireEvent, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthContext } from '@/ui/shared/contexts/auth-context/use-auth-context'
@@ -33,6 +33,11 @@ describe('useAccountMenu', () => {
       getAccountProfile: vi.fn(),
       updateAccountProfile: vi.fn(),
       changeAccountPassword: vi.fn(),
+      prepareAccountDeletion: vi.fn(),
+      deleteAccount: vi.fn(),
+      getAccountDeletionStatus: vi.fn(),
+      issueBrowserDataCapability: vi.fn(),
+      validateBrowserDataCapability: vi.fn(),
       signOut: signOutMock,
     })
     useNavigationMock.mockReturnValue({
@@ -97,9 +102,10 @@ describe('useAccountMenu', () => {
         }),
     )
     const { result } = renderHook(() => useAccountMenu())
+    let pendingSignOut = Promise.resolve()
 
     act(() => {
-      void result.current.handleSignOut()
+      pendingSignOut = result.current.handleSignOut()
       void result.current.handleSignOut()
     })
 
@@ -108,10 +114,11 @@ describe('useAccountMenu', () => {
 
     await act(async () => {
       resolveSignOut()
-      await waitFor(() => expect(navigateToMock).toHaveBeenCalledWith('login'))
+      await pendingSignOut
     })
 
     expect(result.current.status).toBe('success')
+    expect(navigateToMock).toHaveBeenCalledWith('login')
   })
 
   it('keeps the menu recoverable after a safe logout failure', async () => {

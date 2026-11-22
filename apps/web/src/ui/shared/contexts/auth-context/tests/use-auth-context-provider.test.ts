@@ -21,6 +21,11 @@ const providerValue = {
   getAccountProfile: vi.fn(),
   updateAccountProfile: vi.fn(),
   changeAccountPassword: vi.fn(),
+  prepareAccountDeletion: vi.fn(),
+  deleteAccount: vi.fn(),
+  getAccountDeletionStatus: vi.fn(),
+  issueBrowserDataCapability: vi.fn(),
+  validateBrowserDataCapability: vi.fn(),
   signOut: vi.fn(),
 }
 

@@ -91,6 +91,8 @@ function createStore(
     clearTombstone: vi.fn(async () => 2),
     tombstoneActivity: vi.fn(async () => undefined),
     tombstoneStaleActivity: vi.fn(async () => undefined),
+    validateAccountCapability: vi.fn(async () => 'active' as const),
+    revokeAccount: vi.fn(async () => undefined),
     subscribe: vi.fn(() => () => undefined),
     ...overrides,
   }
@@ -121,6 +123,74 @@ function createProps(
 }
 
 describe('useHtmlCssJsQuestion', () => {
+  it('preserves a draft and blocks assessment until browser capability validation recovers', async () => {
+    const validateAccountCapability = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('identity unavailable'))
+      .mockResolvedValue('active')
+    const read = vi.fn(async () =>
+      createDraft([{ path: 'index.html', content: 'legacy source' }]),
+    )
+    const onAssess = vi.fn()
+    const draftStore = createStore({ validateAccountCapability, read })
+    const props = createProps({ draftStore, onAssess })
+    const { result } = renderHook(() => useHtmlCssJsQuestion(props))
+
+    await waitFor(() => expect(result.current.hasSaveError).toBe(true))
+    expect(result.current.draftLoaded).toBe(false)
+    expect(read).not.toHaveBeenCalled()
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
+
+    await act(async () => window.dispatchEvent(new Event('online')))
+    await waitFor(() => expect(result.current.draftLoaded).toBe(true))
+    expect(
+      result.current.displayFiles.find(({ path }) => path === 'index.html')?.content,
+    ).toBe('legacy source')
+    expect(validateAccountCapability).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears account source and blocks assessment after a revocation event', async () => {
+    let listener:
+      | ((event: {
+          generation: number
+          tombstone: boolean
+          accountRevoked?: boolean
+        }) => void)
+      | undefined
+    const onAssess = vi.fn()
+    const onAnswerValidityChange = vi.fn()
+    const draftStore = createStore({
+      read: vi.fn(async () =>
+        createDraft([{ path: 'index.html', content: 'private answer' }]),
+      ),
+      subscribe: vi.fn((_key, nextListener) => {
+        listener = nextListener
+        return () => undefined
+      }),
+    })
+    const { result } = renderHook(() =>
+      useHtmlCssJsQuestion(createProps({ draftStore, onAssess, onAnswerValidityChange })),
+    )
+    await waitFor(() =>
+      expect(
+        result.current.displayFiles.find(({ path }) => path === 'index.html')?.content,
+      ).toBe('private answer'),
+    )
+
+    act(() => listener?.({ generation: 0, tombstone: true, accountRevoked: true }))
+
+    expect(
+      result.current.displayFiles.find(({ path }) => path === 'index.html')?.content,
+    ).toBe(QUESTION.initialFiles[0]?.content)
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.isDraftInvalidated).toBe(true)
+    expect(onAnswerValidityChange).toHaveBeenLastCalledWith(false)
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
+    expect(draftStore.clearTombstone).not.toHaveBeenCalled()
+  })
+
   it('opens the curricular entrypoint when it is nested under the project root', async () => {
     const previousSecureContext = Object.getOwnPropertyDescriptor(
       window,

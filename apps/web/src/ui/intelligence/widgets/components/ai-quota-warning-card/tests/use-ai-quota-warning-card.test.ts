@@ -133,4 +133,52 @@ describe('useAiQuotaWarningCard', () => {
 
     expect(afterReload.result.current.isDismissed).toBe(false)
   })
+
+  it('clears quota dismissals and hides an open warning when another tab revokes the account', () => {
+    const revocationKey = 'shifu:account-data-revoked:account-1'
+    window.localStorage.setItem(NOVEMBER_KEY, '1')
+    const { result } = renderHook(() =>
+      useAiQuotaWarningCard({
+        accountId: 'account-1',
+        percentage: 85,
+        renewsOn: '2026-12-01',
+      }),
+    )
+    expect(result.current.isDismissed).toBe(true)
+
+    window.localStorage.setItem(revocationKey, '1')
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: revocationKey, newValue: '1' }),
+      )
+    })
+
+    expect(result.current.isDismissed).toBe(true)
+    expect(window.localStorage.getItem(NOVEMBER_KEY)).toBeNull()
+    expect(window.localStorage.getItem(revocationKey)).toBe('1')
+    act(() => result.current.handleDismiss())
+    expect(window.localStorage.getItem(NOVEMBER_KEY)).toBeNull()
+  })
+
+  it('updates a warning in the same tab when the learning store dispatches revocation', () => {
+    const { result } = renderHook(() =>
+      useAiQuotaWarningCard({
+        accountId: 'account-1',
+        percentage: 85,
+        renewsOn: '2026-12-01',
+      }),
+    )
+    expect(result.current.isDismissed).toBe(false)
+
+    window.localStorage.setItem('shifu:account-data-revoked:account-1', '1')
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('shifu:account-data-revoked', {
+          detail: { accountId: 'account-1' },
+        }),
+      )
+    })
+
+    expect(result.current.isDismissed).toBe(true)
+  })
 })

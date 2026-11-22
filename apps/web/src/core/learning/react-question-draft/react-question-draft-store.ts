@@ -16,6 +16,13 @@ export type ReactQuestionDraft = ReactQuestionDraftKey & {
   tombstone: boolean
 }
 
+export type BrowserDataCapabilityState = 'active' | 'revoked'
+
+export type BrowserDataCapabilityClient = {
+  issueBrowserDataCapability(): Promise<string>
+  validateBrowserDataCapability(capability: string): Promise<BrowserDataCapabilityState>
+}
+
 export type ReactQuestionDraftStore = {
   read(key: ReactQuestionDraftKey): Promise<ReactQuestionDraft | null>
   write(
@@ -33,9 +40,18 @@ export type ReactQuestionDraftStore = {
     activityRevision: string,
     activeQuestionKeys: readonly string[],
   ): Promise<void>
+  validateAccountCapability(
+    accountId: string,
+    force?: boolean,
+  ): Promise<BrowserDataCapabilityState>
+  revokeAccount(accountId: string): Promise<void>
   subscribe(
     key: ReactQuestionDraftKey,
-    listener: (event: { generation: number; tombstone: boolean }) => void,
+    listener: (event: {
+      generation: number
+      tombstone: boolean
+      accountRevoked?: boolean
+    }) => void,
   ): () => void
   clearTombstone(
     key: ReactQuestionDraftKey,

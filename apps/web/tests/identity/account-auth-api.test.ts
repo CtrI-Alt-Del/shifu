@@ -491,7 +491,7 @@ test.describe('canonical account auth handlers', () => {
     expect((await page.request.get('/api/auth/account')).status()).toBe(200)
   })
 
-  test('keeps a canonical save successful and uses a neutral menu during a later Identity outage', async ({
+  test('keeps prior saves and fails closed when Identity becomes unavailable', async ({
     accountRequest: request,
     page,
     activeAccount,
@@ -534,18 +534,10 @@ test.describe('canonical account auth handlers', () => {
       const state = await request.storageState()
       await page.context().addCookies(state.cookies)
       await page.goto('/account')
-      await page.waitForFunction(() => document.body.dataset.hydrated === 'true')
+      await expect(page).toHaveURL(/\/login\/?$/)
       await expect(
         page.getByRole('heading', { name: 'Sua conta', exact: true }),
-      ).toBeVisible()
-      await expect(
-        page.getByRole('button', { name: 'Tentar novamente', exact: true }),
-      ).toBeVisible()
-      await page.getByRole('button', { name: 'Abrir menu da conta', exact: true }).click()
-      const menu = page.getByRole('menu', { name: 'Menu da conta' })
-      await expect(menu.getByText('Minha conta', { exact: true })).toBeVisible()
-      await expect(menu.getByText('Handler Test Learner', { exact: true })).toHaveCount(0)
-      await expect(menu.getByText('Canonical survives', { exact: true })).toHaveCount(0)
+      ).toHaveCount(0)
       const unavailableRead = await request.get('/api/auth/account')
       expect(unavailableRead.status()).toBe(503)
       expect((await unavailableRead.json()).code).toBe('identity_unavailable')
@@ -584,10 +576,10 @@ test.describe('canonical account auth handlers', () => {
       ])
         expect(observations.hits[key]).toBeGreaterThan(0)
       expect((await request.delete(controlURL)).status()).toBe(200)
-      await page.reload()
+      await page.goto('/account')
       await page.waitForFunction(() => document.body.dataset.hydrated === 'true')
       await expect(
-        page.getByRole('button', { name: 'Salvar', exact: true }),
+        page.getByRole('heading', { name: 'Sua conta', exact: true }),
       ).toBeVisible()
       await page.getByRole('button', { name: 'Abrir menu da conta', exact: true }).click()
       await expect(

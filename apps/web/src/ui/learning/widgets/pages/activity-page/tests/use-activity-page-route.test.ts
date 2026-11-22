@@ -8,6 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
+import { MotionConfig } from 'motion/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RestResponse } from '@/core/shared/responses/rest-response'
@@ -25,6 +26,10 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   access: vi.fn(),
+  issueBrowserDataCapability: vi.fn(async () => 'test-browser-capability'),
+  validateBrowserDataCapability: vi.fn(
+    async (): Promise<'active' | 'revoked'> => 'active',
+  ),
   boot: vi.fn(),
   mount: vi.fn(),
   spawn: vi.fn(),
@@ -71,6 +76,12 @@ vi.mock('@/middlewares/require-auth-middleware', () => ({
 vi.mock('@/provision/auth/better-auth/better-auth-provider', () => ({
   getBetterAuthProvider: () => ({ getCurrentAccess: mocks.access }),
 }))
+vi.mock('@/provision/auth/cookie-session-auth-provider', () => ({
+  CookieSessionAuthProvider: () => ({
+    issueBrowserDataCapability: mocks.issueBrowserDataCapability,
+    validateBrowserDataCapability: mocks.validateBrowserDataCapability,
+  }),
+}))
 vi.mock('@/provision/auth/better-auth/better-auth-config', () => ({
   BetterAuthConfig: () => ({ identityURL: 'http://shifu.test' }),
 }))
@@ -78,6 +89,14 @@ vi.mock('@/rest/axios/axios-rest-client', () => ({
   AxiosRestClient: () => ({ get: mocks.get, post: mocks.post }),
 }))
 vi.mock('@webcontainer/api', () => ({ WebContainer: { boot: mocks.boot } }))
+vi.mock('@xterm/xterm', () => ({
+  Terminal: class {
+    open = vi.fn()
+    write = vi.fn()
+    reset = vi.fn()
+    dispose = vi.fn()
+  },
+}))
 vi.mock('@/ui/learning/widgets/components/code-editor', () => ({
   CodeEditor: ({
     files,
@@ -258,9 +277,13 @@ function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
     createElement(
-      QueryClientProvider,
-      { client },
-      createElement(RouterProvider, { router }),
+      MotionConfig,
+      { reducedMotion: 'always' },
+      createElement(
+        QueryClientProvider,
+        { client },
+        createElement(RouterProvider, { router }),
+      ),
     ),
   )
   return { router, ...view }
@@ -347,7 +370,10 @@ function httpCalls() {
 describe('ActivityPage routed React composition', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
     mocks.serverReady = undefined
+    mocks.issueBrowserDataCapability.mockResolvedValue('test-browser-capability')
+    mocks.validateBrowserDataCapability.mockResolvedValue('active')
     mocks.access.mockResolvedValue({
       accountId: 'route-account',
       accessToken: 'route-token',
@@ -401,7 +427,7 @@ describe('ActivityPage routed React composition', () => {
     storage = installDraftBrowserStorage()
     vi.stubGlobal('scrollTo', vi.fn())
     vi.stubGlobal('matchMedia', () => ({
-      matches: true,
+      matches: false,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }))
@@ -410,6 +436,7 @@ describe('ActivityPage routed React composition', () => {
   afterEach(() => {
     vi.useRealTimers()
     cleanup()
+    window.localStorage.clear()
     clearDiagnosticRun(ids.goalId, ids.skillId)
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
@@ -661,6 +688,93 @@ describe('ActivityPage routed React composition', () => {
     })
   })
 
+  it('purges account drafts and blocks the final send after capability revocation', async () => {
+    const key = storeDraft(
+      draft({ files: [{ path: 'src/App.tsx', content: 'saved source' }] }),
+    )
+    mocks.post.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          status: 'conclusive',
+          score: 100,
+          criteria: [
+            {
+              key: 'ui',
+              weight_percentage: 100,
+              level: '100',
+              comment_id: 'correct',
+              comment: 'Interface correta',
+            },
+          ],
+        },
+      }),
+    )
+    setup()
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Código em edição' })).toHaveValue(
+        'saved source',
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Avaliar questão' }))
+    await screen.findByText('Interface correta')
+    mocks.validateBrowserDataCapability.mockResolvedValue('revoked')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar atividade' }))
+
+    expect(
+      await screen.findByText('Não foi possível enviar suas respostas. Tente novamente.'),
+    ).toBeVisible()
+    expect(storage.records.has(key)).toBe(false)
+    expect(mocks.post).toHaveBeenCalledTimes(1)
+    expect(mocks.post.mock.calls[0]?.[0]).toContain('preliminary-evaluations')
+  })
+
+  it('preserves the local draft and blocks final send when capability validation is unavailable', async () => {
+    const key = storeDraft(
+      draft({ files: [{ path: 'src/App.tsx', content: 'saved source' }] }),
+    )
+    mocks.post.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          status: 'conclusive',
+          score: 100,
+          criteria: [
+            {
+              key: 'ui',
+              weight_percentage: 100,
+              level: '100',
+              comment_id: 'correct',
+              comment: 'Interface correta',
+            },
+          ],
+        },
+      }),
+    )
+    setup()
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Código em edição' })).toHaveValue(
+        'saved source',
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Avaliar questão' }))
+    await screen.findByText('Interface correta')
+    mocks.validateBrowserDataCapability.mockRejectedValue(
+      new Error('identity unavailable'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar atividade' }))
+
+    expect(
+      await screen.findByText('Não foi possível enviar suas respostas. Tente novamente.'),
+    ).toBeVisible()
+    expect(storage.records.get(key)).toMatchObject({
+      files: [{ content: 'saved source' }],
+    })
+    expect(mocks.post).toHaveBeenCalledTimes(1)
+  })
+
   it('restores the account draft and synchronizes a later remote edit into a fresh isolated preview', async () => {
     const key = storeDraft(draft())
     setup()
@@ -708,6 +822,32 @@ describe('ActivityPage routed React composition', () => {
       'readonly',
     )
     await waitFor(() => expect(mocks.teardown).toHaveBeenCalledOnce())
+  })
+
+  it('revalidates and clears drafts after another tab confirms account closure', async () => {
+    const key = storeDraft(draft())
+    setup()
+    await waitFor(() => expect(mocks.boot).toHaveBeenCalledOnce())
+    mocks.validateBrowserDataCapability.mockResolvedValue('revoked')
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'shifu:account-closure-committed',
+          newValue: 'closure-confirmed',
+        }),
+      )
+    })
+
+    await waitFor(() => expect(storage.records.has(key)).toBe(false))
+    expect(
+      await screen.findByText(
+        'Rascunho invalidado. Atualize a Atividade para validar novamente.',
+      ),
+    ).toBeVisible()
+    expect(mocks.validateBrowserDataCapability).toHaveBeenCalledWith(
+      'test-browser-capability',
+    )
   })
 
   it('purges obsolete revisions and removed questions while preserving other accounts', async () => {
@@ -886,7 +1026,9 @@ describe('ActivityPage routed React composition', () => {
     setup()
 
     expect(await screen.findByRole('textbox', { name: 'Código em edição' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled(),
+    )
     expect(
       await screen.findByText(
         'Não foi possível salvar localmente. Sua resposta não foi enviada.',
@@ -900,7 +1042,9 @@ describe('ActivityPage routed React composition', () => {
     setup()
 
     expect(await screen.findByRole('textbox', { name: 'Código em edição' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled(),
+    )
     expect(
       await screen.findByText(
         'Não foi possível salvar localmente. Sua resposta não foi enviada.',
@@ -910,7 +1054,7 @@ describe('ActivityPage routed React composition', () => {
 
   it('does not restore a tombstoned answer when clearing its local marker aborts', async () => {
     storeDraft(draft({ tombstone: true, files: [] }))
-    storage.rejectNext('readwrite', 'get', 'abort')
+    storage.rejectNext('readwrite', 'get', 'abort', 'drafts')
 
     setup()
 

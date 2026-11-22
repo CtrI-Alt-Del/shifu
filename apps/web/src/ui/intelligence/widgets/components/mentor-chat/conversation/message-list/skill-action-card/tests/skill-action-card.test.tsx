@@ -51,7 +51,7 @@ function makeHookValue(
     actions: [],
     picker: null,
     swap: null,
-    resultRef: createRef<HTMLDivElement>(),
+    resultRef: createRef<HTMLOutputElement>(),
     titleRef: createRef<HTMLHeadingElement>(),
     handleSelectGoal: handleSelectGoalMock,
     ...overrides,
@@ -80,6 +80,7 @@ async function renderCard() {
   const router = createRouter({
     routeTree: root.addChildren([goal, skill]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
+    defaultNotFoundComponent: () => <p>Not found</p>,
   })
   render(<RouterProvider router={router} />)
   await screen.findByRole('region')
@@ -97,9 +98,13 @@ function leafRoute(router: { state: { matches: unknown[] } }) {
 describe('SkillActionCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     useSkillActionCardMock.mockReturnValue(makeHookValue())
   })
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
 
   it('renders the Objective picker with the containing Objective disabled and its reason', async () => {
     useSkillActionCardMock.mockReturnValue(

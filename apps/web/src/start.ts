@@ -1,4 +1,8 @@
-import { createMiddleware, createStart } from '@tanstack/react-start'
+import {
+  createCsrfMiddleware,
+  createMiddleware,
+  createStart,
+} from '@tanstack/react-start'
 
 import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import type { SanitizedStackFrame } from '@/core/shared/interfaces/telemetry-provider'
@@ -60,8 +64,12 @@ export const serverFunctionTelemetryMiddleware = createMiddleware({
   next({ context: context as unknown as RequestTelemetryContext }),
 )
 
+const serverFunctionCsrfMiddleware = createCsrfMiddleware({
+  filter: (context) => context.handlerType === 'serverFn',
+})
+
 export const startInstance = createStart(() => ({
-  requestMiddleware: [requestTelemetryMiddleware],
+  requestMiddleware: [requestTelemetryMiddleware, serverFunctionCsrfMiddleware],
   functionMiddleware: [serverFunctionTelemetryMiddleware],
 }))
 

@@ -28,7 +28,9 @@ function createDraftStore() {
     return JSON.stringify(Object.entries(key).sort())
   }
   const records = new Map<string, ReactQuestionDraft>()
-  const listeners = new Set<(event: { generation: number; tombstone: boolean }) => void>()
+  const listeners = new Set<
+    (event: { generation: number; tombstone: boolean; accountRevoked?: boolean }) => void
+  >()
   const store: ReactQuestionDraftStore = {
     read: vi.fn(async (key) => records.get(keyOf(key)) ?? null),
     write: vi.fn(
@@ -56,6 +58,8 @@ function createDraftStore() {
     clearTombstone: vi.fn(async () => 2),
     tombstoneActivity: vi.fn(async () => undefined),
     tombstoneStaleActivity: vi.fn(async () => undefined),
+    validateAccountCapability: vi.fn(async () => 'active' as const),
+    revokeAccount: vi.fn(async () => undefined),
     subscribe: vi.fn((_key, listener) => {
       listeners.add(listener)
       return () => {
@@ -79,7 +83,11 @@ function createDraftStore() {
     })
     for (const listener of listeners) listener({ generation, tombstone })
   }
-  return { store, publish }
+  function publishAccountRevoked() {
+    for (const listener of listeners)
+      listener({ generation: 0, tombstone: true, accountRevoked: true })
+  }
+  return { store, publish, publishAccountRevoked }
 }
 function createProps(
   draftStore: ReactQuestionDraftStore,
@@ -132,42 +140,77 @@ function createRunner() {
 
 function installIndexedDB() {
   const records = new Map<IDBValidKey, unknown>()
+  const capabilityRecords = new Map<IDBValidKey, unknown>()
+  const objectStoreNames = new Set<string>()
   const database = {
-    createObjectStore: vi.fn(),
+    objectStoreNames: { contains: (name: string) => objectStoreNames.has(name) },
+    createObjectStore: vi.fn((name: string) => {
+      objectStoreNames.add(name)
+      return {}
+    }),
     close: vi.fn(),
-    transaction: vi.fn(() => {
+    transaction: vi.fn((_storeNames: string | string[]) => {
       const transaction = {
         oncomplete: null as (() => void) | null,
         onerror: null as (() => void) | null,
         onabort: null as (() => void) | null,
-        objectStore: () => ({
-          get(key: IDBValidKey) {
-            const request = {
-              result: undefined as unknown,
-              onsuccess: null as (() => void) | null,
-              onerror: null as (() => void) | null,
-            }
-            queueMicrotask(() => {
-              request.result = records.get(key)
-              request.onsuccess?.()
+        objectStore: (name: string) => {
+          const storeRecords =
+            name === 'account-capabilities' ? capabilityRecords : records
+          return {
+            get(key: IDBValidKey) {
+              const request = {
+                result: undefined as unknown,
+                onsuccess: null as (() => void) | null,
+                onerror: null as (() => void) | null,
+              }
+              queueMicrotask(() => {
+                request.result = storeRecords.get(key)
+                request.onsuccess?.()
+                setTimeout(() => transaction.oncomplete?.(), 0)
+              })
+              return request
+            },
+            put(value: unknown, key?: IDBValidKey) {
+              const accountId = (value as { accountId?: string }).accountId
+              const recordKey = key ?? accountId
+              if (recordKey !== undefined) storeRecords.set(recordKey, value)
               setTimeout(() => transaction.oncomplete?.(), 0)
-            })
-            return request
-          },
-          put(value: unknown, key: IDBValidKey) {
-            records.set(key, value)
-            setTimeout(() => transaction.oncomplete?.(), 0)
-            return {}
-          },
-          openCursor() {
-            const request = { result: null, onsuccess: null as (() => void) | null }
-            queueMicrotask(() => {
-              request.onsuccess?.()
-              setTimeout(() => transaction.oncomplete?.(), 0)
-            })
-            return request
-          },
-        }),
+              return {}
+            },
+            openCursor() {
+              const entries = [...storeRecords.entries()]
+              let index = 0
+              const request = {
+                result: null as null | {
+                  value: unknown
+                  delete: () => void
+                  update: (value: unknown) => void
+                  continue: () => void
+                },
+                onsuccess: null as (() => void) | null,
+              }
+              function next() {
+                queueMicrotask(() => {
+                  const entry = entries[index++]
+                  request.result = entry
+                    ? {
+                        value: entry[1],
+                        delete: () => storeRecords.delete(entry[0]),
+                        update: (value) =>
+                          storeRecords.set(entry[0], structuredClone(value)),
+                        continue: next,
+                      }
+                    : null
+                  request.onsuccess?.()
+                  if (!entry) setTimeout(() => transaction.oncomplete?.(), 0)
+                })
+              }
+              next()
+              return request
+            },
+          }
+        },
       }
       return transaction
     }),
@@ -189,6 +232,13 @@ function installIndexedDB() {
     }),
   })
   return records
+}
+
+function createBrowserCapabilityClient() {
+  return {
+    issueBrowserDataCapability: vi.fn(async () => 'test-browser-capability'),
+    validateBrowserDataCapability: vi.fn(async () => 'active' as const),
+  }
 }
 
 describe('useReactQuestion', () => {
@@ -596,7 +646,10 @@ describe('useReactQuestion', () => {
 
   it('restores browser-persisted work only for the same authenticated account', async () => {
     installIndexedDB()
-    const props = createProps(IndexedDbReactQuestionDraftStore(), { onAssess: vi.fn() })
+    const props = createProps(
+      IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
+      { onAssess: vi.fn() },
+    )
     const first = renderHook(() => useReactQuestion(props))
     await waitFor(() => expect(first.result.current.draftLoaded).toBe(true))
     act(() =>
@@ -606,7 +659,10 @@ describe('useReactQuestion', () => {
     expect(first.result.current.hasAssessError).toBe(false)
     first.unmount()
     const second = renderHook(() =>
-      useReactQuestion({ ...props, draftStore: IndexedDbReactQuestionDraftStore() }),
+      useReactQuestion({
+        ...props,
+        draftStore: IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
+      }),
     )
     await waitFor(() => expect(second.result.current.draftLoaded).toBe(true))
     expect(second.result.current.files[0]?.content).toBe('private saved source')
@@ -615,20 +671,82 @@ describe('useReactQuestion', () => {
       useReactQuestion({
         ...props,
         accountId: 'account-2',
-        draftStore: IndexedDbReactQuestionDraftStore(),
+        draftStore: IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
       }),
     )
     await waitFor(() => expect(other.result.current.draftLoaded).toBe(true))
     expect(other.result.current.files[0]?.content).toBe(QUESTION.initialFiles[0]?.content)
   })
 
+  it('keeps legacy source local and blocks restore until capability validation recovers', async () => {
+    const { store } = createDraftStore()
+    const props = createProps(store, { onAssess: vi.fn() })
+    const key = keyFrom(props)
+    const existing = {
+      ...key,
+      schemaVersion: 1 as const,
+      files: [{ path: 'src/App.tsx', content: 'legacy private source' }],
+      generation: 3,
+      savedAt: 1,
+      tombstone: false,
+    }
+    const read = vi.mocked(store.read)
+    const validate = vi.mocked(store.validateAccountCapability)
+    read.mockResolvedValue(existing)
+    validate
+      .mockRejectedValueOnce(new Error('identity unavailable'))
+      .mockResolvedValue('active')
+    const { result } = renderHook(() => useReactQuestion(props))
+
+    await waitFor(() => expect(result.current.hasSaveError).toBe(true))
+    expect(result.current.draftLoaded).toBe(false)
+    expect(read).not.toHaveBeenCalled()
+    await act(async () => result.current.handleAssess())
+    expect(props.onAssess).not.toHaveBeenCalled()
+
+    await act(async () => window.dispatchEvent(new Event('online')))
+    await waitFor(() => expect(result.current.draftLoaded).toBe(true))
+    expect(result.current.files[0]?.content).toBe('legacy private source')
+    expect(validate).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears in-memory code and blocks assessment when another tab revokes the account', async () => {
+    const { store, publishAccountRevoked } = createDraftStore()
+    const onAnswerValidityChange = vi.fn()
+    const props = createProps(store, { onAnswerValidityChange, onAssess: vi.fn() })
+    const key = keyFrom(props)
+    vi.mocked(store.read).mockResolvedValue({
+      ...key,
+      schemaVersion: 1,
+      files: [{ path: 'src/App.tsx', content: 'private answer' }],
+      generation: 2,
+      savedAt: 1,
+      tombstone: false,
+    })
+    const { result } = renderHook(() => useReactQuestion(props))
+    await waitFor(() => expect(result.current.files[0]?.content).toBe('private answer'))
+
+    act(() => publishAccountRevoked())
+
+    expect(result.current.files[0]?.content).toBe(QUESTION.initialFiles[0]?.content)
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.isDraftInvalidated).toBe(true)
+    expect(onAnswerValidityChange).toHaveBeenLastCalledWith(false)
+    await act(async () => result.current.handleAssess())
+    expect(props.onAssess).not.toHaveBeenCalled()
+    expect(store.clearTombstone).not.toHaveBeenCalled()
+  })
+
   it('blocks a stale tab assessment instead of overwriting another tab stored answer', async () => {
     installIndexedDB()
-    const props = createProps(IndexedDbReactQuestionDraftStore(), { onAssess: vi.fn() })
+    const props = createProps(
+      IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
+      { onAssess: vi.fn() },
+    )
     const first = renderHook(() => useReactQuestion(props))
     const otherProps = {
       ...props,
-      draftStore: IndexedDbReactQuestionDraftStore(),
+      draftStore: IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
       onAssess: vi.fn(),
     }
     const other = renderHook(() => useReactQuestion(otherProps))
@@ -649,7 +767,10 @@ describe('useReactQuestion', () => {
     first.unmount()
     other.unmount()
     const restored = renderHook(() =>
-      useReactQuestion({ ...props, draftStore: IndexedDbReactQuestionDraftStore() }),
+      useReactQuestion({
+        ...props,
+        draftStore: IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
+      }),
     )
     await waitFor(() => expect(restored.result.current.draftLoaded).toBe(true))
     expect(restored.result.current.files[0]?.content).toBe('first tab answer')
@@ -661,7 +782,10 @@ describe('useReactQuestion', () => {
       'account-1\u001fgoal-1\u001fskill-1\u001fcompetency-1\u001factivity-1\u001freact-1\u001frevision-1',
       { generation: 'corrupt', files: [{ path: '../secret', content: 'untrusted' }] },
     )
-    const props = createProps(IndexedDbReactQuestionDraftStore(), { onAssess: vi.fn() })
+    const props = createProps(
+      IndexedDbReactQuestionDraftStore(createBrowserCapabilityClient()),
+      { onAssess: vi.fn() },
+    )
     const { result } = renderHook(() => useReactQuestion(props))
     await waitFor(() => expect(result.current.draftLoaded).toBe(true))
     expect(result.current.files[0]?.content).toBe(QUESTION.initialFiles[0]?.content)

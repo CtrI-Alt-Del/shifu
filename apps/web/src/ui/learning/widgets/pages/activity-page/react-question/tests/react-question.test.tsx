@@ -80,6 +80,8 @@ function createProps(overrides: Partial<ReactQuestionProps> = {}): ReactQuestion
       clearTombstone: vi.fn(async () => 2),
       tombstoneActivity: vi.fn(async () => undefined),
       tombstoneStaleActivity: vi.fn(async () => undefined),
+      validateAccountCapability: vi.fn(async () => 'active' as const),
+      revokeAccount: vi.fn(async () => undefined),
       subscribe: vi.fn(() => () => undefined),
     },
     accountId: 'account-1',

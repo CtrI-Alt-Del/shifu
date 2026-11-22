@@ -144,6 +144,7 @@ function actionOf(
 describe('useSkillActionCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     queryClient = new QueryClient()
     vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined)
     useMentorContextMock.mockReturnValue({
@@ -166,7 +167,10 @@ describe('useSkillActionCard', () => {
       isPending: false,
     } as unknown as ReturnType<typeof useDeclineMentorActionProposalAction>)
   })
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
 
   describe('proposal', () => {
     it('presents an addition with its destination, justification and the two buttons', () => {
@@ -713,7 +717,7 @@ describe('useSkillActionCard', () => {
     it('moves focus to the result region when the card state changes', async () => {
       confirmSkillAdditionMock.mockResolvedValue(outcomeOf({}))
       const { result } = renderCard(makeProposal())
-      const region = document.createElement('div')
+      const region = document.createElement('output')
       region.tabIndex = -1
       document.body.append(region)
       result.current.resultRef.current = region

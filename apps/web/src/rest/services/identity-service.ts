@@ -23,6 +23,21 @@ export type CurrentIdentitySession = {
   time_zone: string | null
 }
 
+export type AccountErasureResult = {
+  state: 'closed'
+  closed_at: string
+  erasure: 'pending' | 'completed'
+}
+
+export type AccountErasureTarget = {
+  account_id: string
+  erasure_id: string
+}
+
+export type BrowserDataCapabilityStatus = {
+  state: 'active' | 'revoked'
+}
+
 export type PendingConfirmationStatus = {
   state: 'ready' | 'cooldown' | 'delivery_issue'
   retry_after_seconds: number | null
@@ -130,6 +145,75 @@ export const IdentityService = (restClient: RestClient) => {
       )
       if (response.isFailure) response.throwError()
       return response.body
+    },
+    async deleteAccount(
+      accessToken: string,
+      input: { erasureId: string; currentPassword: string; confirmed: true },
+    ): Promise<AccountErasureResult> {
+      const response = await restClient.post<AccountErasureResult>(
+        '/identity/account-deletions',
+        {
+          erasure_id: input.erasureId,
+          current_password: input.currentPassword,
+          confirmed: input.confirmed,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async getInternalAccountErasureStatus(
+      erasureId: string,
+    ): Promise<AccountErasureResult> {
+      const response = await restClient.get<AccountErasureResult>(
+        `/identity/internal/account-erasures/${encodeURIComponent(erasureId)}/status`,
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async getInternalAccountErasureTarget(
+      erasureId: string,
+    ): Promise<AccountErasureTarget> {
+      const response = await restClient.get<AccountErasureTarget>(
+        `/identity/internal/account-erasures/${encodeURIComponent(erasureId)}/target`,
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async acknowledgeAccountErasure(erasureId: string): Promise<void> {
+      const response = await restClient.post<void>(
+        `/identity/internal/account-erasures/${encodeURIComponent(erasureId)}/acknowledgements`,
+        { participant: 'identity-bff' },
+      )
+      if (response.isFailure) response.throwError()
+    },
+    async issueBrowserDataCapability(
+      accessToken: string,
+    ): Promise<{ capability: string }> {
+      const response = await restClient.post<{ capability: string }>(
+        '/identity/browser-data-capabilities',
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async validateBrowserDataCapability(
+      capability: string,
+    ): Promise<BrowserDataCapabilityStatus> {
+      const response = await restClient.post<BrowserDataCapabilityStatus>(
+        '/identity/browser-data-validations',
+        { capability },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async admitAccountActivity(accountId: string, accessVersion: number): Promise<void> {
+      const response = await restClient.post<void>(
+        '/identity/internal/account-activity-admissions',
+        { account_id: accountId, access_version: accessVersion },
+      )
+      if (response.isFailure) response.throwError()
     },
     async publishMainPageEntered(accessToken: string): Promise<void> {
       const response = await restClient.post<void>(
