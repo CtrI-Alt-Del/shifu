@@ -30,7 +30,10 @@ async function putPhoto(
   return page.evaluate(
     async ({ path, name, type, uploadKey, bytes }) => {
       const formData = new FormData()
-      formData.append('file', new File([new Uint8Array(bytes)], name, { type }))
+      const content = new Uint8Array(bytes)
+      // JPEG signature, so the server reaches its ownership check before decoding.
+      if (bytes >= 3) content.set([0xff, 0xd8, 0xff])
+      formData.append('file', new File([content], name, { type }))
       formData.append('upload_key', uploadKey)
       const response = await fetch(path, { method: 'PUT', body: formData })
       return {
