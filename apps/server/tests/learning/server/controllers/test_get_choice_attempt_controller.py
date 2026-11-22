@@ -22,7 +22,8 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
-from shifu.learning.core.domain.enums import SkillExperienceStatus
+from shifu.fakers.learning.entities import SkillExperienceFaker
+from shifu.learning.core.domain.enums import ActivityAttemptKind, SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeQuestionAssessmentDecisions,
@@ -672,6 +673,100 @@ class TestGetChoiceAttemptController:
             ['b'],
             ['a'],
         ]
+
+    def _evaluated_attempt(self, client: TestClient, application: FastAPI) -> str:
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                _attempts_path(),
+                json=_submission_body(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+        database: SqlalchemyLearningDatabase = application.state.learning_database
+        with database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+            assert evaluation is not None
+            run_id = evaluation.run_id
+            assert run_id is not None
+        EvaluateChoiceActivityUseCase(
+            database,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, run_id)
+        return attempt_id
+
+    @staticmethod
+    def _complete_experience(application: FastAPI) -> None:
+        completed = SkillExperienceFaker.fake(status=SkillExperienceStatus.COMPLETED)
+        database: SqlalchemyLearningDatabase = application.state.learning_database
+        with database.transaction() as repositories:
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            assert experience is not None
+            experience.status = SkillExperienceStatus.COMPLETED
+            experience.completed_at = completed.completed_at
+            experience.completion_summary = completed.completion_summary
+            repositories.skill_experiences.update(experience)
+
+    def _get_attempt(self, client: TestClient, attempt_id: str) -> dict[str, object]:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _attempt_path(attempt_id),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert response.status_code == 200, response.json()
+        return cast('dict[str, object]', response.json())
+
+    def test_completes_skill_is_true_for_the_latest_learning_attempt_of_a_completed_skill(
+        self,
+        client: TestClient,
+        application: FastAPI,
+    ) -> None:
+        attempt_id = self._evaluated_attempt(client, application)
+        self._complete_experience(application)
+
+        body = self._get_attempt(client, attempt_id)
+
+        assert body['status'] == 'completed'
+        assert body['completes_skill'] is True
+
+    def test_completes_skill_is_omitted_while_the_skill_is_still_learning(
+        self,
+        client: TestClient,
+        application: FastAPI,
+    ) -> None:
+        attempt_id = self._evaluated_attempt(client, application)
+
+        body = self._get_attempt(client, attempt_id)
+
+        assert body['status'] == 'completed'
+        assert 'completes_skill' not in body
+
+    def test_completes_skill_is_omitted_for_a_review_attempt(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        attempt_id = self._evaluated_attempt(client, application)
+        self._complete_experience(application)
+        with Session(postgres_database.engine) as session, session.begin():
+            model = session.get(ActivityAttemptModel, attempt_id)
+            assert model is not None
+            model.kind = ActivityAttemptKind.REVIEW.value
+
+        body = self._get_attempt(client, attempt_id)
+
+        assert body['status'] == 'completed'
+        assert 'completes_skill' not in body
 
     def test_stale_pending_attempt_becomes_failed_without_result_disclosure(
         self,

@@ -141,6 +141,30 @@ class AdaptiveLearningPolicy:
             recommendation=recommendation,
         )
 
+    @staticmethod
+    def diagnostic_observed_difficulties(
+        concept_id: str,
+        observations: tuple[ConceptObservation, ...],
+    ) -> frozenset[ActivityDifficulty]:
+        """Difficulties covered by the valid diagnostic evidence of a Concept."""
+        return frozenset(
+            item.difficulty
+            for item in AdaptiveLearningPolicy._latest_valid_diagnostic_observations(
+                concept_id, observations
+            )
+        )
+
+    @staticmethod
+    def _latest_valid_diagnostic_observations(
+        concept_id: str,
+        observations: tuple[ConceptObservation, ...],
+    ) -> tuple[ConceptObservation, ...]:
+        return tuple(
+            item
+            for item in AdaptiveLearningPolicy._current_valid(concept_id, observations)
+            if item.diagnostic
+        )
+
     def _concept_state(
         self,
         concept_id: str,
@@ -161,7 +185,9 @@ class AdaptiveLearningPolicy:
                 latest_valid[item.activity_id] = item
                 latest_inconclusive = None
         current = tuple(latest_valid.values())
-        diagnostic = tuple(item for item in current if item.diagnostic)
+        diagnostic = self._latest_valid_diagnostic_observations(
+            concept_id, observations
+        )
         by_difficulty = {
             difficulty: tuple(
                 item.value
@@ -843,8 +869,8 @@ class AdaptiveLearningPolicy:
                 index = max(index, 1 if level is ActivityDifficulty.EASY else 2)
         return _DIFFICULTIES[index]
 
+    @staticmethod
     def _current_valid(
-        self,
         concept_id: str,
         observations: tuple[ConceptObservation, ...],
     ) -> tuple[ConceptObservation, ...]:

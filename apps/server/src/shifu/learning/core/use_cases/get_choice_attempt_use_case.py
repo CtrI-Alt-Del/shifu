@@ -6,6 +6,7 @@ from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
@@ -162,6 +163,9 @@ class GetChoiceAttemptUseCase:
                 evaluation,
             )
             detail = self._result_detail(attempt, evaluation, disclosure)
+            completes_skill = self._completes_skill(
+                attempt, experience.status, all_attempts
+            )
             score = evaluation.score
             progress_before = evaluation.progress_before
             progress_after = evaluation.progress_after
@@ -180,7 +184,26 @@ class GetChoiceAttemptUseCase:
             status_before=status_before,
             status_after=status_after,
             next_action=None,
+            completes_skill=completes_skill,
             questions=detail,
+        )
+
+    @staticmethod
+    def _completes_skill(
+        attempt: ActivityAttempt,
+        experience_status: SkillExperienceStatus,
+        attempts: list[ActivityAttempt],
+    ) -> bool:
+        if (
+            attempt.kind is not ActivityAttemptKind.LEARNING
+            or experience_status is not SkillExperienceStatus.COMPLETED
+        ):
+            return False
+
+        return not any(
+            item.kind is ActivityAttemptKind.LEARNING
+            and item.submitted_at > attempt.submitted_at
+            for item in attempts
         )
 
     @staticmethod

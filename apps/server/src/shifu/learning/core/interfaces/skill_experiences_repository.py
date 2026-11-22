@@ -28,6 +28,14 @@ class SkillExperiencesRepository(Protocol):
 
     def find_many_by_goal_id(self, goal_id: str) -> list[SkillExperience]: ...
 
+    def find_many_by_goal_ids_and_skill_id(
+        self,
+        goal_ids: list[str],
+        skill_id: str,
+    ) -> list[SkillExperience]:
+        """Return the experiences of one Skill within the requested Goals."""
+        ...
+
     def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:
         """Return the experience count per requested goal id.
 

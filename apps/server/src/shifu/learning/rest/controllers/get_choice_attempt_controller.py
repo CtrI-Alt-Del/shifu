@@ -139,6 +139,7 @@ class Response(BaseModel):
     status_before: str | None = None
     status_after: str | None = None
     next_action: NextActionResponse | None = None
+    completes_skill: bool = False
     questions: tuple[
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
