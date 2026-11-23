@@ -5,8 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
+from shifu.fakers.identity.entities.account_faker import AccountFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
 from shifu.fakers.shared.id_provider_faker import IdProviderFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
@@ -36,6 +40,9 @@ class _Authentication:
             account_id=account_id,
             display_name='Pessoa Aprendente',
             time_zone=None,
+            session_id=f'learning-skill-experiences-{access_token}',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -56,6 +63,14 @@ class TestListSkillExperiencesOfSkillController:
 
     @pytest.fixture(autouse=True)
     def _setup(self, postgres_database: PostgresDatabase) -> Iterator[None]:
+        with SqlalchemyIdentityDatabase(
+            postgres_database.engine
+        ).transaction() as repos:
+            for account_id in (OWNER_ACCOUNT_ID, OTHER_ACCOUNT_ID):
+                if repos.accounts.find_by_id(account_id) is None:
+                    repos.accounts.add(
+                        AccountFaker.fake(id=account_id, access_version=1)
+                    )
         self.database = SqlalchemyLearningDatabase(postgres_database.engine)
         app = FastAPIApp.register(postgres_database.engine)
         app.state.authentication_provider = _Authentication()
