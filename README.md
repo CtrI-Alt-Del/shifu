@@ -18,14 +18,14 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 | 03 | 6 | Alta | Como usuário, quero enviar respostas de questões objetivas e de código e receber uma avaliação, para saber se minha solução está correta. | 21 | Sprint 1 · SHIFU-19, SHIFU-20, SHIFU-41 |
 | 03 | 7 | Alta | Como usuário, quero acompanhar meu progresso e domínio por Competência, para perceber minha evolução real na Habilidade. | 5 | Sprint 1 · SHIFU-21 |
 | 03 | 8 | Alta | Como usuário, quero receber a recomendação da próxima atividade na dificuldade adequada, para saber o que fazer em seguida sem escolher no escuro. | 5 | Sprint 1 · SHIFU-18 |
-| 03 | 9 | Média | Como usuário, quero entender minha nota e o que mudou no meu progresso, para saber exatamente o que preciso melhorar. | – | Não associada · SHIFU-22 |
+| 03 | 9 | Média | Como usuário, quero entender minha nota e o que mudou no meu progresso, para saber exatamente o que preciso melhorar. | – | Sprint 3 · SHIFU-22 |
 | 04 | 10 | Média | Como usuário, quero descrever livremente o que desejo aprender e responder perguntas objetivas, para receber uma proposta de Objetivo formada por Habilidades reais do produto. | 21 | Sprint 2 · SHIFU-43, SHIFU-44 |
 | 04 | 11 | Média | Como usuário, quero conversar com um mentor que conheça meu contexto atual, para receber dicas progressivas sem receber a solução pronta. | 21 | Sprint 2 · SHIFU-45, SHIFU-46, SHIFU-47 |
 | 05 | 12 | Média | Como usuário, quero receber XP e subir de nível conforme pratico, para me sentir reconhecido pelo meu esforço. | 8 | Sprint 2 · SHIFU-48 |
 | 05 | 13 | Média | Como usuário, quero manter uma sequência de dias de prática, para sustentar minha constância. | 5 | Sprint 2 · SHIFU-49 |
 | 05 | 14 | Baixa | Como usuário, quero desbloquear conquistas por marcos claros, para ter metas intermediárias visíveis. | 8 | Sprint 2 · SHIFU-50 |
-| 03 | 15 | Baixa | Como usuário, quero consultar o histórico das minhas tentativas e o resumo final de uma Habilidade concluída, para revisar minha trajetória. | – | Não associada · SHIFU-53 |
-| 04 | 16 | Baixa | Como usuário, quero saber quanto da minha cota mensal de IA ainda está disponível, para não ser surpreendido por um bloqueio temporário. | 8 | Sprint 2 · SHIFU-54 |
+| 03 | 15 | Baixa | Como usuário, quero consultar o histórico das minhas tentativas e o resumo final de uma Habilidade concluída, para revisar minha trajetória. | – | Sprint 3 · SHIFU-53 |
+| 04 | 16 | Baixa | Como usuário, quero saber quanto da minha cota mensal de IA ainda está disponível, para não ser surpreendido por um bloqueio temporário. | 8 | Sprints 2 e 3 · SHIFU-54 |
 | 01 | 17 | Baixa | Como usuário, quero excluir minha conta e meus dados associados, para encerrar minha participação no produto. | 21 | Sprint 2 · SHIFU-33, SHIFU-116 |
 
 **Legenda dos requisitos funcionais:** `01` Identity · `02` Curriculum · `03` Learning · `04` Intelligence · `05` Gamification
@@ -40,7 +40,7 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 | :----: | :---------------------: | :----------: | :----: |
 |   01   | 15/09/2026 – 27/09/2026 | [Relatório](documentation/sprints/sprint-1-report.md) · [Backlog](documentation/sprints/backlog-sprint-1.md) | Concluída |
 |   02   | 05/10/2026 – 25/10/2026 | [Relatório](documentation/sprints/sprint-2-report.md) · [Backlog](documentation/sprints/backlog-sprint-2.md) | Concluída |
-|   03   | A definir | A definir | Não iniciada |
+|   03   | 05/11/2026 – 22/11/2026 | [Relatório](documentation/sprints/sprint-3-report.md) · [Backlog](documentation/sprints/backlog-sprint-3.md) | Concluída |
 
 ## 🛠️ Tecnologias
 
