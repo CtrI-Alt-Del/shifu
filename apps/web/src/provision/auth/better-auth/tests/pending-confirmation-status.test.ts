@@ -9,6 +9,8 @@ const pendingRequest = (cookie = `${PENDING_COOKIE_NAME}=signed-context`) =>
   new Request('http://localhost:7000/', { headers: { cookie } })
 
 describe('getPendingConfirmationStatus', () => {
+  const cookieHeader = `tracking=value; ${PENDING_COOKIE_NAME}=signed-context; another=value`
+
   it.each(['', 'other=value', 'broken-cookie'])(
     'does not query auth when the pending cookie is absent (%s)',
     async (cookie) => {
@@ -29,13 +31,16 @@ describe('getPendingConfirmationStatus', () => {
       )
 
       await expect(
-        getPendingConfirmationStatus(pendingRequest(), handleAuthRequest),
+        getPendingConfirmationStatus(pendingRequest(cookieHeader), handleAuthRequest),
       ).resolves.toEqual({ state, hasPendingContext: true })
       expect(handleAuthRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           url: 'http://localhost:7000/api/auth/pending-confirmation',
           headers: expect.any(Headers),
         }),
+      )
+      expect(handleAuthRequest.mock.calls[0]?.[0].headers.get('cookie')).toBe(
+        cookieHeader,
       )
     },
   )

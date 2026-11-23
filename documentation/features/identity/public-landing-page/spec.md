@@ -1,6 +1,6 @@
 ---
 title: Public landing page
-status: ready
+status: completed
 revision: 1
 source:
   type: issue
