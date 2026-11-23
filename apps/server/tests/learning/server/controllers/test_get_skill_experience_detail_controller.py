@@ -23,7 +23,11 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
+from shifu.fakers.identity.entities.account_faker import AccountFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
@@ -88,6 +92,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone=self._time_zone,
+            session_id='learning-experience-detail-owner',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -99,6 +106,9 @@ class _OtherAccountAuthenticationProvider:
             account_id=OTHER_ACCOUNT_ID,
             display_name='Outra Pessoa',
             time_zone='America/Sao_Paulo',
+            session_id='learning-experience-detail-other-account',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -549,6 +559,14 @@ def _event_count(database: PostgresDatabase) -> int:
 
 def _seed_application(database: PostgresDatabase) -> None:
     seed = build_development_seed()
+    with SqlalchemyIdentityDatabase(database.engine).transaction() as repositories:
+        for account in seed.accounts:
+            if repositories.accounts.find_by_id(account.id) is None:
+                repositories.accounts.add(account)
+        if repositories.accounts.find_by_id(OTHER_ACCOUNT_ID) is None:
+            repositories.accounts.add(
+                AccountFaker.fake(id=OTHER_ACCOUNT_ID, access_version=1)
+            )
     curriculum_database = SqlalchemyCurriculumDatabase(database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
