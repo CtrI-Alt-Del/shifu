@@ -1,4 +1,4 @@
-"""Backend and cooking roadmap Skills with placeholder content to exercise the Planner.
+"""Backend, cooking and English roadmap Skills with placeholder content for the Planner.
 
 Every Skill gets the minimum content that makes it startable, so a planned Goal can
 be created from any combination; the content itself is generic placeholder text.
@@ -456,6 +456,77 @@ _ROADMAP_SKILLS = (
         'Planejamento de refeições',
         'Cardápio da semana, lista de compras e aproveitamento de sobras.',
         ('kitchen_safety',),
+    ),
+    # English Skills around the present simple Skill, so the Planner has a third area.
+    _RoadmapSkill(
+        'english_vocabulary',
+        'Inglês: vocabulário essencial',
+        'Cumprimentos, números, cores e palavras do dia a dia em inglês.',
+    ),
+    _RoadmapSkill(
+        'english_pronunciation',
+        'Inglês: pronúncia',
+        'Sons do inglês, sílaba tônica e entonação das frases.',
+    ),
+    _RoadmapSkill(
+        'english_continuous',
+        'Inglês: presente contínuo',
+        'Ações em andamento e planos próximos com o presente contínuo.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_past',
+        'Inglês: passado simples',
+        'Verbos regulares e irregulares para contar fatos passados em inglês.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_future',
+        'Inglês: futuro com will e going to',
+        'Previsões, decisões e planos em inglês usando will e going to.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_perfect',
+        'Inglês: presente perfeito',
+        'Experiências e ações em inglês que ligam o passado ao presente.',
+        ('english_past',),
+    ),
+    _RoadmapSkill(
+        'english_reading',
+        'Inglês: leitura e interpretação',
+        'Ler e interpretar textos curtos, notícias e e-mails em inglês.',
+        ('english_vocabulary',),
+    ),
+    _RoadmapSkill(
+        'english_listening',
+        'Inglês: compreensão auditiva',
+        'Entender diálogos, áudios e vídeos curtos em inglês.',
+        ('english_pronunciation',),
+    ),
+    _RoadmapSkill(
+        'english_writing',
+        'Inglês: escrita',
+        'Escrever mensagens, e-mails e textos curtos em inglês.',
+        ('english_reading',),
+    ),
+    _RoadmapSkill(
+        'english_conversation',
+        'Inglês: conversação do dia a dia',
+        'Pedir informações, fazer compras e conversar em inglês em situações comuns.',
+        ('english_vocabulary', 'present_simple'),
+    ),
+    _RoadmapSkill(
+        'english_business',
+        'Inglês para o trabalho',
+        'Reuniões, e-mails profissionais e apresentações em inglês.',
+        ('english_conversation', 'english_writing'),
+    ),
+    _RoadmapSkill(
+        'english_tech',
+        'Inglês técnico para TI',
+        'Ler documentação, mensagens de erro e discussões técnicas em inglês.',
+        ('english_reading',),
     ),
 )
 

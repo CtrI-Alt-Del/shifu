@@ -3357,14 +3357,15 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
-    # Backend and cooking roadmap Skills with placeholder content, to exercise the
-    # Planner.
+    # Backend, cooking and English roadmap Skills with placeholder content, to
+    # exercise the Planner.
     roadmap = build_roadmap_skills_seed(
         {
             'logic': SEED_SKILL_LOGIC_ID,
             'javascript': SEED_GRAPH_JAVASCRIPT_SKILL_ID,
             'apis': SEED_GRAPH_APIS_SKILL_ID,
             'vegetables': COOKING_SKILL_ID,
+            'present_simple': ENGLISH_SKILL_ID,
         }
     )
 
