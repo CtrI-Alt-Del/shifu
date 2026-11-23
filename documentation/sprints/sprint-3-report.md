@@ -67,8 +67,8 @@ O trabalho se concentrou em cinco frentes:
 
 | Chave | User Story | Épico | SP | Estado | Resolvida em | Responsável |
 | --- | --- | --- | ---: | --- | --- | --- |
-| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | Compreender o resultado e receber orientação pedagógica | 08/09 — Explicação e Feedback Pedagógico com IA | — | Concluído | — | — |
-| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | Concluir e revisar uma Habilidade preservando seu histórico | 07 — Acompanhamento de Progresso | — | Concluído | — | — |
+| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | Compreender o resultado e receber orientação pedagógica | 08/09 — Explicação e Feedback Pedagógico com IA | — | Concluído | 22/11 | — |
+| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | Concluir e revisar uma Habilidade preservando seu histórico | 07 — Acompanhamento de Progresso | — | Concluído | 22/11 | — |
 | [SHIFU-54](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-54) | Controlar e acompanhar a cota mensal compartilhada de IA | 13 — Governança e Resiliência de IA | 8 | Concluído | 17/11 | — |
 
 **Total estimado:** 8 SP, todos entregues. A SHIFU-54 veio da Sprint 2 e foi concluída nesta. As SHIFU-22 e SHIFU-53 não têm SP, então os pontos entregues subestimam o escopo das histórias. Nenhuma das três tem responsável no Jira.
@@ -81,10 +81,10 @@ O Jira contém 17 tasks, sem pontos próprios. **As 17 estão concluídas.**
 | --- | --- | --- | --- | --- | --- |
 | [SHIFU-85](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-85) | Implementar CD de Terraform e aplicações do Shifu para staging | Logical Task | João Pedro Carvalho | Concluído | 06/11 |
 | [SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87) | Integrar SonarCloud ao CI do Web e da API com cobertura, quality gate e comentários nos PRs | Logical Task | João Pedro Carvalho | Concluído | 15/11 |
-| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | gabrielsoliveira1606 | Concluído | — |
+| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | gabrielsoliveira1606 | Concluído | 22/11 |
 | [SHIFU-118](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-118) | Implementar página Uso da IA e indicador de cota no cabeçalho | Dev Task | João Pedro Carvalho | Concluído | 15/11 |
 | [SHIFU-119](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-119) | Implementar preferência de aparência em Minha conta | Dev Task | Kauan Fonseca | Concluído | 22/11 |
-| [SHIFU-121](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-121) | Implementar landing page pública do Shifu com foco em evolução visível | Dev Task | João Gabriel | Concluído | — |
+| [SHIFU-121](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-121) | Implementar landing page pública do Shifu com foco em evolução visível | Dev Task | João Gabriel | Concluído | 22/11 |
 | [SHIFU-122](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-122) | Implementar questões de tradução com digitação e ditado opcional | Dev Task | Kauan Fonseca | Concluído | 19/11 |
 | [SHIFU-123](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-123) | Implementar questões de lacunas com banco de palavras e arrastar e soltar | Dev Task | Kauan Fonseca | Concluído | 19/11 |
 | [SHIFU-124](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-124) | Implementar questões de associação de palavras e traduções | Dev Task | Kauan Fonseca | Concluído | 21/11 |
@@ -94,7 +94,7 @@ O Jira contém 17 tasks, sem pontos próprios. **As 17 estão concluídas.**
 | [SHIFU-128](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-128) | Entregar o relatório de DynamoDB e a análise comparativa da atividade de armazenamento em nuvem, com eventos do Shifu | Logical Task | gabrielsoliveira1606 | Concluído | 21/11 |
 | [SHIFU-129](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-129) | Implementar questões de ordenação de etapas | Dev Task | João Gabriel | Concluído | 21/11 |
 | [SHIFU-130](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-130) | Implementar questões de Preparação Prática culinária | Dev Task | João Gabriel | Concluído | 22/11 |
-| [SHIFU-131](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-131) | Implementar questões de escolha por imagem | Dev Task | — | Concluído | — |
+| [SHIFU-131](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-131) | Implementar questões de escolha por imagem | Dev Task | — | Concluído | 22/11 |
 | [SHIFU-132](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-132) | Implementar lembrete de sequência por push no navegador com horário escolhido | Dev Task | João Pedro Carvalho | Concluído | 21/11 |
 
 ## Distribuição do trabalho
@@ -150,7 +150,7 @@ Quatro itens mudaram de responsável em relação ao relatório da Sprint 2:
 
 ## Ritmo de conclusão
 
-Quinze tickets têm data de resolução no Jira, em sete dias diferentes. A data pode diferir do dia em que o trabalho foi feito. Os outros cinco não têm data de resolução e ficam fora da tabela: SHIFU-22, SHIFU-53, SHIFU-98, SHIFU-121 e SHIFU-131.
+Os 20 tickets foram resolvidos em sete dias diferentes. A data pode diferir do dia em que o trabalho foi feito.
 
 | Dia | Resolvidos | Restantes ao fim do dia |
 | --- | ---: | ---: |
@@ -162,23 +162,21 @@ Quinze tickets têm data de resolução no Jira, em sete dias diferentes. A data
 | 18/11 | 1 | 15 |
 | 19/11 | 2 | 13 |
 | 21/11 | 5 | 8 |
-| 22/11 | 3 | 5 |
-
-Os 5 tickets restantes em 22/11 entram como concluídos no fim da sprint.
+| 22/11 | 8 | 0 |
 
 - **Primeira metade parada:** nenhum ticket foi resolvido em 8 dias seguidos (07/11 a 14/11).
-- **Segunda metade concentrada:** 14 dos 15 tickets com data foram resolvidos de 15/11 em diante.
-- **Fim apertado:** 8 dos 15 (53%) foram resolvidos nos dois últimos dias. O último foi a SHIFU-130, às 18:46 do dia 22/11.
+- **Segunda metade concentrada:** 19 dos 20 tickets foram resolvidos de 15/11 em diante.
+- **Fim apertado:** 13 dos 20 (65%) foram resolvidos nos dois últimos dias, 5 em 21/11 e 8 em 22/11.
 
 ## Gráfico Burndown
 
 ![Gráfico de burndown da Sprint 3](../media/burndown-sprint-3.png)
 
-Este gráfico **não é o do Jira**. Eu o calculei a partir das datas de resolução, em **quantidade de tickets**, e marquei cada resolução ao meio-dia do dia em que ocorreu. O gráfico do Jira não estava disponível e deve substituir este quando for exportado.
+Este gráfico **não é o do Jira**. Eu o calculei a partir das datas de resolução, em **quantidade de tickets**, e marquei cada resolução ao meio-dia do dia em que ocorreu, exceto os últimos 5 tickets, marcados no fim da sprint. O gráfico do Jira não estava disponível e deve substituir este quando for exportado.
 
 - **Início:** parte de 20 tickets, o total atual da sprint. A SHIFU-132 foi criada em 12/11, depois do início. Ela provavelmente entrou durante a sprint, mas não consegui confirmar. Se foi isso, o início real foi de 19 tickets.
 - **Curva:** o trabalho restante fica acima da linha ideal durante toda a sprint. A queda se concentra a partir de 15/11.
-- **Fim:** a curva chega a 5 tickets restantes em 22/11 e vai a zero no fim da sprint (22/11, 23:30). Esses 5 tickets não têm data de resolução e entram como concluídos no fim da sprint.
+- **Fim:** a curva chega a 5 tickets restantes no meio de 22/11 e vai a zero no fim da sprint (22/11, 23:30), quando os últimos 5 tickets são concluídos.
 
 ## Riscos e observações para o fechamento
 
