@@ -16,6 +16,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
+from shifu.fakers.identity.entities.account_faker import AccountFaker
 from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
     ActivityEvaluationFaker,
@@ -24,6 +25,9 @@ from shifu.fakers.learning.entities import (
     SkillExperienceFaker,
 )
 from shifu.fakers.learning.structures import SkillCompletionSummaryFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
@@ -97,6 +101,9 @@ class _Authentication:
             account_id=account_id,
             display_name='Pessoa Aprendente',
             time_zone='America/Sao_Paulo',
+            session_id=f'learning-panorama-{access_token}',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -120,6 +127,10 @@ def application(
     postgres_database: PostgresDatabase,
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
+    with SqlalchemyIdentityDatabase(postgres_database.engine).transaction() as repos:
+        for account_id in (ACCOUNT_A, ACCOUNT_B, EMPTY_ACCOUNT):
+            if repos.accounts.find_by_id(account_id) is None:
+                repos.accounts.add(AccountFaker.fake(id=account_id, access_version=1))
     _seed_curriculum(postgres_database)
     application = FastAPIApp.register(postgres_database.engine)
     application.state.authentication_provider = _Authentication()
