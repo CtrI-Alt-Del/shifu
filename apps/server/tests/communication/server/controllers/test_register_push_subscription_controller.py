@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
+from shifu.fakers.identity.entities import AccountFaker
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -35,6 +37,9 @@ class _TestAuthenticationProvider:
             account_id=accounts[access_token],
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -44,6 +49,22 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     application = FastAPIApp.register(postgres_database.engine)
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=ACCOUNT_ID,
+                email='push-subscription@example.test',
+                access_version=1,
+            )
+        )
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=OTHER_ACCOUNT_ID,
+                email='other-push-subscription@example.test',
+                access_version=1,
+            )
+        )
     application.state.authentication_provider = _TestAuthenticationProvider()
     yield application
     application.dependency_overrides.clear()
