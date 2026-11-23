@@ -38,8 +38,13 @@ export function useRootLayout(): {
   const location = useLocation()
   const matches = useMatches()
   const [isHydrated, setIsHydrated] = useState(false)
-  const isPublic = isPublicRoute(location.pathname)
-  const account = isPublic ? undefined : findLayoutAccount(matches)
+  const rootEntry = findMainPageEntry(matches)
+  const isPublic = isPublicRoute(location.pathname) || rootEntry?.mode === 'public'
+  const account = isPublic
+    ? undefined
+    : rootEntry?.mode === 'authenticated'
+      ? rootEntry.account
+      : findLayoutAccount(matches)
 
   useEffect(() => {
     setIsHydrated(true)
@@ -72,6 +77,30 @@ function findLayoutAccount(
   }
 
   return undefined
+}
+
+type MainPageEntry =
+  | { mode: 'public' }
+  | { mode: 'authenticated'; account: LayoutAccount }
+
+function findMainPageEntry(
+  matches: readonly { context: unknown }[],
+): MainPageEntry | undefined {
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const context = matches[index]?.context
+    if (!isRecord(context)) continue
+
+    if (context.mode === 'public') return { mode: 'public' }
+    if (context.mode === 'authenticated' && isLayoutAccount(context.account)) {
+      return { mode: 'authenticated', account: context.account }
+    }
+  }
+
+  return undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function isLayoutAccount(value: unknown): value is LayoutAccount {

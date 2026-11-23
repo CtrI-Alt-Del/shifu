@@ -184,10 +184,17 @@ test.describe('Home page', () => {
     expect(goalsIndex).toBeGreaterThan(manualIndex)
   })
 
-  test('redirects an anonymous visitor before Home renders', async ({ page }) => {
+  test('shows the public landing page before Home renders for an anonymous visitor', async ({
+    page,
+  }) => {
     await page.goto('/')
 
-    await expect(page).toHaveURL(/\/login\/?$/)
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'Veja sua evolução no que você quer aprender.',
+      }),
+    ).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 1, name: 'O que você quer aprender?' }),
     ).not.toBeVisible()

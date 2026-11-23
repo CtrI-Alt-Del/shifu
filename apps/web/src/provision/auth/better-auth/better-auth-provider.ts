@@ -27,8 +27,11 @@ import { IdentityService } from '@/rest/services/identity-service'
 import { getWebTelemetryProvider } from '@/provision/telemetry/console-telemetry-provider'
 
 import { BETTER_AUTH_OPTIONS, BetterAuthConfig } from './better-auth-config'
+import {
+  getPendingConfirmationStatus as readPendingConfirmationStatus,
+  PENDING_COOKIE_NAME,
+} from './pending-confirmation-status'
 
-const PENDING_COOKIE_NAME = 'shifu-pending-flow'
 const PENDING_FLOW_LIFETIME_SECONDS = 15 * 60
 const PENDING_FLOW_LIFETIME_MS = PENDING_FLOW_LIFETIME_SECONDS * 1000
 const PASSWORD_RECOVERY_COOKIE_NAME = 'shifu-password-recovery'
@@ -307,6 +310,13 @@ const BetterAuthProvider = () => {
     }
   }
 
+  async function getPendingConfirmationStatus(request: Request): Promise<{
+    state: 'ready' | 'cooldown' | 'delivery_issue'
+    hasPendingContext: boolean
+  }> {
+    return readPendingConfirmationStatus(request, auth.handler)
+  }
+
   async function deleteSession(request: Request, requestId?: string) {
     const response = await auth.handler(
       new Request(new URL('/api/auth/sign-out', request.url), {
@@ -352,6 +362,7 @@ const BetterAuthProvider = () => {
     auth,
     handler: auth.handler,
     getCurrentAccess,
+    getPendingConfirmationStatus,
     deleteRejectedSession: deleteSession,
     publishMainPageEntered,
     close: () => pool.end(),
@@ -544,7 +555,10 @@ function createIdentityPlugin(
               retryAfterSeconds: result.is_decoy ? 60 : null,
             })
           } catch {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível validar a confirmação agora. Tente novamente.',
+            })
           }
         },
       ),
@@ -676,10 +690,18 @@ function createIdentityPlugin(
           const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            return context.json({
+              state: 'delivery_issue',
+              retryAfterSeconds: null,
+              hasPendingContext: false,
+            })
           }
           if (pendingContext.isDecoy) {
-            return context.json({ state: 'cooldown', retryAfterSeconds: 60 })
+            return context.json({
+              state: 'cooldown',
+              retryAfterSeconds: 60,
+              hasPendingContext: true,
+            })
           }
 
           try {
@@ -689,9 +711,13 @@ function createIdentityPlugin(
             return context.json({
               state: status.state,
               retryAfterSeconds: status.retry_after_seconds,
+              hasPendingContext: true,
             })
           } catch {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível validar a confirmação agora. Tente novamente.',
+            })
           }
         },
       ),

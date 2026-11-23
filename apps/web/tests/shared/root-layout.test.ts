@@ -26,13 +26,17 @@ async function answerProtectedRoutesWith(page: Page, appearance: AccountAppearan
       return
     }
     calls.push(serverFunction)
+    const isMainPageEntry = serverFunction.includes(
+      'middlewares/enter-main-page-middleware.ts',
+    )
+    const account = {
+      displayName: 'Playwright Learner',
+      email: 'playwright@shifu.local',
+      appearance,
+    }
     await route.fulfill({
       body: JSON.stringify({
-        result: {
-          displayName: 'Playwright Learner',
-          email: 'playwright@shifu.local',
-          appearance,
-        },
+        result: isMainPageEntry ? { mode: 'authenticated', account } : account,
       }),
       contentType: 'application/json',
       status: 200,
