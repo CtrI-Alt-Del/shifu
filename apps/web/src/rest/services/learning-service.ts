@@ -15,6 +15,8 @@ import type {
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
+import type { LearningPanorama } from '@/core/learning/learning-panorama'
+import type { SkillEvolution } from '@/core/learning/skill-evolution'
 import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
 import type { CreatedSkillExperience } from '@/core/learning/created-skill-experience'
 import type {
@@ -936,6 +938,28 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+    },
+
+    async getLearningPanorama(accessToken: string): Promise<LearningPanorama> {
+      const response = await restClient.get<LearningPanorama>('/learning/panorama', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (response.isFailure) response.throwError()
+
+      return response.body
+    },
+
+    async getSkillEvolution(
+      accessToken: string,
+      skillExperienceId: string,
+    ): Promise<SkillEvolution> {
+      const response = await restClient.get<SkillEvolution>(
+        `/learning/panorama/skill-experiences/${skillExperienceId}/evolution`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+
+      return response.body
     },
 
     async getGoals(accessToken: string): Promise<GoalSummary[]> {

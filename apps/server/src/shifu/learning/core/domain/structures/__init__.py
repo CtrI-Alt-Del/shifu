@@ -191,6 +191,15 @@ from .pair_matching_result_detail import (
     PairMatchingResultDetail as PairMatchingResultDetail,
 )
 from .pair_matching_selection import PairMatchingSelection as PairMatchingSelection
+from .completed_skill import CompletedSkill as CompletedSkill
+from .evolution_option import EvolutionOption as EvolutionOption
+from .learning_panorama import LearningPanorama as LearningPanorama
+from .recent_mastery import RecentMastery as RecentMastery
+from .resume_item import ResumeItem as ResumeItem
+from .skill_evolution import SkillEvolution as SkillEvolution
+from .skill_evolution_point import SkillEvolutionPoint as SkillEvolutionPoint
+from .stage_distribution import StageDistribution as StageDistribution
+from .weekly_count import WeeklyCount as WeeklyCount
 from .practice_draft_view import PracticeDraftView as PracticeDraftView
 from .practice_photo_content import PracticePhotoContent as PracticePhotoContent
 from .practice_photo_upload import PracticePhotoUpload as PracticePhotoUpload

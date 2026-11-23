@@ -28,8 +28,14 @@ from .get_competency_detail_use_case import (
 )
 from .get_diagnostic_use_case import GetDiagnosticUseCase as GetDiagnosticUseCase
 from .get_goal_detail_use_case import GetGoalDetailUseCase as GetGoalDetailUseCase
+from .get_learning_panorama_use_case import (
+    GetLearningPanoramaUseCase as GetLearningPanoramaUseCase,
+)
 from .get_material_detail_use_case import (
     GetMaterialDetailUseCase as GetMaterialDetailUseCase,
+)
+from .get_skill_evolution_use_case import (
+    GetSkillEvolutionUseCase as GetSkillEvolutionUseCase,
 )
 from .get_skill_experience_detail_use_case import (
     GetSkillExperienceDetailUseCase as GetSkillExperienceDetailUseCase,

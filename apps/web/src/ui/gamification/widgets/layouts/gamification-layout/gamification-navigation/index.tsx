@@ -15,7 +15,7 @@ export const GamificationNavigation = () => {
     // `data-status="active"`, which drives the latao active style.
     // `overflow-x-auto` keeps the fourth link from pushing the whole page wider
     // than the viewport at narrow widths: the bar scrolls, the page does not.
-    <nav aria-label='Seções da gamificação'>
+    <nav aria-label='Seções do progresso'>
       <ul className='flex w-full justify-start gap-2 overflow-x-auto border-b border-border pb-4'>
         {SECTIONS.map((section) => (
           <li className='shrink-0' key={section.route}>

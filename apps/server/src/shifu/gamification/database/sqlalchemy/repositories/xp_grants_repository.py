@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,23 @@ class SqlalchemyXpGrantsRepository:
                 select(XpGrantModel)
                 .where(XpGrantModel.account_id == account_id)
                 .order_by(XpGrantModel.granted_at.desc(), XpGrantModel.id.desc())
+            )
+            .scalars()
+            .all()
+        )
+        return tuple(XpGrantMapper.to_domain(model) for model in models)
+
+    def find_many_by_account_id_occurred_since(
+        self, account_id: str, since: datetime
+    ) -> tuple[XpGrant, ...]:
+        models = (
+            self._session.execute(
+                select(XpGrantModel)
+                .where(
+                    XpGrantModel.account_id == account_id,
+                    XpGrantModel.occurred_at >= since,
+                )
+                .order_by(XpGrantModel.occurred_at.asc(), XpGrantModel.id.asc())
             )
             .scalars()
             .all()

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from shifu.learning.core.domain.entities import SkillExperience
 from shifu.learning.database.sqlalchemy.mappers import SkillExperienceMapper
-from shifu.learning.database.sqlalchemy.models import SkillExperienceModel
+from shifu.learning.database.sqlalchemy.models import GoalModel, SkillExperienceModel
 
 
 class SqlalchemySkillExperiencesRepository:
@@ -59,6 +59,15 @@ class SqlalchemySkillExperiencesRepository:
             select(SkillExperienceModel)
             .where(SkillExperienceModel.goal_id == goal_id)
             .order_by(SkillExperienceModel.created_at)
+        ).all()
+        return [SkillExperienceMapper.to_domain(model) for model in models]
+
+    def find_many_by_account_id(self, account_id: str) -> list[SkillExperience]:
+        models = self._session.scalars(
+            select(SkillExperienceModel)
+            .join(GoalModel, GoalModel.id == SkillExperienceModel.goal_id)
+            .where(GoalModel.account_id == account_id)
+            .order_by(SkillExperienceModel.created_at, SkillExperienceModel.id)
         ).all()
         return [SkillExperienceMapper.to_domain(model) for model in models]
 
