@@ -76,7 +76,7 @@ const diagnostic: DiagnosticOverview = {
     activityTitle: 'Prática do diagnóstico',
     difficulty: 'easy',
     type: 'new-activity',
-    reason: 'Retome a base observada no diagnóstico.',
+    reason: 'coverage',
     targetConceptName: 'Laços iniciais',
     materialId: null,
     gap: null,
@@ -167,7 +167,9 @@ describe('DiagnosticResultPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Ponto de partida por Competência (0–100)' }),
     ).toBeVisible()
-    expect(screen.getByText(/Retome a base observada no diagnóstico/)).toBeVisible()
+    expect(
+      screen.getByText(/Ainda faltam evidências para cobrir este Conceito/),
+    ).toBeVisible()
     expect(screen.getByText('Laços iniciais', { exact: false })).toBeVisible()
     expect(
       screen.getByText(

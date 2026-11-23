@@ -6,6 +6,7 @@ import {
   ENTRANCE_RISE,
   ENTRANCE_SECTION,
 } from '@/constants/motion-variants'
+import { recommendationReasonLabel } from '@/core/learning/skill-experience'
 import { Button } from '@/ui/shadcn/button'
 import { SkillCompetencyList } from '@/ui/learning/widgets/pages/skill-page/skill-competency-list'
 import { SkillRecommendationCard } from '@/ui/learning/widgets/pages/skill-page/skill-recommendation'
@@ -167,13 +168,15 @@ export const DiagnosticResultPage = (props: DiagnosticResultPageProps) => {
               Próximo passo recomendado
             </h2>
             <p className='text-sm text-muted-foreground'>
-              {recommendation.reason}
+              {recommendationReasonLabel(recommendation.reason)}
               {recommendation.targetConceptName
                 ? ` Conceito em foco: ${recommendation.targetConceptName}.`
                 : ''}
             </p>
             {recommendation.gap ? (
-              <p className='text-sm text-muted-foreground'>{recommendation.gap}</p>
+              <p className='text-sm text-muted-foreground'>
+                Não há uma Atividade adequada disponível agora para este Conceito.
+              </p>
             ) : null}
             <SkillRecommendationCard
               goalId={props.goalId}

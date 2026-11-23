@@ -116,3 +116,21 @@ export const RECOMMENDATION_TYPE_LABELS: Record<ActivityRecommendationType, stri
   'new-activity': 'Atividade nova',
   reinforcement: 'Reforço',
 }
+
+const RECOMMENDATION_REASON_LABELS: Record<string, string> = {
+  verification: 'Precisamos confirmar uma evidência inconclusiva.',
+  coverage: 'Ainda faltam evidências para cobrir este Conceito.',
+  practice: 'Uma nova prática pode fortalecer este Conceito.',
+  hard_confirmation: 'Falta confirmar o aprendizado em uma Atividade difícil.',
+  consolidation: 'Uma Atividade pode consolidar o domínio alcançado.',
+  regression: 'O desempenho recente pede uma nova verificação.',
+  prerequisite: 'Fortaleça primeiro um Conceito necessário para avançar.',
+}
+
+// The server sends a reason code; learners read a sentence, never the raw code.
+export function recommendationReasonLabel(reason: string): string {
+  return (
+    RECOMMENDATION_REASON_LABELS[reason] ??
+    'Há uma nova oportunidade de avançar nesta Competência.'
+  )
+}
