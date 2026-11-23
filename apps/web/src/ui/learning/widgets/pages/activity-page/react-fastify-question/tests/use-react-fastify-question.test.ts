@@ -30,7 +30,7 @@ const QUESTION: ReactQuestionModel = {
   additionalFilePolicy: null,
   criteria: [{ key: 'complete', name: 'Completude', weightPercentage: 100 }],
 }
-function createDraftStore() {
+function createDraftStore(overrides: Partial<ReactQuestionDraftStore> = {}) {
   function keyOf(key: ReactQuestionDraftKey) {
     return JSON.stringify(Object.entries(key).sort())
   }
@@ -73,6 +73,7 @@ function createDraftStore() {
         listeners.delete(listener)
       }
     }),
+    ...overrides,
   }
   function publish(
     key: ReactQuestionDraftKey,
@@ -192,6 +193,51 @@ describe('useReactFastifyQuestion', () => {
     await act(async () => result.current.handleAssess())
     expect(onAssess).not.toHaveBeenCalled()
     expect(draftStore.clearTombstone).not.toHaveBeenCalled()
+  })
+
+  it('clears a revoked project with no initial files and keeps an empty selection', async () => {
+    let listener:
+      | ((event: {
+          generation: number
+          tombstone: boolean
+          accountRevoked?: boolean
+        }) => void)
+      | undefined
+    const draftStore = createDraftStore().store
+    vi.mocked(draftStore.subscribe).mockImplementation((_key, nextListener) => {
+      listener = nextListener
+      return () => undefined
+    })
+    const props = createProps(draftStore, {
+      question: { ...QUESTION, initialFiles: [] },
+    })
+    const { result } = renderHook(() => useReactFastifyQuestion(props))
+    await waitFor(() => expect(result.current.draftLoaded).toBe(true))
+
+    act(() => listener?.({ generation: 0, tombstone: true, accountRevoked: true }))
+
+    expect(result.current.files).toEqual([])
+    expect(result.current.selectedPath).toBe('')
+    expect(result.current.isDraftInvalidated).toBe(true)
+  })
+
+  it('clears account source when capability validation reports revocation', async () => {
+    const { store } = createDraftStore({
+      validateAccountCapability: vi.fn(async () => 'revoked' as const),
+    })
+    const onAssess = vi.fn()
+    const props = createProps(store, { onAssess })
+    const { result } = renderHook(() => useReactFastifyQuestion(props))
+
+    await waitFor(() => expect(result.current.isDraftInvalidated).toBe(true))
+
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.files).toEqual([
+      { path: 'src/App.tsx', content: QUESTION.initialFiles[0]?.content ?? '' },
+    ])
+    expect(store.read).not.toHaveBeenCalled()
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
   })
   it('flushes the current draft before preliminary assessment', async () => {
     const { store } = createDraftStore()

@@ -23,7 +23,7 @@ const QUESTION: ReactQuestionModel = {
   additionalFilePolicy: null,
   criteria: [{ key: 'complete', name: 'Completude', weightPercentage: 100 }],
 }
-function createDraftStore() {
+function createDraftStore(overrides: Partial<ReactQuestionDraftStore> = {}) {
   function keyOf(key: ReactQuestionDraftKey) {
     return JSON.stringify(Object.entries(key).sort())
   }
@@ -66,6 +66,7 @@ function createDraftStore() {
         listeners.delete(listener)
       }
     }),
+    ...overrides,
   }
   function publish(
     key: ReactQuestionDraftKey,
@@ -735,6 +736,25 @@ describe('useReactQuestion', () => {
     await act(async () => result.current.handleAssess())
     expect(props.onAssess).not.toHaveBeenCalled()
     expect(store.clearTombstone).not.toHaveBeenCalled()
+  })
+
+  it('clears in-memory code when capability validation reports revocation', async () => {
+    const { store } = createDraftStore({
+      validateAccountCapability: vi.fn(async () => 'revoked' as const),
+    })
+    const onAssess = vi.fn()
+    const props = createProps(store, { onAssess })
+    const { result } = renderHook(() => useReactQuestion(props))
+
+    await waitFor(() => expect(result.current.isDraftInvalidated).toBe(true))
+
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.files).toEqual([
+      { path: 'src/App.tsx', content: QUESTION.initialFiles[0]?.content ?? '' },
+    ])
+    expect(store.read).not.toHaveBeenCalled()
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
   })
 
   it('blocks a stale tab assessment instead of overwriting another tab stored answer', async () => {

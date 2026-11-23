@@ -8,6 +8,7 @@ import type { ReactQuestionProps } from '../react-question/use-react-question'
 import { validateReactAdditionalFile } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactQuestionDraftKey } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactFastifyQuestion as ReactQuestionModel } from '@/core/learning/choice-activity'
+import { useAccountActivityDraftRevocation } from '@/ui/learning/hooks/use-account-activity-draft-revocation'
 
 export type ReactFastifyQuestionProps = Omit<
   ReactQuestionProps,
@@ -215,6 +216,18 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
   const saveTimeoutRef = useRef<number | null>(null)
   const isDraftInvalidatedRef = useRef(false)
   const isAccountRevokedRef = useRef(false)
+  const handleAccountActivityDraftRevocation = useAccountActivityDraftRevocation({
+    filesRef,
+    initialFiles,
+    isAccountRevokedRef,
+    isDraftInvalidatedRef,
+    onAnswerValidityChangeRef,
+    onFilesChangeRef,
+    setDraftLoaded,
+    setFiles,
+    setIsDraftInvalidated,
+    setSelectedPath,
+  })
   const isActivityLocked = props.canSubmit === false
   const isFrozen = Boolean(
     props.readOnly || props.disabled || isAssessing || isActivityLocked,
@@ -284,14 +297,9 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
         )
           return null
         if (capabilityState === 'revoked') {
-          isAccountRevokedRef.current = true
-          isDraftInvalidatedRef.current = true
-          setIsDraftInvalidated(true)
-          setDraftLoaded(true)
-          setFiles(initialFiles)
-          setSelectedPath(question.initialFiles[0]?.path ?? '')
-          onFilesChangeRef.current?.(copyFiles(initialFiles))
-          onAnswerValidityChangeRef.current?.(false)
+          handleAccountActivityDraftRevocation({
+            selectedPath: question.initialFiles[0]?.path ?? '',
+          })
           return null
         }
         restorationAllowed = true
@@ -359,6 +367,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     draftKey,
     connectivityRevision,
     draftStore,
+    handleAccountActivityDraftRevocation,
     initialFiles,
     isActivityLocked,
     props.isOnlineAuthority,
@@ -485,15 +494,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     let cancelled = false
     const unsubscribe = draftStore.subscribe(draftKey, (event) => {
       if (event.accountRevoked) {
-        isAccountRevokedRef.current = true
-        isDraftInvalidatedRef.current = true
-        setDraftLoaded(true)
-        setIsDraftInvalidated(true)
-        setFiles(initialFiles)
-        filesRef.current = initialFiles
-        setSelectedPath(initialFiles[0]?.path ?? '')
-        onFilesChangeRef.current?.(copyFiles(initialFiles))
-        onAnswerValidityChangeRef.current?.(false)
+        handleAccountActivityDraftRevocation({ updateFilesRef: true })
         return
       }
       void draftStore
@@ -539,7 +540,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
       cancelled = true
       unsubscribe()
     }
-  }, [draftKey, draftStore, initialFiles, question])
+  }, [draftKey, draftStore, handleAccountActivityDraftRevocation, initialFiles, question])
 
   useEffect(() => {
     if (isActivityLocked) {

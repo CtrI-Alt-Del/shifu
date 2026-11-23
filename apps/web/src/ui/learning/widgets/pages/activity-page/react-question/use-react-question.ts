@@ -8,6 +8,7 @@ import type {
   ReactQuestionDraftStore,
 } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactQuestion as ReactQuestionModel } from '@/core/learning/choice-activity'
+import { useAccountActivityDraftRevocation } from '@/ui/learning/hooks/use-account-activity-draft-revocation'
 
 export type ReactQuestionProps = {
   question: ReactQuestionModel
@@ -228,6 +229,18 @@ export function useReactQuestion(props: ReactQuestionProps) {
   const saveTimeoutRef = useRef<number | null>(null)
   const isDraftInvalidatedRef = useRef(false)
   const isAccountRevokedRef = useRef(false)
+  const handleAccountActivityDraftRevocation = useAccountActivityDraftRevocation({
+    filesRef,
+    initialFiles,
+    isAccountRevokedRef,
+    isDraftInvalidatedRef,
+    onAnswerValidityChangeRef,
+    onFilesChangeRef,
+    setDraftLoaded,
+    setFiles,
+    setIsDraftInvalidated,
+    setSelectedPath,
+  })
   const isActivityLocked = props.canSubmit === false
   const isFrozen = Boolean(
     props.readOnly || props.disabled || isAssessing || isActivityLocked,
@@ -297,14 +310,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
         )
           return null
         if (capabilityState === 'revoked') {
-          isAccountRevokedRef.current = true
-          isDraftInvalidatedRef.current = true
-          setIsDraftInvalidated(true)
-          setDraftLoaded(true)
-          setFiles(initialFiles)
-          setSelectedPath(initialFiles[0]?.path ?? '')
-          onFilesChangeRef.current?.(copyFiles(initialFiles))
-          onAnswerValidityChangeRef.current?.(false)
+          handleAccountActivityDraftRevocation()
           return null
         }
         restorationAllowed = true
@@ -371,6 +377,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
   }, [
     draftKey,
     draftStore,
+    handleAccountActivityDraftRevocation,
     connectivityRevision,
     initialFiles,
     isActivityLocked,
@@ -498,14 +505,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
     let cancelled = false
     const unsubscribe = draftStore.subscribe(draftKey, (event) => {
       if (event.accountRevoked) {
-        isAccountRevokedRef.current = true
-        isDraftInvalidatedRef.current = true
-        setDraftLoaded(true)
-        setIsDraftInvalidated(true)
-        setFiles(initialFiles)
-        setSelectedPath(initialFiles[0]?.path ?? '')
-        onFilesChangeRef.current?.(copyFiles(initialFiles))
-        onAnswerValidityChangeRef.current?.(false)
+        handleAccountActivityDraftRevocation()
         return
       }
       void draftStore
@@ -551,7 +551,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
       cancelled = true
       unsubscribe()
     }
-  }, [draftKey, draftStore, initialFiles, question])
+  }, [draftKey, draftStore, handleAccountActivityDraftRevocation, initialFiles, question])
 
   useEffect(() => {
     if (isActivityLocked) {

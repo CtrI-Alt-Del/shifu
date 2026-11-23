@@ -191,6 +191,35 @@ describe('useHtmlCssJsQuestion', () => {
     expect(draftStore.clearTombstone).not.toHaveBeenCalled()
   })
 
+  it('clears account source when capability validation reports revocation', async () => {
+    const read = vi.fn(async () =>
+      createDraft([{ path: 'index.html', content: 'private answer' }]),
+    )
+    const onFilesChange = vi.fn()
+    const onAnswerValidityChange = vi.fn()
+    const draftStore = createStore({
+      read,
+      validateAccountCapability: vi.fn(async () => 'revoked' as const),
+    })
+    const { result } = renderHook(() =>
+      useHtmlCssJsQuestion(
+        createProps({ draftStore, onFilesChange, onAnswerValidityChange }),
+      ),
+    )
+
+    await waitFor(() => expect(result.current.isDraftInvalidated).toBe(true))
+
+    expect(result.current.draftLoaded).toBe(true)
+    expect(
+      result.current.displayFiles.find(({ path }) => path === 'index.html')?.content,
+    ).toBe(QUESTION.initialFiles[0]?.content)
+    expect(read).not.toHaveBeenCalled()
+    expect(onFilesChange).toHaveBeenLastCalledWith([
+      { path: 'index.html', content: QUESTION.initialFiles[0]?.content ?? '' },
+    ])
+    expect(onAnswerValidityChange).toHaveBeenLastCalledWith(false)
+  })
+
   it('opens the curricular entrypoint when it is nested under the project root', async () => {
     const previousSecureContext = Object.getOwnPropertyDescriptor(
       window,
