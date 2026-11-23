@@ -27,12 +27,16 @@ _EXTERNAL_EFFECT_OPERATION_PATTERN = r'[a-z][a-z0-9_.-]{0,119}'
 
 
 async def _wait_for_completion[T](future: asyncio.Future[T]) -> T:
+    cancellation: asyncio.CancelledError | None = None
     while not future.done():
         try:
             await asyncio.shield(future)
-        except asyncio.CancelledError:
-            continue
-    return future.result()
+        except asyncio.CancelledError as error:
+            cancellation = error
+    result = future.result()
+    if cancellation is not None:
+        raise cancellation
+    return result
 
 
 @asynccontextmanager
@@ -64,15 +68,18 @@ async def _non_blocking_context[ContextValue](
         try:
             value = await asyncio.shield(enter_future)
         except asyncio.CancelledError as cancelled:
-            await _wait_for_completion(enter_future)
-            exit_future = loop.run_in_executor(
-                executor,
-                exit_manager,
-                type(cancelled),
-                cancelled,
-                cancelled.__traceback__,
-            )
-            await _wait_for_completion(exit_future)
+            try:
+                await _wait_for_completion(enter_future)
+            finally:
+                if not enter_future.cancelled() and enter_future.exception() is None:
+                    exit_future = loop.run_in_executor(
+                        executor,
+                        exit_manager,
+                        type(cancelled),
+                        cancelled,
+                        cancelled.__traceback__,
+                    )
+                    await _wait_for_completion(exit_future)
             raise cancelled from None
 
         bound_activity = activity_context.run(AccountActivityScope.current_context)

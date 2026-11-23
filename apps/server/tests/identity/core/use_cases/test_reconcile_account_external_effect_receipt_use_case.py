@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+from contextvars import Context
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import text
 
 from shifu.identity.core.domain.errors import ExternalEffectReceiptReconciliationError
 from shifu.identity.core.domain.structures import (
@@ -22,6 +25,7 @@ from shifu.identity.providers.account_activity.sqlalchemy_account_activity_provi
 from shifu.identity.core.use_cases import ReconcileAccountExternalEffectReceiptUseCase
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.database.sqlalchemy.account_activity_scope import AccountActivityScope
 
 if TYPE_CHECKING:
     from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -108,6 +112,83 @@ class TestReconcileAccountExternalEffectReceiptUseCase:
 
 
 class TestReconcileAccountExternalEffectReceiptPostgres:
+    def test_should_reconcile_effect_cancelled_while_waiting_for_account_lock(
+        self, postgres_database: PostgresDatabase
+    ) -> None:
+        database = SqlalchemyIdentityDatabase(postgres_database.engine)
+        account = AccountFaker.fake()
+        with database.transaction() as repositories:
+            repositories.accounts.add(account)
+        account_activity = SqlalchemyAccountActivityProvider(
+            database, postgres_database.engine
+        )
+        effect_id = uuid4()
+        operation = 'learning.code-rubric.assess'
+
+        async def cancel_pending_effect() -> None:
+            async def run_effect() -> None:
+                async with account_activity.async_external_effect(
+                    account.id, effect_id, operation
+                ):
+                    pytest.fail('A cancelled admission must not execute its effect')
+
+            with AccountActivityScope.exclusive(
+                postgres_database.engine, account.id
+            ) as lock_connection:
+                holder_pid = lock_connection.execute(
+                    text('SELECT pg_backend_pid()')
+                ).scalar_one()
+                task = asyncio.create_task(run_effect(), context=Context())
+                async with asyncio.timeout(5):
+                    while True:
+                        with postgres_database.engine.connect() as observer:
+                            blocked = observer.execute(
+                                text(
+                                    'SELECT EXISTS (SELECT 1 FROM pg_stat_activity '
+                                    'WHERE :holder = ANY(pg_blocking_pids(pid)) '
+                                    "AND wait_event = 'advisory')"
+                                ),
+                                {'holder': holder_pid},
+                            ).scalar_one()
+                        if blocked:
+                            break
+                        await asyncio.sleep(0.02)
+                task.cancel()
+                await asyncio.sleep(0)
+                task.cancel()
+                await asyncio.sleep(0)
+                assert not task.done()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(task, timeout=5)
+
+        asyncio.run(cancel_pending_effect())
+        with database.transaction() as repositories:
+            assert repositories.external_effect_receipts.has_unresolved_for_account_id(
+                account.id
+            )
+
+        clock = create_autospec(ClockProvider, instance=True)
+        clock.now.return_value = datetime.now(UTC) + timedelta(minutes=31)
+        reconciliation = AccountExternalEffectReceiptReconciliation(
+            account_id=account.id,
+            effect_id=effect_id,
+            operation=operation,
+            resolution='not_applied',
+            operator_id='ops-identity-1',
+            evidence_reference='INC-2048',
+            evidence_sha256='a' * 64,
+            confirm_no_live_operation=True,
+        )
+        ReconcileAccountExternalEffectReceiptUseCase(database, clock).execute(
+            reconciliation
+        )
+        with database.transaction() as repositories:
+            assert (
+                not repositories.external_effect_receipts.has_unresolved_for_account_id(
+                    account.id
+                )
+            )
+
     def test_should_settle_a_durable_receipt_when_recovery_exits_early(
         self, postgres_database: PostgresDatabase
     ) -> None:
