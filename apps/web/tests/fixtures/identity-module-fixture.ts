@@ -67,13 +67,25 @@ export const test = base.extend<IdentityModuleFixtures>({
         return
       }
 
+      const isMainPageEntry = serverFunction.includes(
+        'middlewares/enter-main-page-middleware.ts',
+      )
       await route.fulfill({
         body: JSON.stringify({
-          result: {
-            displayName: 'Playwright Learner',
-            email: 'playwright@shifu.local',
-            appearance: 'dark',
-          },
+          result: isMainPageEntry
+            ? {
+                mode: 'authenticated',
+                account: {
+                  displayName: 'Playwright Learner',
+                  email: 'playwright@shifu.local',
+                  appearance: 'dark',
+                },
+              }
+            : {
+                displayName: 'Playwright Learner',
+                email: 'playwright@shifu.local',
+                appearance: 'dark',
+              },
         }),
         contentType: 'application/json',
         status: 200,

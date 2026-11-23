@@ -37,6 +37,7 @@ test.describe('same-origin registration confirmation auth handlers', () => {
     expect(await status.json()).toEqual({
       state: 'cooldown',
       retryAfterSeconds: expect.any(Number),
+      hasPendingContext: true,
     })
   })
 

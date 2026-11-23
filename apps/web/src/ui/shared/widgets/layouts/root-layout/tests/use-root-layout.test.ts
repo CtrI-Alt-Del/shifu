@@ -28,6 +28,33 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ pathname: routing.pathname }),
   useMatches: () => routing.matches,
 }))
+it('uses the public root mode without an authenticated layout account', () => {
+  routing.pathname = '/'
+  routing.matches = [{ context: { mode: 'public' } }]
+
+  const { result } = renderHook(useRootLayout)
+
+  expect(result.current.isPublic).toBe(true)
+  expect(result.current.account).toBeUndefined()
+  expect(result.current.theme).toBe('dark')
+})
+
+it('uses the authenticated root mode and its account before rendering the shell', () => {
+  const account = {
+    displayName: 'Ana',
+    email: 'ana@example.com',
+    appearance: 'light',
+  }
+  routing.pathname = '/'
+  routing.matches = [{ context: { mode: 'authenticated', account } }]
+
+  const { result } = renderHook(useRootLayout)
+
+  expect(result.current.isPublic).toBe(false)
+  expect(result.current.account).toEqual(account)
+  expect(result.current.theme).toBe('light')
+})
+
 it('captures only recognized Learning identifiers and ignores run and foreign route state', () => {
   const id = '01J7T8AC91Z5K8M4JQ8C2D6F0B'
   routing.pathname = '/learning/goals/goal/skills/skill'

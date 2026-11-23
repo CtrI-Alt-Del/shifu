@@ -13,6 +13,8 @@ if (!port || !identityOrigin)
 // real server functions and their error classification run.
 const FAULT_SCENARIO = 'account-unavailable'
 const QUOTA_SCENARIO = 'ai-quota-exhausted'
+const PENDING_STATUS_SCENARIO = 'pending-status-unavailable'
+const GLOBAL_SCENARIO_ID = '00000000000000000000000000'
 const QUOTA_REFUSED_ROUTES = [
   /^\/intelligence\/mentor-sessions\/?$/,
   /^\/intelligence\/mentor-sessions\/[^/]+\/messages\/?$/,
@@ -26,7 +28,10 @@ async function readScenarioKind(request) {
   for await (const chunk of request) text += chunk
   if (!text) return FAULT_SCENARIO
   try {
-    return JSON.parse(text).scenario === QUOTA_SCENARIO ? QUOTA_SCENARIO : FAULT_SCENARIO
+    const requested = JSON.parse(text).scenario
+    if (requested === QUOTA_SCENARIO || requested === PENDING_STATUS_SCENARIO)
+      return requested
+    return FAULT_SCENARIO
   } catch {
     return FAULT_SCENARIO
   }
@@ -37,7 +42,7 @@ const server = createServer(async (request, response) => {
     response.end('ready')
     return
   }
-  const control = /^\/__account-control\/([0-9A-Z]{26})$/.exec(url.pathname)
+  const control = /^\/__account-control\/([^/]+)$/.exec(url.pathname)
   if (control) {
     const accountId = control[1]
     response.setHeader('Content-Type', 'application/json')
@@ -65,7 +70,38 @@ const server = createServer(async (request, response) => {
   } catch {
     accountId = undefined
   }
-  const scenario = scenarios.get(accountId)
+  let pendingHandle
+  let bufferedBody
+  if (url.pathname === '/identity/pending-confirmations/status') {
+    const chunks = []
+    for await (const chunk of request) chunks.push(chunk)
+    bufferedBody = Buffer.concat(chunks)
+    try {
+      pendingHandle = JSON.parse(bufferedBody.toString()).pending_handle
+    } catch {
+      pendingHandle = undefined
+    }
+  }
+  const scenario =
+    scenarios.get(accountId) ??
+    scenarios.get(pendingHandle) ??
+    scenarios.get(GLOBAL_SCENARIO_ID)
+  if (
+    scenario?.kind === PENDING_STATUS_SCENARIO &&
+    url.pathname === '/identity/pending-confirmations/status'
+  ) {
+    response.writeHead(503, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(
+      JSON.stringify({
+        code: 'service_unavailable',
+        message: 'Serviço temporariamente indisponível.',
+      }),
+    )
+    return
+  }
   if (
     scenario?.kind === QUOTA_SCENARIO &&
     request.method === 'POST' &&
@@ -125,7 +161,8 @@ const server = createServer(async (request, response) => {
   response.on('close', () => {
     if (!response.writableFinished) upstream.destroy()
   })
-  request.pipe(upstream)
+  if (bufferedBody) upstream.end(bufferedBody)
+  else request.pipe(upstream)
 })
 server.listen(port, '127.0.0.1')
 function close() {

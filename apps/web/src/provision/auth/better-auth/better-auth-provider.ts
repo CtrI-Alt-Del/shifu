@@ -307,6 +307,42 @@ const BetterAuthProvider = () => {
     }
   }
 
+  async function getPendingConfirmationStatus(request: Request): Promise<{
+    state: 'ready' | 'cooldown' | 'delivery_issue'
+    hasPendingContext: boolean
+  }> {
+    if (!hasPendingConfirmationCookie(request)) {
+      return { state: 'delivery_issue', hasPendingContext: false }
+    }
+
+    const response = await auth.handler(
+      new Request(new URL('/api/auth/pending-confirmation', request.url), {
+        headers: request.headers,
+      }),
+    )
+    if (!response.ok) {
+      throw new AuthError('unavailable', 'Não foi possível validar a confirmação.', {
+        statusCode: response.status,
+      })
+    }
+
+    const result: unknown = await response.json()
+    if (
+      !isRecord(result) ||
+      (result.state !== 'ready' &&
+        result.state !== 'cooldown' &&
+        result.state !== 'delivery_issue') ||
+      typeof result.hasPendingContext !== 'boolean'
+    ) {
+      throw new AuthError('invalid-response', 'Resposta de confirmação inválida.')
+    }
+
+    return {
+      state: result.state,
+      hasPendingContext: result.hasPendingContext,
+    }
+  }
+
   async function deleteSession(request: Request, requestId?: string) {
     const response = await auth.handler(
       new Request(new URL('/api/auth/sign-out', request.url), {
@@ -352,6 +388,7 @@ const BetterAuthProvider = () => {
     auth,
     handler: auth.handler,
     getCurrentAccess,
+    getPendingConfirmationStatus,
     deleteRejectedSession: deleteSession,
     publishMainPageEntered,
     close: () => pool.end(),
@@ -544,7 +581,10 @@ function createIdentityPlugin(
               retryAfterSeconds: result.is_decoy ? 60 : null,
             })
           } catch {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível validar a confirmação agora. Tente novamente.',
+            })
           }
         },
       ),
@@ -676,10 +716,18 @@ function createIdentityPlugin(
           const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            return context.json({
+              state: 'delivery_issue',
+              retryAfterSeconds: null,
+              hasPendingContext: false,
+            })
           }
           if (pendingContext.isDecoy) {
-            return context.json({ state: 'cooldown', retryAfterSeconds: 60 })
+            return context.json({
+              state: 'cooldown',
+              retryAfterSeconds: 60,
+              hasPendingContext: true,
+            })
           }
 
           try {
@@ -689,9 +737,13 @@ function createIdentityPlugin(
             return context.json({
               state: status.state,
               retryAfterSeconds: status.retry_after_seconds,
+              hasPendingContext: true,
             })
           } catch {
-            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível validar a confirmação agora. Tente novamente.',
+            })
           }
         },
       ),
@@ -1014,6 +1066,13 @@ async function getPendingContext(
   } catch {
     return null
   }
+}
+
+function hasPendingConfirmationCookie(request: Request): boolean {
+  return (request.headers.get('cookie') ?? '').split(';').some((cookie) => {
+    const separator = cookie.indexOf('=')
+    return separator >= 0 && cookie.slice(0, separator).trim() === PENDING_COOKIE_NAME
+  })
 }
 
 async function clearPendingContext(context: GenericEndpointContext) {
