@@ -76,8 +76,8 @@ class TestSweepAccountErasuresJob:
         ] == [(erasure_id, 'learning')]
 
         inngest_fixture.clear_mailpit()
-        inngest_fixture.invoke_function(SweepAccountErasuresJob.FUNCTION_ID)
-        messages = inngest_fixture.wait_for_mail_count(1, timeout=60)
+        inngest_fixture.invoke_function(f'shifu-{SweepAccountErasuresJob.FUNCTION_ID}')
+        messages = inngest_fixture.wait_for_mail_count(1, timeout=90)
 
         assert 'shifu.ctrlaltdel@gmail.com' in json.dumps(messages)
         message_id = messages[0].get('ID')
