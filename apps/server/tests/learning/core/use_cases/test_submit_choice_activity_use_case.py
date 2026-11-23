@@ -36,6 +36,9 @@ from shifu.learning.core.domain.structures import (
     VerifiedOrdering,
 )
 from shifu.learning.core.domain.entities import OrderingPassage
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
+)
 from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
     CurriculumPairMatchingQuestionSnapshotFaker,
 )
@@ -2100,4 +2103,195 @@ class TestSubmitPairMatchingActivity:
 
         assert outcome.replayed is True
         assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()
+
+
+class TestSubmitImageChoiceActivity:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.database = create_autospec(LearningDatabase, instance=True)
+        self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        self.clock = create_autospec(ClockProvider, instance=True)
+        self.ids = create_autospec(IdentifierProvider, instance=True)
+        self.ids.generate.side_effect = ('attempt-1', 'evaluation-1', 'run-1')
+        self.clock.now.return_value = NOW
+        self.experience = SkillExperienceFaker.fake(
+            id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
+        )
+        self.experience.status = SkillExperienceStatus.LEARNING
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id=GOAL_ID, account_id=ACCOUNT_ID
+        )
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = self.experience
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            self.experience
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = CompetencyProgress(
+            id='progress-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            content_released=True,
+            created_at=NOW,
+            updated_at=NOW,
+            initial_progress=Decimal('0'),
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = None
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
+        base = mixed_snapshot()
+        self.snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumImageChoiceQuestionSnapshotFaker.fake('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = self.snapshot
+        self.provider.get_skill_content.return_value = None
+        self.subject = SubmitChoiceActivityUseCase(
+            self.database, self.provider, self.clock, self.ids
+        )
+
+    @staticmethod
+    def _image(*keys: str) -> ChoiceAnswerSubmission:
+        return ChoiceAnswerSubmission(question_key='q3', selected_option_keys=keys)
+
+    def _submit(
+        self,
+        image_answer: ChoiceAnswerSubmission | PairMatchingAnswer,
+        revision: str | None = 'revision-1',
+    ) -> ChoiceSubmissionOutcome:
+        return self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'submission-key',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                image_answer,
+            ),
+            revision,
+        )
+
+    def test_should_persist_one_attempt_with_the_chosen_image_as_a_single_answer(
+        self,
+    ) -> None:
+        chosen = CurriculumImageChoiceQuestionSnapshotFaker.option_key(1)
+
+        outcome = self._submit(self._image(chosen))
+
+        assert outcome.attempt.attempt_id == 'attempt-1'
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        assert outcome.replayed is False
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.answers == (
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q3', selected_option_key=chosen),
+        )
+        assert attempt.grading_snapshot == self.snapshot
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+        self.provider.get_choice_activity.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'image_answer',
+        (
+            ChoiceAnswerSubmission(question_key='q3', selected_option_keys=()),
+            ChoiceAnswerSubmission(
+                question_key='q3',
+                selected_option_keys=('opt-000000000001', 'opt-000000000002'),
+            ),
+            ChoiceAnswerSubmission(
+                question_key='q3',
+                selected_option_keys=('opt-000000000001', 'opt-000000000001'),
+            ),
+            ChoiceAnswerSubmission(
+                question_key='q3', selected_option_keys=('opt-ffffffffffff',)
+            ),
+            ChoiceAnswerSubmission(
+                question_key='other', selected_option_keys=('opt-000000000001',)
+            ),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                ),
+            ),
+        ),
+        ids=('none', 'two', 'repeated', 'unknown', 'wrong-question-key', 'wrong-type'),
+    )
+    def test_should_reject_invalid_image_answers_without_persisting(
+        self, image_answer: ChoiceAnswerSubmission | PairMatchingAnswer
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(image_answer)
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_reject_a_stale_revision_without_persisting(self) -> None:
+        with pytest.raises(ConflictError):
+            self._submit(
+                self._image(CurriculumImageChoiceQuestionSnapshotFaker.option_key(0)),
+                revision='old-revision',
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_block_the_submission_while_an_evaluation_is_unresolved(
+        self,
+    ) -> None:
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = create_autospec(
+            ActivityEvaluation, instance=True
+        )
+
+        with pytest.raises(ConflictError):
+            self._submit(
+                self._image(CurriculumImageChoiceQuestionSnapshotFaker.option_key(0))
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_replay_the_same_attempt_and_reject_a_different_image(self) -> None:
+        first = CurriculumImageChoiceQuestionSnapshotFaker.option_key(1)
+        self._submit(self._image(first))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+
+        outcome = self._submit(self._image(first))
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        with pytest.raises(ConflictError):
+            self._submit(
+                self._image(CurriculumImageChoiceQuestionSnapshotFaker.option_key(2))
+            )
+
         self.repositories.activity_attempts.add.assert_not_called()

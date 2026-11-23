@@ -370,6 +370,157 @@ describe('useActivityPage', () => {
     })
   })
 
+  describe('image choice question', () => {
+    const imageActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        activity.questions[0],
+        {
+          key: 'image-1',
+          kind: 'image_choice',
+          prompt: 'Qual destas cebolas está caramelizada?',
+          options: [
+            {
+              key: 'opt-1',
+              imagePath: '/curriculum/images/2d165276ed215938.webp',
+              description: 'Crua.',
+            },
+            {
+              key: 'opt-2',
+              imagePath: '/curriculum/images/5c8a6a6b47848a6f.webp',
+              description: 'Marrom.',
+            },
+            {
+              key: 'opt-3',
+              imagePath: '/curriculum/images/655fecc77404ac40.webp',
+              description: 'Escura.',
+            },
+          ],
+        },
+      ],
+    }
+
+    function renderImageActivity() {
+      const onPreviewMock = vi.fn().mockResolvedValue({
+        status: 'conclusive',
+        score: 0,
+        isCorrect: false,
+        optionFeedback: 'Essa cebola queimou.',
+        explanation: 'Revise a cor.',
+      })
+      const onSubmitMock = vi.fn().mockResolvedValue(submitted)
+      const rendered = renderHook(
+        () =>
+          useActivityPage({
+            activity: imageActivity,
+            onPreview: onPreviewMock,
+            onSubmit: onSubmitMock,
+          }),
+        { wrapper: wrapper() },
+      )
+      return { ...rendered, onPreviewMock, onSubmitMock }
+    }
+
+    async function reachImageQuestion(
+      result: ReturnType<typeof renderImageActivity>['result'],
+    ) {
+      act(() => result.current.handleToggleOption('a'))
+      await act(async () => result.current.handleContinue())
+      await act(async () => result.current.handleContinue())
+      expect(result.current.currentQuestion?.kind).toBe('image_choice')
+    }
+
+    it('changes the chosen image freely before verifying and requires a selection to verify', async () => {
+      const { result, onPreviewMock } = renderImageActivity()
+      await reachImageQuestion(result)
+
+      expect(result.current.selectedOptionKeys).toEqual([])
+      await act(async () => result.current.handleContinue())
+      expect(onPreviewMock).toHaveBeenCalledTimes(1)
+      act(() => result.current.handleToggleOption('opt-1'))
+      act(() => result.current.handleToggleOption('opt-3'))
+      expect(result.current.selectedOptionKeys).toEqual(['opt-3'])
+      act(() => result.current.handleToggleOption('unknown'))
+      expect(result.current.selectedOptionKeys).toEqual(['opt-3'])
+      expect(result.current.hasUnsentAnswers).toBe(true)
+    })
+
+    it('verifies exactly one key with the revision, then locks the choice', async () => {
+      const { result, onPreviewMock } = renderImageActivity()
+      await reachImageQuestion(result)
+
+      act(() => result.current.handleToggleOption('opt-3'))
+      await act(async () => result.current.handleContinue())
+
+      expect(onPreviewMock).toHaveBeenLastCalledWith('image-1', 'revision-1', {
+        kind: 'image_choice',
+        questionKey: 'image-1',
+        selectedOptionKeys: ['opt-3'],
+      })
+      expect(result.current.feedback).toMatchObject({
+        isCorrect: false,
+        optionFeedback: 'Essa cebola queimou.',
+      })
+      expect(result.current.isLastQuestion).toBe(true)
+      act(() => result.current.handleToggleOption('opt-1'))
+      expect(result.current.selectedOptionKeys).toEqual(['opt-3'])
+    })
+
+    it('keeps the frozen image after a transport failure and retries the same answer', async () => {
+      const { result, onPreviewMock } = renderImageActivity()
+      await reachImageQuestion(result)
+      onPreviewMock.mockRejectedValueOnce(new Error('offline'))
+
+      act(() => result.current.handleToggleOption('opt-2'))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasFeedbackError).toBe(true)
+      expect(result.current.feedback).toBeNull()
+      act(() => result.current.handleToggleOption('opt-3'))
+      expect(result.current.selectedOptionKeys).toEqual(['opt-2'])
+
+      await act(async () => result.current.handleContinue())
+      expect(onPreviewMock).toHaveBeenLastCalledWith('image-1', 'revision-1', {
+        kind: 'image_choice',
+        questionKey: 'image-1',
+        selectedOptionKeys: ['opt-2'],
+      })
+      expect(result.current.feedback?.status).toBe('conclusive')
+    })
+
+    it('submits the single chosen image with the discriminator after the verification', async () => {
+      const { result, onSubmitMock } = renderImageActivity()
+      vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValue('submission-key') })
+      await reachImageQuestion(result)
+
+      act(() => result.current.handleToggleOption('opt-2'))
+      await act(async () => result.current.handleContinue())
+      await act(async () => result.current.handleContinue())
+
+      expect(onSubmitMock).toHaveBeenCalledWith({
+        activityRevision: 'revision-1',
+        submissionKey: 'submission-key',
+        answers: [
+          { kind: 'single_choice', questionKey: 'single-1', selectedOptionKeys: ['a'] },
+          { kind: 'image_choice', questionKey: 'image-1', selectedOptionKeys: ['opt-2'] },
+        ],
+      })
+    })
+
+    it('reverifies the same image and never submits while the verification is inconclusive', async () => {
+      const { result, onPreviewMock, onSubmitMock } = renderImageActivity()
+      await reachImageQuestion(result)
+      onPreviewMock.mockResolvedValue({ status: 'inconclusive', score: null })
+
+      act(() => result.current.handleToggleOption('opt-2'))
+      await act(async () => result.current.handleContinue())
+      await act(async () => result.current.handleContinue())
+
+      expect(onPreviewMock).toHaveBeenCalledTimes(3)
+      expect(result.current.feedback?.status).toBe('inconclusive')
+      expect(onSubmitMock).not.toHaveBeenCalled()
+    })
+  })
+
   it('preserves direct choice-only advance and submission without preliminary or revision', async () => {
     const legacyActivity = {
       ...activity,

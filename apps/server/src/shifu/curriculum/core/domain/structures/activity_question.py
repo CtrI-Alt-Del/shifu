@@ -1,6 +1,7 @@
 from .code_question import CodeQuestion
 from .fill_blanks_question import FillBlanksQuestion
 from .html_css_js_question import HtmlCssJsQuestion
+from .image_choice_question import ImageChoiceQuestion
 from .javascript_stdin_question import JavascriptStdinQuestion
 from .multiple_selection_question import MultipleSelectionQuestion
 from .ordering_question import OrderingQuestion
@@ -24,5 +25,6 @@ type ActivityQuestion = (
     | FillBlanksQuestion
     | TranslationQuestion
     | PairMatchingQuestion
+    | ImageChoiceQuestion
     | PracticalPreparationQuestion
 )

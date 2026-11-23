@@ -5,6 +5,11 @@ translation text, ordered steps, matched pairs, blanks or choices). Reject mixed
 omits the fields its own `kind` requires.
 """
 
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Sized
+
 _FIELD_BY_KIND = {
     'ordering': 'ordered_step_keys',
     'fill_blanks': 'placements',
@@ -14,6 +19,7 @@ _FIELD_BY_KIND = {
     'react_fastify': 'files',
     'translation': 'text',
     'pair_matching': 'pairs',
+    'image_choice': 'selected_option_keys',
     'practical_preparation': 'draft_revision',
 }
 _ERROR_BY_FIELD = {
@@ -25,6 +31,7 @@ _ERROR_BY_FIELD = {
     'draft_revision': 'Practical preparation answers require a draft revision only',
     'selected_option_keys': 'Choice answers require selected option keys only',
 }
+_IMAGE_CHOICE_ERROR = 'Image choice answers require exactly one selected option key'
 
 
 def validate_answer_request_shape(
@@ -59,3 +66,9 @@ def validate_answer_request_shape(
     )
     if is_missing or has_other_field:
         raise ValueError(_ERROR_BY_FIELD[required])
+
+    if kind == 'image_choice' and (
+        not isinstance(selected_option_keys, tuple | list)
+        or len(cast('Sized', selected_option_keys)) != 1
+    ):
+        raise ValueError(_IMAGE_CHOICE_ERROR)

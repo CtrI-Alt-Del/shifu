@@ -41,6 +41,7 @@ from shifu.learning.core.domain.structures import (
     FillBlanksPlacement,
     PairMatchingAnswer,
     PairMatchingSelection,
+    SingleChoiceAnswer,
     TranslationAnswer,
 )
 from shifu.learning.core.domain.enums import (
@@ -71,6 +72,7 @@ from tests.fixtures.fill_blanks_activity_fixture import (
     PARTIAL_PAIRS,
     FillBlanksActivityFixture,
 )
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.learning.rest.controllers.pair_matching_controller_fixture import (
     PairMatchingControllerFixture,
@@ -1238,6 +1240,229 @@ class TestSubmitChoiceActivityController:
 
         assert response.status_code == 409, response.json()
         assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def _image_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    def _image_submit(self, client: TestClient, body: dict[str, object]) -> 'Response':
+        return cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.attempts_path(),
+                json=body,
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+    def test_image_choice_submission_persists_one_single_answer_and_replays(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+        chosen = ImageChoiceActivityFixture.OPTION_KEYS[0]
+        body = ImageChoiceActivityFixture.submission(revision, chosen)
+
+        created = self._image_submit(client, body)
+
+        assert created.status_code == 201, created.json()
+        assert created.json()['status'] == 'pending'
+        attempt_id = cast('str', created.json()['attempt_id'])
+        attempts, evaluations, observations, events = (
+            ImageChoiceActivityFixture.write_counts(postgres_database)
+        )
+        assert (
+            attempts - before[0],
+            evaluations - before[1],
+            observations - before[2],
+            events - before[3],
+        ) == (1, 1, 0, 1)
+        # A new session reads the stored attempt through the attempt mapper.
+        with SqlalchemyLearningDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert attempt is not None and attempt.grading_snapshot is not None
+        assert attempt.grading_snapshot.questions[1].kind == 'image_choice'
+        assert attempt.grading_snapshot.revision == revision
+        assert attempt.answers[1] == SingleChoiceAnswer(
+            question_key='image-1', selected_option_key=chosen
+        )
+        assert evaluation is not None
+        assert evaluation.status.value == 'pending'
+
+        replay = self._image_submit(client, body)
+        different = self._image_submit(
+            client,
+            ImageChoiceActivityFixture.submission(
+                revision, ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+            ),
+        )
+
+        assert replay.status_code == 200, replay.json()
+        assert replay.json()['attempt_id'] == attempt_id
+        assert different.status_code == 409, different.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == (
+            attempts,
+            evaluations,
+            observations,
+            events,
+        )
+
+    @pytest.mark.parametrize(
+        ('option_keys', 'expected_status'),
+        (
+            ((), 422),
+            (ImageChoiceActivityFixture.OPTION_KEYS[:2], 422),
+            (('opt-ffffffffffff',), 400),
+        ),
+        ids=('no-key', 'two-keys', 'unknown-key'),
+    )
+    def test_image_choice_submission_rejects_invalid_keys_without_persistence(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        option_keys: tuple[str, ...],
+        expected_status: int,
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+
+        response = self._image_submit(
+            client, ImageChoiceActivityFixture.submission(revision, *option_keys)
+        )
+
+        assert response.status_code == expected_status, response.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
+
+    def test_image_choice_next_to_a_code_question_is_sent_to_the_learning_workflow(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many(
+                [ImageChoiceActivityFixture.code_activity()]
+            )
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        assert [item['kind'] for item in detail.json()['questions']] == [
+            'single_choice',
+            'image_choice',
+            'react',
+        ]
+        chosen = ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+        body = ImageChoiceActivityFixture.submission(
+            cast('str', detail.json()['activity_revision']), chosen
+        )
+        answers = cast('list[dict[str, object]]', body['answers'])
+        answers[2] = {
+            'kind': 'react',
+            'question_key': 'q3',
+            'files': [
+                {
+                    'path': 'src/App.jsx',
+                    'content': 'export default function App() { return <h1>Oi</h1> }',
+                }
+            ],
+        }
+
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                ImageChoiceActivityFixture.attempts_path(), json=body, headers=headers
+            ),
+        )
+
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+        with SqlalchemyLearningDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            events = repositories.events.find_unrouted(now=datetime.now(UTC), limit=100)
+        assert attempt is not None
+        assert attempt.answers[1] == SingleChoiceAnswer(
+            question_key='image-1', selected_option_key=chosen
+        )
+        event = next(
+            item for item in events if item.payload.get('attempt_id') == attempt_id
+        )
+        assert (
+            application.state.learning_workflows_registry.destination_for_event(event)
+            == 'agentos:learning'
+        )
+
+    def test_image_choice_submission_rejects_a_field_of_another_format(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+        body = ImageChoiceActivityFixture.submission(
+            revision, ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+        )
+        answers = cast('list[dict[str, object]]', body['answers'])
+        answers[1]['ordered_step_keys'] = ['a']
+
+        response = self._image_submit(client, body)
+
+        assert response.status_code == 422, response.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
+
+    def test_image_choice_submission_rejects_a_stale_revision_and_a_pending_evaluation(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        revision = self._image_revision(client, postgres_database)
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+        correct = ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+
+        stale = self._image_submit(
+            client, ImageChoiceActivityFixture.submission('stale-revision', correct)
+        )
+        assert stale.status_code == 409, stale.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
+
+        first = self._image_submit(
+            client, ImageChoiceActivityFixture.submission(revision, correct)
+        )
+        assert first.status_code == 201, first.json()
+        pending = ImageChoiceActivityFixture.write_counts(postgres_database)
+        blocked = self._image_submit(
+            client,
+            ImageChoiceActivityFixture.submission(
+                revision,
+                correct,
+                submission_key='22222222-2222-4222-8222-222222222222',
+            ),
+        )
+
+        assert blocked.status_code == 409, blocked.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == pending
 
 
 def _attempts_path(

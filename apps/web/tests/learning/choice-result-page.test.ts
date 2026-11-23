@@ -13,6 +13,10 @@ import {
   SkillExperienceDetailFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
+import {
+  IMAGE_CHOICE_FOOTER_WIDTHS,
+  expectImageChoiceFootersContained,
+} from '../support/image-choice-footer'
 
 type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
 type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
@@ -1547,4 +1551,269 @@ test('shows no Skill completion notice when the attempt does not complete the Sk
   await expect(
     authenticatedPage.getByRole('link', { name: 'Ver resumo final' }),
   ).toHaveCount(0)
+})
+
+const IMAGE_RESULT_OPTIONS = [
+  {
+    key: 'opt-3f9a21c4b07d',
+    imagePath: '/curriculum/images/2d165276ed215938.webp',
+    description: 'Fatias brancas e firmes, sem brilho, espalhadas na frigideira escura.',
+  },
+  {
+    key: 'opt-b07d5e185c1e',
+    imagePath: '/curriculum/images/51de9b1cc23dd653.webp',
+    description: 'Fatias claras e translúcidas, com as bordas ainda frescas.',
+  },
+  {
+    key: 'opt-5c1e9a7391c7',
+    imagePath: '/curriculum/images/5c8a6a6b47848a6f.webp',
+    description: 'Tiras marrons, macias e brilhantes, bem misturadas.',
+  },
+  {
+    key: 'opt-91c7d3fa0a6b',
+    imagePath: '/curriculum/images/655fecc77404ac40.webp',
+    description: 'Fatias escuras, com anéis enrolados e bordas pretas.',
+  },
+] as const
+
+for (const release of ['hidden', 'released'] as const) {
+  test(`shows an incorrect image choice attempt read-only with the correct image ${release}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const imageActivity = {
+      ...activity,
+      questions: [
+        {
+          key: 'image-1',
+          kind: 'image_choice' as const,
+          prompt: 'Qual destas cebolas está caramelizada?',
+          options: IMAGE_RESULT_OPTIONS,
+        },
+      ],
+    }
+    const imageAttempt = {
+      ...completedAttempt,
+      questions: [
+        {
+          key: 'image-1',
+          kind: 'image_choice' as const,
+          prompt: 'Qual destas cebolas está caramelizada?',
+          options: IMAGE_RESULT_OPTIONS,
+          selectedOptionKey: IMAGE_RESULT_OPTIONS[3].key,
+          score: 0,
+          isCorrect: false,
+          optionFeedback: 'Essa cebola passou do ponto e queimou.',
+          explanation: 'Revise a cor e a textura da cebola.',
+          ...(release === 'released'
+            ? { disclosedCorrectOptionKey: IMAGE_RESULT_OPTIONS[2].key }
+            : {}),
+        },
+      ],
+    }
+    await bff.route(async (route) => {
+      const payload = decodeURIComponent(
+        `${route.request().url()} ${route.request().postData() ?? ''}`,
+      )
+      if (payload.includes(ids.attemptId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: imageAttempt }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.activityId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: imageActivity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fallback()
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+    const disclosure = authenticatedPage.locator('summary').filter({
+      hasText: 'Questão 1 · escolha por imagem · incorreta',
+    })
+    await expect(disclosure).toBeVisible()
+    await disclosure.click()
+
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Resposta incorreta' }),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByText('Essa cebola passou do ponto e queimou.'),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByText('Revise a cor e a textura da cebola.'),
+    ).toBeVisible()
+    await expect(authenticatedPage.getByLabel('Nota 0 de 100')).toBeVisible()
+    await expect
+      .poll(() =>
+        authenticatedPage.evaluate(() =>
+          [...document.querySelectorAll('img')].map(
+            (image) => image.complete && image.naturalWidth > 0,
+          ),
+        ),
+      )
+      .toEqual([true, true, true, true])
+    for (const radio of await authenticatedPage.getByRole('radio').all())
+      await expect(radio).toBeDisabled()
+    await expect(authenticatedPage.getByRole('radio', { name: 'Opção 4' })).toBeChecked()
+    await expect(authenticatedPage.locator('[data-tone="incorrect"]')).toHaveCount(1)
+    await expect(
+      authenticatedPage.getByRole('button', { name: /Verificar/ }),
+    ).toHaveCount(0)
+
+    if (release === 'hidden') {
+      await expect(authenticatedPage.locator('[data-tone="correct"]')).toHaveCount(0)
+      await expect(authenticatedPage.getByText('Resposta correta')).toHaveCount(0)
+    } else {
+      await expect(authenticatedPage.locator('[data-tone="correct"]')).toHaveCount(1)
+      await expect(
+        authenticatedPage
+          .getByRole('radio', { name: 'Opção 3' })
+          .locator('xpath=ancestor::label'),
+      ).toHaveAttribute('data-tone', 'correct')
+    }
+    for (const width of IMAGE_CHOICE_FOOTER_WIDTHS) {
+      await authenticatedPage.setViewportSize({ width, height: 900 })
+      await expectImageChoiceFootersContained(authenticatedPage)
+      if (width === 1024 && release === 'released')
+        await authenticatedPage.screenshot({
+          path: '.playwright-cli/screenshots/shifu-131-image-choice-result-released-1024.png',
+          fullPage: true,
+          animations: 'disabled',
+        })
+    }
+    await authenticatedPage.setViewportSize({ width: 1280, height: 1056 })
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-131-image-choice-result-${release}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  })
+}
+
+test.describe('Image choice result routed REST transport', () => {
+  const wireOptions = IMAGE_RESULT_OPTIONS.map((option) => ({
+    key: option.key,
+    image_path: option.imagePath,
+    description: option.description,
+  }))
+  const imageWire = (key: string) => ({
+    key,
+    kind: 'image_choice',
+    prompt: 'Qual destas cebolas está caramelizada?',
+    options: wireOptions,
+  })
+  const resultWire = (key: string, disclosed: string | null | undefined) => ({
+    question_key: key,
+    kind: 'image_choice',
+    prompt: 'Qual destas cebolas está caramelizada?',
+    options: wireOptions,
+    selected_option_key: IMAGE_RESULT_OPTIONS[3].key,
+    score: 0,
+    is_correct: false,
+    option_feedback: `Linha da opção em ${key}.`,
+    explanation: `Explicação de ${key}.`,
+    ...(disclosed === undefined ? {} : { disclosed_correct_option_key: disclosed }),
+  })
+
+  // question_key, selected_option_key, option_feedback and the optional
+  // disclosed_correct_option_key reach the page as camelCase; the BFF mapping runs for real.
+  test('maps the attempt wire and highlights the correct image only when it is disclosed', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    const transport = GamificationTransportFixture(request, activeAccount.accountId)
+    await transport.register({
+      [activityPath]: {
+        body: {
+          activity_id: ids.activityId,
+          competency_id: ids.competencyId,
+          title: 'Ponto de cocção',
+          type: 'practice',
+          difficulty: 'easy',
+          questions: [imageWire('image-1'), imageWire('image-2'), imageWire('image-3')],
+          latest_attempt_id: ids.attemptId,
+          can_submit: false,
+          activity_revision: 'image-result-transport',
+        },
+      },
+      [attemptPath]: {
+        body: {
+          attempt_id: ids.attemptId,
+          activity_id: ids.activityId,
+          status: 'completed',
+          submitted_at: '2026-09-23T12:00:00Z',
+          retry_allowed: false,
+          score: 0,
+          progress_before: 0,
+          progress_after: 0,
+          status_before: 'learning',
+          status_after: 'learning',
+          questions: [
+            resultWire('image-1', IMAGE_RESULT_OPTIONS[2].key),
+            resultWire('image-2', null),
+            resultWire('image-3', undefined),
+          ],
+          next_action: null,
+        },
+      },
+      [competencyPath]: {
+        status: 404,
+        body: { code: 'not_found', message: 'Recurso não encontrado.' },
+      },
+    })
+    try {
+      const signIn = await page.request.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': activeAccount.ipAddress },
+      })
+      expect(signIn.status()).toBe(200)
+      await page.goto(attemptPath)
+      await expect(
+        page.getByRole('heading', { name: 'Resultado da Atividade' }),
+      ).toBeVisible()
+
+      for (const number of [1, 2, 3]) {
+        const card = page.locator('details').filter({
+          has: page.locator('summary', {
+            hasText: `Questão ${number} · escolha por imagem · incorreta`,
+          }),
+        })
+        await card.locator('summary').click()
+        await expect(card.getByText(`Linha da opção em image-${number}.`)).toBeVisible()
+        await expect(card.getByText(`Explicação de image-${number}.`)).toBeVisible()
+        await expect(card.getByRole('radio', { name: 'Opção 4' })).toBeChecked()
+        await expect(card.locator('[data-tone="incorrect"]')).toHaveCount(1)
+        // Present key highlights Opção 3; a null or absent key identifies nothing.
+        await expect(card.locator('[data-tone="correct"]')).toHaveCount(
+          number === 1 ? 1 : 0,
+        )
+      }
+      await expect(
+        page
+          .getByRole('radio', { name: 'Opção 3' })
+          .first()
+          .locator('xpath=ancestor::label'),
+      ).toHaveAttribute('data-tone', 'correct')
+      const sources = await page
+        .locator('label.image-choice-card img')
+        .first()
+        .getAttribute('src')
+      expect(sources).toBe(IMAGE_RESULT_OPTIONS[0].imagePath)
+      expect(
+        (await transport.observations()).filter((entry) => entry.path === attemptPath),
+      ).toEqual(
+        expect.arrayContaining([expect.objectContaining({ method: 'GET', status: 200 })]),
+      )
+    } finally {
+      await transport.dispose()
+    }
+  })
 })

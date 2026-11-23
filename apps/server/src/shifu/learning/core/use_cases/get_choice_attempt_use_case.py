@@ -31,6 +31,8 @@ from shifu.learning.core.domain.structures import (
     FillBlanksEvaluationResult,
     FillBlanksExpectedBlank,
     FillBlanksResultDetail,
+    ImageChoiceOptionDetail,
+    ImageChoiceResultDetail,
     PairMatchingAnswer,
     PairMatchingEvaluationResult,
     PairMatchingResultDetail,
@@ -61,6 +63,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -75,6 +78,7 @@ type ResultDetail = (
     | FillBlanksResultDetail
     | TranslationResultDetail
     | PairMatchingResultDetail
+    | ImageChoiceResultDetail
     | PracticalPreparationResultDetail
 )
 
@@ -350,22 +354,39 @@ class GetChoiceAttemptUseCase:
                 detail = GetChoiceAttemptUseCase._pair_result_detail(
                     question, answer, pair_results.get(question.key), disclosed_keys
                 )
-            elif isinstance(question, CurriculumOrderingQuestionSnapshot):
-                ordering_result = results.get(question.key)
-                detail = (
-                    GetChoiceAttemptUseCase._ordering_result_detail(
-                        question, answer, ordering_result, disclosed_keys
-                    )
-                    if ordering_result is not None
-                    else None
-                )
             else:
-                detail = GetChoiceAttemptUseCase._choice_result_detail(
+                detail = GetChoiceAttemptUseCase._choice_family_result_detail(
                     question, answer, results.get(question.key), disclosed_keys
                 )
             if detail is not None:
                 details.append(detail)
         return tuple(details)
+
+    @staticmethod
+    def _choice_family_result_detail(
+        question: CurriculumChoiceQuestionSnapshot
+        | CurriculumOrderingQuestionSnapshot
+        | CurriculumImageChoiceQuestionSnapshot,
+        answer: object | None,
+        result: ChoiceEvaluationResult | None,
+        disclosed_keys: frozenset[str],
+    ) -> ChoiceResultDetail | OrderingResultDetail | ImageChoiceResultDetail | None:
+        if isinstance(question, CurriculumImageChoiceQuestionSnapshot):
+            return GetChoiceAttemptUseCase._image_choice_result_detail(
+                question, answer, result, disclosed_keys
+            )
+
+        if isinstance(question, CurriculumOrderingQuestionSnapshot):
+            if result is None:
+                return None
+
+            return GetChoiceAttemptUseCase._ordering_result_detail(
+                question, answer, result, disclosed_keys
+            )
+
+        return GetChoiceAttemptUseCase._choice_result_detail(
+            question, answer, result, disclosed_keys
+        )
 
     @staticmethod
     def _parts_of[PartT](
@@ -405,6 +426,52 @@ class GetChoiceAttemptUseCase:
                 if question.key in disclosed_keys
                 else ()
             ),
+        )
+
+    @staticmethod
+    def _image_choice_result_detail(
+        question: CurriculumImageChoiceQuestionSnapshot,
+        answer: object | None,
+        result: ChoiceEvaluationResult | None,
+        disclosed_keys: frozenset[str],
+    ) -> ImageChoiceResultDetail | None:
+        if not isinstance(answer, SingleChoiceAnswer) or result is None:
+            return None
+
+        selected = next(
+            (
+                option
+                for option in question.options
+                if option.key == answer.selected_option_key
+            ),
+            None,
+        )
+        if selected is None:
+            return None
+
+        return ImageChoiceResultDetail(
+            question_key=question.key,
+            kind='image_choice',
+            prompt=question.prompt,
+            options=tuple(
+                ImageChoiceOptionDetail(
+                    key=option.key,
+                    image_path=option.image_path,
+                    description=option.description,
+                )
+                for option in question.options
+            ),
+            selected_option_key=selected.key,
+            score=result.score,
+            is_correct=result.is_correct,
+            option_feedback=selected.feedback,
+            explanation=result.explanation,
+            disclosed_correct_option_key=next(
+                (option.key for option in question.options if option.is_correct),
+                None,
+            )
+            if question.key in disclosed_keys
+            else None,
         )
 
     @staticmethod

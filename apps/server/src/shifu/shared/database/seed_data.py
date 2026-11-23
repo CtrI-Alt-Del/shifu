@@ -82,10 +82,15 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
-from shifu.curriculum.database.english_fill_blanks_seed import (
+from shifu.curriculum.database.cooking_question_formats_seed import (
+    COOKING_COMPETENCY_ID,
+    COOKING_SKILL_ID,
+    build_cooking_question_formats_seed,
+)
+from shifu.curriculum.database.english_question_formats_seed import (
     ENGLISH_COMPETENCY_ID,
     ENGLISH_SKILL_ID,
-    build_english_fill_blanks_seed,
+    build_english_question_formats_seed,
 )
 from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
@@ -198,6 +203,9 @@ SEED_ADAPTIVE_LAB_EXPERIENCE_ID = '01SHF000000000000000000071'
 SEED_ENGLISH_GOAL_ID = '01SHFEN0000000000000000201'
 SEED_ENGLISH_EXPERIENCE_ID = '01SHFEN0000000000000000202'
 SEED_ENGLISH_PROGRESS_ID = '01SHFEN0000000000000000203'
+SEED_COOKING_GOAL_ID = '01SHFCK0000000000000000201'
+SEED_COOKING_EXPERIENCE_ID = '01SHFCK0000000000000000202'
+SEED_COOKING_PROGRESS_ID = '01SHFCK0000000000000000203'
 SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000072'
 SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID = '01SHF000000000000000000073'
 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID = '01SHF000000000000000000074'
@@ -2911,14 +2919,17 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         }
     )
 
-    # An English Skill whose Learning Activity exercises fill-blanks questions, with a
-    # learner already in learning so the format can be tried without a diagnostic.
-    english = build_english_fill_blanks_seed()
+    # An English Skill whose Learning Activities exercise fill-blanks, translation and
+    # pair-matching questions, with a learner already in learning so the formats can be
+    # tried without a diagnostic.
+    english = build_english_question_formats_seed()
     english_goal = Goal(
         id=SEED_ENGLISH_GOAL_ID,
         account_id=SEED_ACCOUNT_ID,
         title='Inglês para o dia a dia',
-        description='Pratique o presente simples completando frases com um banco de palavras.',
+        description=(
+            'Pratique o presente simples completando, traduzindo e associando frases.'
+        ),
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
     )
@@ -2926,7 +2937,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         id=SEED_ENGLISH_EXPERIENCE_ID,
         goal_id=SEED_ENGLISH_GOAL_ID,
         skill_id=ENGLISH_SKILL_ID,
-        inclusion_reason='Praticar lacunas com banco de palavras em inglês.',
+        inclusion_reason='Praticar lacunas, tradução e associação de pares em inglês.',
         status=SkillExperienceStatus.LEARNING,
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
@@ -2936,6 +2947,39 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         id=SEED_ENGLISH_PROGRESS_ID,
         skill_experience_id=SEED_ENGLISH_EXPERIENCE_ID,
         competency_id=ENGLISH_COMPETENCY_ID,
+        content_released=True,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+    )
+
+    # A cooking Skill whose Learning Activities exercise step-ordering and image-choice
+    # questions, also in learning so the formats open without a diagnostic.
+    cooking = build_cooking_question_formats_seed()
+    cooking_goal = Goal(
+        id=SEED_COOKING_GOAL_ID,
+        account_id=SEED_ACCOUNT_ID,
+        title='Culinária para iniciantes',
+        description='Pratique a ordem das etapas e o ponto de cocção em preparos simples.',
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+    )
+    cooking_experience = SkillExperience(
+        id=SEED_COOKING_EXPERIENCE_ID,
+        goal_id=SEED_COOKING_GOAL_ID,
+        skill_id=COOKING_SKILL_ID,
+        inclusion_reason='Praticar a ordem das etapas e o ponto de cocção de um preparo.',
+        status=SkillExperienceStatus.LEARNING,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        started_at=SEED_CREATED_AT,
+    )
+    cooking_progress = CompetencyProgress(
+        id=SEED_COOKING_PROGRESS_ID,
+        skill_experience_id=SEED_COOKING_EXPERIENCE_ID,
+        competency_id=COOKING_COMPETENCY_ID,
         content_released=True,
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
@@ -2957,7 +3001,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         account_action_tokens=(),
         skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
         + roadmap.skills
-        + (english.skill,),
+        + (english.skill, cooking.skill),
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
@@ -2972,7 +3016,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         )
         + logic_curriculum.competencies
         + roadmap.competencies
-        + (english.competency,),
+        + (english.competency, cooking.competency),
         concepts=tuple(
             concept
             for concept in concepts
@@ -2980,7 +3024,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         )
         + logic_curriculum.concepts
         + roadmap.concepts
-        + (english.concept,),
+        + (english.concept, cooking.concept),
         materials=tuple(
             material
             for material in materials
@@ -2989,7 +3033,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         )
         + logic_curriculum.materials
         + roadmap.materials
-        + (english.material,),
+        + (english.material, cooking.material),
         activities=tuple(
             activity
             for activity in activities
@@ -2997,7 +3041,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         )
         + logic_curriculum.activities
         + roadmap.activities
-        + english.activities,
+        + english.activities
+        + cooking.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
@@ -3005,10 +3050,11 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         )
         + logic_curriculum.curriculum_sequences
         + roadmap.curriculum_sequences
-        + (english.curriculum_sequence,),
+        + (english.curriculum_sequence, cooking.curriculum_sequence),
         goals=(
             *(goal for goal in goals if goal.id in retained_goal_ids),
             english_goal,
+            cooking_goal,
         ),
         skill_experiences=(
             *(
@@ -3017,6 +3063,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 if experience.id in retained_experience_ids
             ),
             english_experience,
+            cooking_experience,
         ),
         competency_progresses=tuple(
             progress
@@ -3038,7 +3085,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             )
             for index, competency in enumerate(logic_curriculum.competencies)
         )
-        + (english_progress,),
+        + (english_progress, cooking_progress),
         activity_attempts=tuple(
             attempt
             for attempt in activity_attempts

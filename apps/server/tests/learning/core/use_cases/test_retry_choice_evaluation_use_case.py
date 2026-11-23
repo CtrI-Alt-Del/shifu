@@ -6,6 +6,9 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
+)
 from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
     CurriculumFillBlanksActivitySnapshotFaker,
 )
@@ -33,6 +36,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    mixed_snapshot,
+)
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
 ACCOUNT_ID = 'account-1'
@@ -164,6 +170,59 @@ class TestRetryChoiceEvaluationUseCase:
         assert detail.status is ActivityEvaluationStatus.PENDING
         assert self.attempt.answers == answers
         assert self.evaluation.run_id == 'run-2'
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        event = self.repositories.events.add.call_args.args[0]
+        assert (event.payload.attempt_id, event.payload.run_id) == (
+            self.attempt.id,
+            'run-2',
+        )
+
+    def test_should_retry_the_same_image_choice_attempt_without_a_zero_or_new_attempt(
+        self,
+    ) -> None:
+        base = mixed_snapshot()
+        answers = (
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+            SingleChoiceAnswer(
+                question_key='q3',
+                selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                    2
+                ),
+            ),
+        )
+        self.attempt = replace(
+            self.attempt,
+            answers=answers,
+            grading_snapshot=replace(
+                base,
+                questions=(
+                    base.questions[0],
+                    base.questions[1],
+                    CurriculumImageChoiceQuestionSnapshotFaker.fake('q3'),
+                ),
+                parts=(
+                    base.parts[0],
+                    base.parts[1],
+                    CurriculumChoicePartSnapshot(
+                        question_key='q3', weight_percentage=Decimal(40)
+                    ),
+                ),
+            ),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.attempt_id == self.attempt.id
+        assert detail.status is ActivityEvaluationStatus.PENDING
+        assert self.attempt.answers == answers
+        assert self.evaluation.run_id == 'run-2'
+        assert self.evaluation.score is None
+        assert self.evaluation.parts == ()
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.activity_evaluations.add.assert_not_called()
         event = self.repositories.events.add.call_args.args[0]

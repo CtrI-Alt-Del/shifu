@@ -10,6 +10,7 @@ from shifu.curriculum.core.domain.structures import (
     CorrectnessEvaluationPart,
     MaterialSequenceItem,
     FillBlanksQuestion,
+    ImageChoiceQuestion,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     OrderingQuestion,
@@ -37,6 +38,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumImageChoiceOptionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumOrderingStepSnapshot,
     CurriculumLearningActivitySnapshot,
@@ -548,6 +551,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumFillBlanksQuestionSnapshot
                 | CurriculumTranslationQuestionSnapshot
                 | CurriculumPairMatchingQuestionSnapshot
+                | CurriculumImageChoiceQuestionSnapshot
                 | CurriculumPracticalPreparationQuestionSnapshot
             ] = []
             parts: list[
@@ -563,6 +567,55 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         return None
 
                     questions.append(practical_preparation_snapshot(question))
+                elif isinstance(question, ImageChoiceQuestion):
+                    if (
+                        activity_type != 'learning'
+                        or not question.concept_criteria
+                        or not {
+                            criterion.concept_id
+                            for criterion in question.concept_criteria
+                        }.issubset(concept_ids)
+                    ):
+                        return None
+
+                    questions.append(
+                        CurriculumImageChoiceQuestionSnapshot(
+                            key=question.key,
+                            kind='image_choice',
+                            prompt=question.prompt,
+                            options=tuple(
+                                CurriculumImageChoiceOptionSnapshot(
+                                    key=option.key,
+                                    image_path=option.image_path,
+                                    description=option.description,
+                                    is_correct=option.is_correct,
+                                    feedback=option.feedback,
+                                )
+                                for option in question.options
+                            ),
+                            correct_explanation=question.correct_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumChoiceConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    correct_score=(
+                                        Decimal(criterion.correct_score)
+                                        if criterion.correct_score is not None
+                                        else None
+                                    ),
+                                    incorrect_score=(
+                                        Decimal(criterion.incorrect_score)
+                                        if criterion.incorrect_score is not None
+                                        else None
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
                 elif isinstance(question, OrderingQuestion):
                     if (
                         activity_type != 'learning'
@@ -1191,7 +1244,12 @@ def has_executable_evidence(activity: Activity, maximum: dict[str, int]) -> bool
                 )
                 or (
                     isinstance(
-                        question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                        question,
+                        (
+                            SingleChoiceQuestion,
+                            MultipleSelectionQuestion,
+                            ImageChoiceQuestion,
+                        ),
                     )
                     and all(
                         criterion.correct_score is not None

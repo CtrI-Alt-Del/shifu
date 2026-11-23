@@ -5,6 +5,7 @@ import type {
   ActivityResultQuestion,
   CodeResultQuestion,
   FillBlanksResultQuestion,
+  ImageChoiceResultQuestion,
   PairMatchingResultQuestion,
   PracticalPreparationResultQuestion,
   TranslationResultQuestion,
@@ -14,6 +15,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 
 import { FillBlanksResult } from './fill-blanks-result'
+import { ImageChoiceResult } from './image-choice-result'
 import { PairMatchingResult } from './pair-matching-result'
 
 import './choice-result-detail.css'
@@ -36,6 +38,9 @@ export const ChoiceResultDetail = ({
 
   if (isFillBlanksResultQuestion(result))
     return <FillBlanksResult questionNumber={questionNumber} result={result} />
+
+  if (isImageChoiceResultQuestion(result))
+    return <ImageChoiceResult questionNumber={questionNumber} result={result} />
 
   if (isCodeResultQuestion(result)) {
     const codeQuestion =
@@ -414,6 +419,7 @@ export const ChoiceResultDetail = ({
     question.kind !== 'translation' &&
     question.kind !== 'fill_blanks' &&
     question.kind !== 'pair_matching' &&
+    question.kind !== 'image_choice' &&
     question.kind !== 'practical_preparation'
       ? question
       : undefined
@@ -561,6 +567,12 @@ function isCodeResultQuestion(
       result.kind === 'html_css_js' ||
       result.kind === 'react_fastify')
   )
+}
+
+function isImageChoiceResultQuestion(
+  result: ActivityResultQuestion,
+): result is ImageChoiceResultQuestion {
+  return 'kind' in result && result.kind === 'image_choice'
 }
 
 function isTranslationResultQuestion(
