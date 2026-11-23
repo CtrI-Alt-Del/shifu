@@ -700,6 +700,34 @@ Use `/api/public/v2/observations` with `traceId` and bounded
 `fromStartTime`/`toStartTime` filters to verify persisted monitoring data; the
 native UI groups those observations into traces.
 
+### Eval datasets in Langfuse
+
+The eval runner can also publish its synthetic cases to Langfuse. Each eval
+becomes the dataset `shifu-evals/<selector>`, with one item per case keyed as
+`<selector>:<case>`, so a new execution updates the items instead of copying them.
+Each execution becomes an experiment run named after the prompt revision, the mode
+and the start time, recorded through the SDK `run_experiment` path so it appears
+under **Experiments** and in the dataset. Every case is linked to the run with its
+input, expected value, model answer (or the case metrics for an eval without a
+model answer), outcome and a `passed` score of 1 or 0, so runs can be compared
+side by side. The cases run first; the experiment only records their results.
+
+```bash
+cd apps/server
+LANGFUSE_PUBLIC_KEY=<project-public-key> LANGFUSE_SECRET_KEY=<project-secret-key> \
+  uv run python evals/run.py --workflow <selector> --langfuse
+```
+
+`LANGFUSE_BASE_URL` defaults to `http://localhost:7003`. Without both keys the
+command stops with `langfuse_unavailable` before any case runs. A publish failure
+prints `langfuse_publish_failed <selector>` and never changes the eval result.
+Add `SHIFU_RUN_REAL_AI_EVALS=1` to score the real models; without it the runner
+publishes the deterministic double answers. CI does not pass `--langfuse`.
+
+This is the only path that sends prompt, input and answer content to Langfuse. It
+is allowed because the eval datasets are synthetic and hold no learner data. The
+JSON reports keep excluding case content.
+
 ## Delivery handoff
 
 - Preserve unrelated changes; confirm generated files, credentials, reports, and
