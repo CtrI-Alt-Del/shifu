@@ -123,6 +123,30 @@ class TestUploadPracticePhotoUseCase:
 
         assert view.photos[0].media_type == media_type
 
+    @pytest.mark.parametrize(
+        ('uploaded', 'media_type'),
+        [
+            (_upload(JPEG, filename='prato.png'), 'image/jpeg'),
+            (_upload(JPEG, filename='prato.jpg', media_type='image/png'), 'image/jpeg'),
+            (
+                _upload(
+                    PracticePhotoImages.build('image/png'),
+                    filename='prato.jpg',
+                    media_type='image/jpeg',
+                ),
+                'image/png',
+            ),
+        ],
+        ids=['extension-mismatch', 'declared-mismatch', 'png-named-jpg'],
+    )
+    def test_should_use_the_real_format_when_the_name_or_type_disagrees(
+        self, uploaded: PracticePhotoUpload, media_type: str
+    ) -> None:
+        view = self._execute(uploaded)
+
+        assert view.photos[0].media_type == media_type
+        self.inspector.sanitize.assert_called_once_with(uploaded.content, media_type)
+
     def test_should_accept_a_photo_of_exactly_ten_megabytes(self) -> None:
         content = JPEG + b'\0' * (10 * 1024 * 1024 - len(JPEG))
 
@@ -144,24 +168,16 @@ class TestUploadPracticePhotoUseCase:
         [
             _upload(b''),
             _upload(b'plain text', filename='nota.jpg'),
-            _upload(JPEG, filename='prato.png'),
-            _upload(JPEG, filename='prato.jpg', media_type='image/png'),
             _upload(JPEG, filename='prato'),
             _upload(JPEG, filename='prato.gif', media_type='image/gif'),
-            _upload(
-                PracticePhotoImages.build('image/png'),
-                filename='prato.jpg',
-                media_type='image/jpeg',
-            ),
+            _upload(JPEG, filename='prato.jpg', media_type='image/gif'),
         ],
         ids=[
             'empty',
             'not-an-image',
-            'extension-mismatch',
-            'declared-mismatch',
             'no-extension',
             'unsupported-type',
-            'magic-bytes-mismatch',
+            'unsupported-declared-type',
         ],
     )
     def test_should_reject_invalid_files_without_writing(

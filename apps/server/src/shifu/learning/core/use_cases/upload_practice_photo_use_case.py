@@ -327,12 +327,13 @@ class UploadPracticePhotoUseCase:
         extension = (
             '.' + filename.rsplit('.', 1)[-1].casefold() if '.' in filename else ''
         )
-        media_type = _MEDIA_TYPES_BY_EXTENSION.get(extension)
         declared = uploaded.media_type.split(';', maxsplit=1)[0].strip().lower()
+        # The real contents decide the format, so a PNG saved as ".jpg" still works.
+        media_type = UploadPracticePhotoUseCase._sniff(content)
         if (
-            media_type is None
-            or declared != media_type
-            or UploadPracticePhotoUseCase._sniff(content) != media_type
+            extension not in _MEDIA_TYPES_BY_EXTENSION
+            or declared not in _MEDIA_TYPES_BY_EXTENSION.values()
+            or media_type is None
         ):
             raise PracticePhotoInvalidError
 
