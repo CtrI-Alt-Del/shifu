@@ -2,7 +2,9 @@
 
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.communication.core.domain.events import (
     CommunicationDeliveryStateChangedEvent,
@@ -133,9 +135,11 @@ class TestPurgeCommunicationOnAccountErasureJob:
             {'erasure_id': str(erasure_id)},
             event_id,
         )
-        inngest_fixture.wait_for_log(
-            f'"event":"job.completed","event_id":"{event_id}"',
-            timeout=90,
+        inngest_fixture.wait_for_database(
+            lambda session: _communication_participant_acknowledged(
+                session,
+                erasure_id,
+            )
         )
 
         with inngest_fixture.inspection_session() as session:
@@ -152,6 +156,17 @@ class TestPurgeCommunicationOnAccountErasureJob:
             )
             assert participant is not None
             assert participant.status == 'acknowledged'
+
+
+def _communication_participant_acknowledged(
+    session: SqlalchemySession,
+    erasure_id: UUID,
+) -> bool:
+    participant = session.get(
+        AccountErasureParticipantModel,
+        (erasure_id, 'communication'),
+    )
+    return participant is not None and participant.status == 'acknowledged'
 
 
 def _communication(
