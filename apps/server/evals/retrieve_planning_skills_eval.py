@@ -7,6 +7,7 @@ import math
 from time import monotonic
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from shifu.curriculum.database.cooking_question_formats_seed import COOKING_SKILL_ID
 from shifu.curriculum.database.roadmap_skills_seed import ROADMAP_SKILL_ID_PREFIX
 from shifu.intelligence.ai.data.planner_resources import PlannerResources
 from shifu.intelligence.core.domain.structures import PlanningQuery
@@ -43,6 +44,22 @@ if TYPE_CHECKING:
     )
     from shifu.shared.core.domain.structures.skill_foundation_entry import (
         SkillFoundationEntry,
+    )
+
+
+def _labeled_catalog_skills() -> tuple[SkillCatalogEntry, ...]:
+    """The development seed Skills the labeled queries were written for.
+
+    The roadmap Skills are placeholder test data and the cooking Skill is an example
+    that only demonstrates question formats. Neither is part of the catalog the
+    queries were labeled against, so a cooking Skill must not turn the labeled
+    no-coverage cooking query into a covered one.
+    """
+    return tuple(
+        SkillCatalogEntry(id=skill.id, name=skill.name, description=skill.description)
+        for skill in build_development_seed().skills
+        if not skill.id.startswith(ROADMAP_SKILL_ID_PREFIX)
+        and skill.id != COOKING_SKILL_ID
     )
 
 
@@ -231,14 +248,7 @@ class RetrievePlanningSkillsEval(Eval):
         return reports
 
     def rank_queries(self) -> tuple[Ranked, ...]:
-        seed = build_development_seed()
-        skills = tuple(
-            SkillCatalogEntry(
-                id=skill.id, name=skill.name, description=skill.description
-            )
-            for skill in seed.skills
-            if not skill.id.startswith(ROADMAP_SKILL_ID_PREFIX)
-        )
+        skills = _labeled_catalog_skills()
         preprocessor = SpacyPlanningTextPreprocessorProvider(
             self.resources.manifest.negation
         )
@@ -373,14 +383,7 @@ class RetrievePlanningSkillsE5Eval(RetrievePlanningSkillsEval):
     MODEL_PROFILE: ClassVar[str] = 'local-tfidf-e5-small-rrf'
 
     def rank_queries(self) -> tuple[RetrievePlanningSkillsEval.Ranked, ...]:
-        seed = build_development_seed()
-        skills = tuple(
-            SkillCatalogEntry(
-                id=skill.id, name=skill.name, description=skill.description
-            )
-            for skill in seed.skills
-            if not skill.id.startswith(ROADMAP_SKILL_ID_PREFIX)
-        )
+        skills = _labeled_catalog_skills()
         ids_by_name = {skill.name: skill.id for skill in skills}
         catalog = _SeedSkillCatalogProvider(skills)
         embeddings = SentenceTransformersEmbeddingsProvider()
