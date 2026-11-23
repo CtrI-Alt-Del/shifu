@@ -9,6 +9,8 @@ from pydantic import ValidationError
 
 from shifu.app import FastAPIApp
 from shifu.communication.providers.push import PywebpushPushNotificationProvider
+from shifu.fakers.identity.entities import AccountFaker
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.shared.constants import EnvironmentSettings
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -29,6 +31,9 @@ class _TestAuthenticationProvider:
             account_id=ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -47,6 +52,15 @@ def application(
             timeout_seconds=5,
         ),
     )
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=ACCOUNT_ID,
+                email='push-public-key@example.test',
+                access_version=1,
+            )
+        )
     application.state.authentication_provider = _TestAuthenticationProvider()
     yield application
     application.dependency_overrides.clear()
