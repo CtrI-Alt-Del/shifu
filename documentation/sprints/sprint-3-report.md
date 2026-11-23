@@ -65,13 +65,13 @@ O trabalho se concentrou em cinco frentes:
 
 ## User Stories da Sprint
 
-| Chave | User Story | Épico | SP | Estado | Resolvida em | Responsável |
-| --- | --- | --- | ---: | --- | --- | --- |
-| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | Compreender o resultado e receber orientação pedagógica | 08/09 — Explicação e Feedback Pedagógico com IA | — | Concluído | 22/11 | — |
-| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | Concluir e revisar uma Habilidade preservando seu histórico | 07 — Acompanhamento de Progresso | — | Concluído | 22/11 | — |
-| [SHIFU-54](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-54) | Controlar e acompanhar a cota mensal compartilhada de IA | 13 — Governança e Resiliência de IA | 8 | Concluído | 17/11 | — |
+| Chave | User Story | Épico | SP | Estado | Resolvida em |
+| --- | --- | --- | ---: | --- | --- |
+| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | Compreender o resultado e receber orientação pedagógica | 08/09 — Explicação e Feedback Pedagógico com IA | — | Concluído | 22/11 |
+| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | Concluir e revisar uma Habilidade preservando seu histórico | 07 — Acompanhamento de Progresso | — | Concluído | 22/11 |
+| [SHIFU-54](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-54) | Controlar e acompanhar a cota mensal compartilhada de IA | 13 — Governança e Resiliência de IA | 8 | Concluído | 17/11 |
 
-**Total estimado:** 8 SP, todos entregues. A SHIFU-54 veio da Sprint 2 e foi concluída nesta. As SHIFU-22 e SHIFU-53 não têm SP, então os pontos entregues subestimam o escopo das histórias. Nenhuma das três tem responsável no Jira.
+**Total estimado:** 8 SP, todos entregues. A SHIFU-54 veio da Sprint 2 e foi concluída nesta. As SHIFU-22 e SHIFU-53 não têm SP, então os pontos entregues subestimam o escopo das histórias.
 
 ## Tasks
 
