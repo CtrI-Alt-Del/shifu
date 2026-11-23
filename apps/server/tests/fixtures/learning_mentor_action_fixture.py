@@ -10,7 +10,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, select
 
 from shifu.app import FastAPIApp
+from shifu.fakers.identity.entities.account_faker import AccountFaker
 from shifu.fakers.shared.id_provider_faker import IdProviderFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.database.sqlalchemy.models import (
     MentorActionReceiptModel,
     SkillExperienceModel,
@@ -40,6 +44,18 @@ class MentorActionFixture:
     @staticmethod
     def new_id() -> str:
         return MentorActionFixture._ids.generate()
+
+    @staticmethod
+    def seed_identity_accounts(engine: Engine) -> None:
+        with SqlalchemyIdentityDatabase(engine).transaction() as repositories:
+            for account_id in (
+                MentorActionFixture.ACCOUNT_ID,
+                MentorActionFixture.OTHER_ACCOUNT_ID,
+            ):
+                if repositories.accounts.find_by_id(account_id) is None:
+                    repositories.accounts.add(
+                        AccountFaker.fake(id=account_id, access_version=1)
+                    )
 
     @staticmethod
     def create_client(engine: Engine) -> TestClient:
@@ -116,6 +132,9 @@ class _Authentication:
             account_id=account_id,
             display_name='Pessoa Aprendente',
             time_zone=None,
+            session_id=f'mentor-action-{access_token}',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 

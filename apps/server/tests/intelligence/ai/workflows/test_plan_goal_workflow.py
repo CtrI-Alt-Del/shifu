@@ -427,9 +427,10 @@ class TestPlanGoalWorkflow:
         harness.account_activity.external_effect.side_effect = RuntimeError('revoked')
         harness.account_activity.activity.side_effect = RuntimeError('revoked')
 
-        with pytest.raises(RuntimeError, match='revoked'):
-            harness.run(session)
+        harness.run(session)
 
+        harness.account_activity.external_effect.assert_called_once()
+        harness.account_activity.activity.assert_called()
         harness.classifier.classify.assert_not_called()
         assert harness.model_calls() == 0
 
