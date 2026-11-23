@@ -11,6 +11,7 @@ from sqlalchemy import Engine, text
 
 from shifu.app import FastAPIApp
 from shifu.fakers.gamification.entities import GamificationProfileFaker
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.gamification.core.domain.entities import GamificationProfile
 from shifu.gamification.core.domain.structures import PracticeStreak
 from shifu.gamification.core.interfaces import (
@@ -19,6 +20,7 @@ from shifu.gamification.core.interfaces import (
     GamificationProfilesRepository,
 )
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import ClockProvider
@@ -58,6 +60,9 @@ class _TestAuthenticationProvider:
             account_id=account_id,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -67,6 +72,22 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     application = FastAPIApp.register(postgres_database.engine)
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=ACCOUNT_ID,
+                email='streak-hour@example.test',
+                access_version=1,
+            )
+        )
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=OTHER_ACCOUNT_ID,
+                email='other-streak-hour@example.test',
+                access_version=1,
+            )
+        )
     application.state.authentication_provider = _TestAuthenticationProvider()
     application.state.gamification_database = SqlalchemyGamificationDatabase(
         postgres_database.engine
