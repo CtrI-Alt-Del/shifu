@@ -307,13 +307,13 @@ test.describe('LandingPage', () => {
 
       expect(response?.status()).toBe(200)
       await expect(
-        page.getByRole('heading', { name: 'O que você quer aprender?' }),
-      ).toBeVisible()
-      await expect(
         page.getByRole('heading', {
           level: 1,
           name: 'Veja sua evolução no que você quer aprender.',
         }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('heading', { name: 'O que você quer aprender?' }),
       ).toHaveCount(0)
     } finally {
       await page.request.delete(controlURL)
