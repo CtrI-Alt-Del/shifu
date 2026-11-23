@@ -88,6 +88,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCompetencySnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumPairMatchingQuestionSnapshot,
@@ -1049,6 +1050,15 @@ class EvaluateChoiceActivityUseCase:
             )
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
+        return self._score_correctness_part(question, answer)
+
+    def _score_correctness_part(
+        self,
+        question: CurriculumChoiceQuestionSnapshot
+        | CurriculumOrderingQuestionSnapshot
+        | CurriculumImageChoiceQuestionSnapshot,
+        answer: ActivityAnswer,
+    ) -> ChoiceEvaluationResult:
         if isinstance(question, CurriculumOrderingQuestionSnapshot):
             if not isinstance(answer, OrderingAnswer):
                 raise InvalidAttemptError
@@ -1063,6 +1073,8 @@ class EvaluateChoiceActivityUseCase:
                     else question.incorrect_explanation
                 ),
             )
+        if isinstance(question, CurriculumImageChoiceQuestionSnapshot):
+            return self._score_image_choice_part(question, answer)
         return self._score_choice_part(question, answer)
 
     def _score_structured_part(
@@ -1090,6 +1102,33 @@ class EvaluateChoiceActivityUseCase:
             raise EvaluationUnavailableError
 
         return PracticalPreparationScoring.evaluate(question, practical_decisions)
+
+    @staticmethod
+    def _score_image_choice_part(
+        question: CurriculumImageChoiceQuestionSnapshot, answer: ActivityAnswer
+    ) -> ChoiceEvaluationResult:
+        if not isinstance(answer, SingleChoiceAnswer):
+            raise InvalidAttemptError
+
+        if answer.selected_option_key not in {
+            option.key for option in question.options
+        }:
+            raise InvalidAttemptError
+
+        is_correct = any(
+            option.key == answer.selected_option_key and option.is_correct
+            for option in question.options
+        )
+        return ChoiceEvaluationResult(
+            question_key=question.key,
+            score=Decimal(100 if is_correct else 0),
+            is_correct=is_correct,
+            explanation=(
+                question.correct_explanation
+                if is_correct
+                else question.incorrect_explanation
+            ),
+        )
 
     @staticmethod
     def _score_choice_part(

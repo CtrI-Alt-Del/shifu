@@ -85,6 +85,7 @@ class AnswerRequest(BaseModel):
             'fill_blanks',
             'translation',
             'pair_matching',
+            'image_choice',
             'practical_preparation',
         ]
         | None

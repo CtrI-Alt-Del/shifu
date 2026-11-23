@@ -142,6 +142,12 @@ type ActivityWire = {
       }
     | {
         key: string
+        kind: 'image_choice'
+        prompt: string
+        options: { key: string; image_path: string; description: string }[]
+      }
+    | {
+        key: string
         kind: 'practical_preparation'
         prompt: string
         guidance: string[]
@@ -289,6 +295,18 @@ function mapActivityQuestion(
       targetLanguage: question.target_language,
       words: question.words,
       translations: question.translations,
+    }
+  }
+  if (question.kind === 'image_choice') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      options: question.options.map((option) => ({
+        key: option.key,
+        imagePath: option.image_path,
+        description: option.description,
+      })),
     }
   }
   if (question.kind === 'practical_preparation') {
@@ -521,6 +539,18 @@ type AttemptWire = {
       }
     | {
         question_key: string
+        kind: 'image_choice'
+        prompt: string
+        options: { key: string; image_path: string; description: string }[]
+        selected_option_key: string
+        score: number
+        is_correct: boolean
+        option_feedback: string
+        explanation: string
+        disclosed_correct_option_key?: string | null
+      }
+    | {
+        question_key: string
         kind: 'practical_preparation'
         prompt: string
         records: { key: string; label: string }[]
@@ -703,6 +733,26 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           outcome: question.outcome,
           explanation: question.explanation,
           disclosedCorrectPairs: question.disclosed_correct_pairs?.map(mapPair),
+        }
+      }
+      if ('kind' in question && question.kind === 'image_choice') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          options: question.options.map((option) => ({
+            key: option.key,
+            imagePath: option.image_path,
+            description: option.description,
+          })),
+          selectedOptionKey: question.selected_option_key,
+          score: question.score,
+          isCorrect: question.is_correct,
+          optionFeedback: question.option_feedback,
+          explanation: question.explanation,
+          ...(question.disclosed_correct_option_key
+            ? { disclosedCorrectOptionKey: question.disclosed_correct_option_key }
+            : {}),
         }
       }
       if ('kind' in question && question.kind === 'translation') {
@@ -1051,6 +1101,7 @@ export const LearningService = (restClient: RestClient) => {
           ({ kind }) =>
             kind === 'html_css_js' ||
             kind === 'ordering' ||
+            kind === 'image_choice' ||
             kind === 'practical_preparation',
         )
       ) {
@@ -1102,6 +1153,7 @@ export const LearningService = (restClient: RestClient) => {
         correct_pair_count?: number
         total_pair_count?: number
         outcome?: 'full' | 'partial' | 'incorrect'
+        option_feedback?: string | null
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
         {
@@ -1134,6 +1186,7 @@ export const LearningService = (restClient: RestClient) => {
         correctPairCount: body.correct_pair_count,
         totalPairCount: body.total_pair_count,
         outcome: body.outcome,
+        ...(body.option_feedback ? { optionFeedback: body.option_feedback } : {}),
       }
     },
 

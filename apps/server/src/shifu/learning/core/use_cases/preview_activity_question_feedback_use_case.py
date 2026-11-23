@@ -48,6 +48,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumFillBlanksQuestionSnapshot,
@@ -82,6 +83,7 @@ class PreliminaryQuestionResult:
     correct_pair_count: int | None = None
     total_pair_count: int | None = None
     outcome: str | None = None
+    option_feedback: str | None = None
 
 
 type PreviewAnswer = (
@@ -257,6 +259,11 @@ class PreviewActivityQuestionFeedbackUseCase:
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
 
+        if isinstance(question, CurriculumImageChoiceQuestionSnapshot):
+            return PreviewActivityQuestionFeedbackUseCase._image_choice_result(
+                question, answer
+            )
+
         if not isinstance(question, CurriculumChoiceQuestionSnapshot):
             raise ValidationError
 
@@ -280,6 +287,32 @@ class PreviewActivityQuestionFeedbackUseCase:
             explanation=question.correct_explanation
             if correct
             else question.incorrect_explanation,
+        )
+
+    @staticmethod
+    def _image_choice_result(
+        question: CurriculumImageChoiceQuestionSnapshot,
+        answer: ChoiceAnswerSubmission,
+    ) -> PreliminaryQuestionResult:
+        selected = next(
+            (
+                option
+                for option in question.options
+                if option.key in answer.selected_option_keys
+            ),
+            None,
+        )
+        if len(answer.selected_option_keys) != 1 or selected is None:
+            raise ValidationError
+
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=Decimal(100 if selected.is_correct else 0),
+            is_correct=selected.is_correct,
+            explanation=question.correct_explanation
+            if selected.is_correct
+            else question.incorrect_explanation,
+            option_feedback=selected.feedback,
         )
 
     @staticmethod

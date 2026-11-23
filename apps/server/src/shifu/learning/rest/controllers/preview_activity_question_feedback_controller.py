@@ -70,6 +70,7 @@ class AnswerRequest(BaseModel):
         'fill_blanks',
         'translation',
         'pair_matching',
+        'image_choice',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
@@ -139,6 +140,7 @@ class Response(BaseModel):
     correct_pair_count: int | None = None
     total_pair_count: int | None = None
     outcome: Literal['full', 'partial', 'incorrect'] | None = None
+    option_feedback: str | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

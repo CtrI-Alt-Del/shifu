@@ -38,6 +38,7 @@ from shifu.learning.core.domain.structures import (
     AdaptivePolicyResult,
     CodeAnswer,
     CodeQuestionAssessmentDecisions,
+    ChoiceEvaluationResult,
     CodeSubmittedFile,
     ConceptObservation,
     FillBlanksAnswer,
@@ -82,6 +83,9 @@ from shifu.shared.core.domain.structures import (
 from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
+)
+from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
+    CurriculumImageChoiceQuestionSnapshotFaker,
 )
 from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
     CurriculumPairMatchingQuestionSnapshotFaker,
@@ -2810,3 +2814,263 @@ class TestEvaluateChoiceActivityUseCase:
         assert pair_result.outcome == 'full'
         # 30% choice + 30% pairs + 40% of the code rubric's 75.
         assert self.evaluation.score == Decimal(90)
+
+    def _use_image_attempt(
+        self,
+        answer: object,
+        *,
+        concept_ids: tuple[str, ...] = ('concept-1',),
+        kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+    ) -> None:
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumImageChoiceQuestionSnapshotFaker.fake(
+                    'q3', concept_ids=concept_ids
+                ),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='mixed-image-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=kind,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                answer,  # type: ignore[arg-type]
+            ),
+            submitted_at=NOW,
+            submission_key='mixed-image-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+
+    @pytest.mark.parametrize(
+        ('index', 'score', 'explanation'),
+        (
+            (2, Decimal(100), 'Explicação de acerto.'),
+            (0, Decimal(0), 'Explicação de erro.'),
+            (3, Decimal(0), 'Explicação de erro.'),
+        ),
+        ids=('correct', 'incorrect-raw', 'incorrect-last'),
+    )
+    def test_should_grade_an_image_choice_100_or_0_with_the_weighted_activity_score(
+        self, index: int, score: Decimal, explanation: str
+    ) -> None:
+        self._use_image_attempt(
+            SingleChoiceAnswer(
+                question_key='q3',
+                selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                    index
+                ),
+            )
+        )
+
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
+
+        image_result = self.evaluation.parts[2]
+        assert image_result == ChoiceEvaluationResult(
+            question_key='q3',
+            score=score,
+            is_correct=score == 100,
+            explanation=explanation,
+        )
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal(60) + Decimal(40) * score / Decimal(100)
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        ('index', 'expected'), ((2, Decimal(100)), (1, Decimal(0)))
+    )
+    def test_should_record_image_concept_evidence_from_the_curricular_criterion(
+        self, index: int, expected: Decimal
+    ) -> None:
+        self._use_image_attempt(
+            SingleChoiceAnswer(
+                question_key='q3',
+                selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                    index
+                ),
+            ),
+            concept_ids=('concept-1',),
+        )
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        assert {item.concept_id: item.question_scores for item in observations} == {
+            'concept-1': (expected,)
+        }
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            SingleChoiceAnswer(
+                question_key='q3', selected_option_key='opt-ffffffffffff'
+            ),
+            MultipleSelectionAnswer(
+                question_key='q3', selected_option_keys=('opt-000000000001',)
+            ),
+        ),
+        ids=('unknown-key', 'wrong-answer-type'),
+    )
+    def test_should_reject_a_saved_image_answer_that_does_not_fit_the_snapshot(
+        self, answer: SingleChoiceAnswer | MultipleSelectionAnswer
+    ) -> None:
+        self._use_image_attempt(answer)
+
+        with pytest.raises(InvalidAttemptError):
+            self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+
+    def test_should_store_an_image_review_result_without_changing_learning_progress(
+        self,
+    ) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self._use_image_attempt(
+            SingleChoiceAnswer(
+                question_key='q3',
+                selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                    2
+                ),
+            ),
+            kind=ActivityAttemptKind.REVIEW,
+        )
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal(100)
+        self.repositories.competency_progresses.update.assert_not_called()
+
+    def test_should_recover_a_failed_image_evaluation_on_the_same_attempt_without_a_zero(
+        self,
+    ) -> None:
+        correct = CurriculumImageChoiceQuestionSnapshotFaker.option_key(2)
+        self._use_image_attempt(
+            SingleChoiceAnswer(question_key='q3', selected_option_key=correct)
+        )
+        self.evaluation.fail('evaluation_failed')
+        original_attempt = self.attempt
+
+        # A failed run keeps the answer and carries no score or part results.
+        assert self.evaluation.status is ActivityEvaluationStatus.FAILED
+        assert self.evaluation.score is None
+        assert self.evaluation.parts == ()
+        assert self.subject.execute(self.attempt.id, 'run-1') is False
+        assert self.evaluation.score is None
+        assert self.evaluation.parts == ()
+
+        # The existing retry reopens the same evaluation with a new run.
+        self.evaluation.retry(NOW, 'run-2')
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+
+        assert self.subject.execute(self.attempt.id, 'run-2') is True
+
+        assert self.attempt is original_attempt
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.parts[2] == ChoiceEvaluationResult(
+            question_key='q3',
+            score=Decimal(100),
+            is_correct=True,
+            explanation='Explicação de acerto.',
+        )
+        assert self.evaluation.score == Decimal(100)
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        ('option_index', 'image_score', 'expected_activity_score'),
+        ((2, Decimal(100), Decimal(90)), (0, Decimal(0), Decimal(60))),
+        ids=('correct-image', 'incorrect-image'),
+    )
+    def test_should_score_an_image_question_mixed_with_a_code_question(
+        self,
+        option_index: int,
+        image_score: Decimal,
+        expected_activity_score: Decimal,
+    ) -> None:
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                CurriculumImageChoiceQuestionSnapshotFaker.fake('q2'),
+                base.questions[2],
+            ),
+            parts=(
+                base.parts[0],
+                CurriculumChoicePartSnapshot(
+                    question_key='q2', weight_percentage=Decimal(30)
+                ),
+                base.parts[2],
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='image-code-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(
+                    question_key='q2',
+                    selected_option_key=CurriculumImageChoiceQuestionSnapshotFaker.option_key(
+                        option_index
+                    ),
+                ),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='submitted'),),
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='image-code-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        decisions = CodeRubricDecisions(
+            criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+            concept_levels=(),
+        )
+
+        self.subject.execute(
+            self.attempt.id,
+            'run-1',
+            code_decisions=(
+                CodeQuestionAssessmentDecisions(question_key='q3', decisions=decisions),
+            ),
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        image_result = self.evaluation.parts[1]
+        assert isinstance(image_result, ChoiceEvaluationResult)
+        assert image_result.score == image_score
+        # 30% choice + 30% image + 40% of the code rubric's 75.
+        assert self.evaluation.score == expected_activity_score

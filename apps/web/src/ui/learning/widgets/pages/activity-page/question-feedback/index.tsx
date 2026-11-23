@@ -30,6 +30,47 @@ export const QuestionFeedback = ({
   const scoreClassName =
     Number(feedback.score ?? 0) >= 80 ? 'text-success' : 'text-selo-text'
 
+  if (
+    question.kind === 'image_choice' &&
+    feedback.status === 'conclusive' &&
+    feedback.isCorrect !== undefined
+  ) {
+    return (
+      <section
+        aria-label='Resultado'
+        aria-live='polite'
+        className='question-feedback-session scroll-mt-6 mt-6 space-y-4'
+        ref={feedbackElementRef}
+      >
+        <div
+          className={`space-y-3 rounded-xl p-5 sm:p-6 ${feedback.isCorrect ? 'bg-jade-tint' : 'bg-accent'}`}
+        >
+          <h2
+            className={`flex items-center gap-3 text-lg font-semibold ${feedback.isCorrect ? 'text-jade-text' : 'text-selo-text'}`}
+          >
+            <Icon
+              aria-hidden='true'
+              name={feedback.isCorrect ? 'check' : 'x'}
+              size={24}
+            />
+            {feedback.isCorrect ? 'Resposta correta' : 'Resposta incorreta'}
+          </h2>
+          {feedback.optionFeedback ? (
+            <p className='text-[15px] text-foreground'>{feedback.optionFeedback}</p>
+          ) : null}
+          {feedback.explanation ? (
+            <p className='text-[15px] text-secondary-foreground'>
+              {feedback.explanation}
+            </p>
+          ) : null}
+        </div>
+        <p className='text-sm text-muted-foreground'>
+          Retorno provisório. O resultado oficial aparece ao enviar a Atividade.
+        </p>
+      </section>
+    )
+  }
+
   return (
     <section
       aria-label='Resultado'

@@ -8,7 +8,12 @@ import {
   PairMatchingQuestionFaker,
 } from '@/core/learning/fakers'
 import { installControlledDictation } from '../support/native-dictation'
-import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import {
+  IMAGE_CHOICE_FOOTER_WIDTHS,
+  expectImageChoiceFootersContained,
+} from '../support/image-choice-footer'
+import { GamificationTransportFixture } from '../fixtures/gamification-transport-fixture'
+import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
 
 type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
 type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
@@ -2139,6 +2144,363 @@ test.describe('VM-03 — Inconclusive and partial-result disclosure', () => {
     await expect(authenticatedPage.getByText(submittedText)).toBeVisible()
     await expect(authenticatedPage.getByText(REFERENCE_TRANSLATION)).not.toBeVisible()
   })
+})
+
+const IMAGE_CHOICE_OPTIONS = [
+  {
+    key: 'opt-3f9a21c4b07d',
+    imagePath: '/curriculum/images/2d165276ed215938.webp',
+    description: 'Fatias brancas e firmes, sem brilho, espalhadas na frigideira escura.',
+  },
+  {
+    key: 'opt-b07d5e185c1e',
+    imagePath: '/curriculum/images/51de9b1cc23dd653.webp',
+    description: 'Fatias claras e translúcidas, com as bordas ainda frescas.',
+  },
+  {
+    key: 'opt-5c1e9a7391c7',
+    imagePath: '/curriculum/images/5c8a6a6b47848a6f.webp',
+    description: 'Tiras marrons, macias e brilhantes, bem misturadas.',
+  },
+  {
+    key: 'opt-91c7d3fa0a6b',
+    imagePath: '/curriculum/images/655fecc77404ac40.webp',
+    description: 'Fatias escuras, com anéis enrolados e bordas pretas.',
+  },
+] as const
+
+const IMAGE_CHOICE_VIEWPORTS = [
+  { name: 'desktop', width: 1440, height: 1080 },
+  { name: 'mobile', width: 390, height: 844 },
+] as const
+
+for (const viewport of IMAGE_CHOICE_VIEWPORTS) {
+  test(`selects, verifies, locks and submits an image choice question on ${viewport.name}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const imageActivity = {
+      ...activity,
+      activityRevision: 'image-revision-1',
+      title: 'Ponto de cocção',
+      difficulty: 'easy' as const,
+      questions: [
+        {
+          key: 'image-1',
+          kind: 'image_choice' as const,
+          prompt: 'Qual destas cebolas está caramelizada?',
+          options: IMAGE_CHOICE_OPTIONS,
+        },
+      ],
+    }
+    const requests: string[] = []
+    await bff.route(async (route) => {
+      const payload = decodeURIComponent(
+        `${route.request().url()} ${route.request().postData() ?? ''}`,
+      )
+      if (!payload.includes(ids.activityId)) return route.fallback()
+      requests.push(payload)
+      if (payload.includes('submissionKey')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              attemptId: ids.attemptId,
+              status: 'pending',
+              resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes('questionKey')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              status: 'conclusive',
+              score: 0,
+              isCorrect: false,
+              optionFeedback: 'Essa cebola passou do ponto e queimou.',
+              explanation: 'Revise a cor e a textura da cebola.',
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fulfill({
+        body: JSON.stringify({ result: imageActivity }),
+        contentType: 'application/json',
+      })
+    })
+
+    await authenticatedPage.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    })
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    const group = authenticatedPage.getByRole('radiogroup', {
+      name: 'Qual destas cebolas está caramelizada?',
+    })
+    await expect(group).toBeVisible()
+    await expect(authenticatedPage.getByRole('radio')).toHaveCount(4)
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Verificar' }),
+    ).toBeDisabled()
+
+    // The four static photos load from their opaque curricular paths.
+    await expect
+      .poll(() =>
+        authenticatedPage.evaluate(() =>
+          [...document.querySelectorAll('img')].map(
+            (image) => image.complete && image.naturalWidth > 0,
+          ),
+        ),
+      )
+      .toEqual([true, true, true, true])
+    await expect(authenticatedPage.getByRole('img')).toHaveCount(0)
+    await expect(
+      authenticatedPage.getByRole('radio', { name: 'Opção 3' }),
+    ).toHaveAccessibleDescription(IMAGE_CHOICE_OPTIONS[2].description)
+
+    const cards = authenticatedPage.locator('label.image-choice-card')
+    const boxes = await cards.evaluateAll((elements) =>
+      elements.map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect()
+        return { x, y, width, height }
+      }),
+    )
+    expect(boxes).toHaveLength(4)
+    if (viewport.name === 'desktop') {
+      expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(1)
+    } else {
+      expect(Math.round(boxes[0].y)).toBe(Math.round(boxes[1].y))
+      expect(Math.round(boxes[2].y)).toBe(Math.round(boxes[3].y))
+      expect(boxes[2].y).toBeGreaterThan(boxes[0].y)
+      for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+
+    // Click, then arrows, then click again: the choice changes freely before verifying.
+    await cards.nth(0).click()
+    await expect(authenticatedPage.getByRole('radio', { name: 'Opção 1' })).toBeChecked()
+    await authenticatedPage.keyboard.press('ArrowRight')
+    await expect(authenticatedPage.getByRole('radio', { name: 'Opção 2' })).toBeChecked()
+    await expect(authenticatedPage.getByText('Selecionada')).toHaveCount(1)
+    await cards.nth(3).click()
+    await expect(authenticatedPage.getByRole('radio', { name: 'Opção 4' })).toBeChecked()
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-131-image-choice-selection-${viewport.name}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+
+    if (viewport.name === 'desktop') {
+      for (const width of IMAGE_CHOICE_FOOTER_WIDTHS) {
+        await authenticatedPage.setViewportSize({ width, height: viewport.height })
+        await expectImageChoiceFootersContained(authenticatedPage)
+      }
+      await authenticatedPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      })
+    }
+
+    await authenticatedPage.getByRole('button', { name: 'Verificar' }).click()
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Resposta incorreta' }),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByText('Essa cebola passou do ponto e queimou.'),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByText(
+        'Retorno provisório. O resultado oficial aparece ao enviar a Atividade.',
+      ),
+    ).toBeVisible()
+    for (const radio of await authenticatedPage.getByRole('radio').all())
+      await expect(radio).toBeDisabled()
+    await expect(authenticatedPage.getByRole('radio', { name: 'Opção 4' })).toBeChecked()
+    await expect(authenticatedPage.locator('[data-tone="incorrect"]')).toHaveCount(1)
+    await expect(authenticatedPage.locator('[data-tone="correct"]')).toHaveCount(0)
+    await expect(authenticatedPage.getByText('Sua resposta')).toHaveCount(1)
+    expect(
+      await authenticatedPage.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-131-image-choice-incorrect-${viewport.name}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+
+    if (viewport.name === 'desktop') {
+      for (const width of IMAGE_CHOICE_FOOTER_WIDTHS) {
+        await authenticatedPage.setViewportSize({ width, height: viewport.height })
+        await expectImageChoiceFootersContained(authenticatedPage)
+      }
+      await authenticatedPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      })
+    }
+
+    expect(requests.some((payload) => payload.includes('image_choice'))).toBe(true)
+    expect(
+      requests.some(
+        (payload) =>
+          payload.includes('questionKey') &&
+          payload.includes(IMAGE_CHOICE_OPTIONS[3].key),
+      ),
+    ).toBe(true)
+
+    await authenticatedPage.getByRole('button', { name: 'Enviar atividade' }).click()
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+    expect(
+      requests.some(
+        (payload) =>
+          payload.includes('submissionKey') &&
+          payload.includes(IMAGE_CHOICE_OPTIONS[3].key),
+      ),
+    ).toBe(true)
+  })
+}
+
+test.describe('Image choice routed REST transport', () => {
+  const imageWire = {
+    key: 'image-1',
+    kind: 'image_choice',
+    prompt: 'Qual destas cebolas está caramelizada?',
+    options: IMAGE_CHOICE_OPTIONS.map((option) => ({
+      key: option.key,
+      image_path: option.imagePath,
+      description: option.description,
+    })),
+  }
+  const previewPath = `${activityPath}/questions/image-1/preliminary-evaluations`
+  const activityWire = (overrides: Record<string, unknown>) => ({
+    activity_id: ids.activityId,
+    competency_id: ids.competencyId,
+    title: 'Ponto de cocção',
+    type: 'practice',
+    difficulty: 'easy',
+    questions: [imageWire],
+    latest_attempt_id: null,
+    can_submit: true,
+    activity_revision: 'image-transport',
+    ...overrides,
+  })
+
+  // The BFF mapping runs for real; only the upstream bodies are faked.
+  test('maps the learning payload and the preliminary feedback from the HTTP wire', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    const transport = GamificationTransportFixture(request, activeAccount.accountId)
+    await transport.register({
+      [activityPath]: { body: activityWire({}) },
+      [previewPath]: {
+        body: {
+          status: 'conclusive',
+          score: 0,
+          is_correct: false,
+          explanation: 'Revise a cor e a textura da cebola.',
+          option_feedback: 'Essa cebola passou do ponto e queimou.',
+        },
+      },
+    })
+    try {
+      const signIn = await page.request.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': activeAccount.ipAddress },
+      })
+      expect(signIn.status()).toBe(200)
+      await page.goto(activityPath)
+
+      await expect(page.getByRole('radio')).toHaveCount(4)
+      const sources = await page
+        .locator('label.image-choice-card img')
+        .evaluateAll((images) => images.map((image) => image.getAttribute('src')))
+      expect(sources).toEqual(IMAGE_CHOICE_OPTIONS.map((option) => option.imagePath))
+      await expect(
+        page.getByRole('radio', { name: 'Opção 3' }),
+      ).toHaveAccessibleDescription(IMAGE_CHOICE_OPTIONS[2].description)
+      // The learning payload carries no answer: nothing is marked before verifying.
+      await expect(page.locator('[data-tone="correct"]')).toHaveCount(0)
+
+      await page.locator('label.image-choice-card').nth(3).click()
+      await page.getByRole('button', { name: 'Verificar' }).click()
+      await expect(
+        page.getByRole('heading', { name: 'Resposta incorreta' }),
+      ).toBeVisible()
+      await expect(page.getByText('Essa cebola passou do ponto e queimou.')).toBeVisible()
+      await expect(page.getByText('Revise a cor e a textura da cebola.')).toBeVisible()
+      await expect(page.locator('[data-tone="correct"]')).toHaveCount(0)
+
+      const observed = await transport.observations()
+      expect(observed.filter((entry) => entry.path === activityPath)).toEqual(
+        expect.arrayContaining([expect.objectContaining({ method: 'GET', status: 200 })]),
+      )
+      expect(observed.filter((entry) => entry.path === previewPath)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ method: 'POST', status: 200 }),
+        ]),
+      )
+    } finally {
+      await transport.dispose()
+    }
+  })
+
+  for (const scenario of [
+    {
+      name: 'rejects an image choice question inside a diagnostic Activity',
+      questions: [imageWire],
+      extra: { is_diagnostic: true },
+    },
+    {
+      name: 'rejects a question of an unknown kind',
+      questions: [{ key: 'mystery-1', kind: 'mystery', prompt: 'Qual?' }],
+      extra: {},
+    },
+  ]) {
+    test(`${scenario.name} without rendering the Activity`, async ({
+      page,
+      request,
+      activeAccount,
+    }) => {
+      const transport = GamificationTransportFixture(request, activeAccount.accountId)
+      await transport.register({
+        [activityPath]: {
+          body: activityWire({ questions: scenario.questions, ...scenario.extra }),
+        },
+      })
+      try {
+        const signIn = await page.request.post('/api/auth/sign-in/identity', {
+          data: { email: activeAccount.email, password: signInPassword },
+          headers: { 'x-forwarded-for': activeAccount.ipAddress },
+        })
+        expect(signIn.status()).toBe(200)
+        await page.goto(activityPath)
+
+        await expect(
+          page.getByRole('heading', { name: 'Não foi possível carregar esta Atividade' }),
+        ).toBeVisible()
+        await expect(page.getByRole('radio')).toHaveCount(0)
+        await expect(page.locator('img[src^="/curriculum/images/"]')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Verificar' })).toHaveCount(0)
+        expect(
+          (await transport.observations()).filter((entry) => entry.path === activityPath),
+        ).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ method: 'GET', status: 200 }),
+          ]),
+        )
+      } finally {
+        await transport.dispose()
+      }
+    })
+  }
 })
 
 test('restores a practical preparation draft, uploads the missing photo and submits only the draft revision', async ({

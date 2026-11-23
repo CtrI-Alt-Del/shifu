@@ -79,6 +79,25 @@ class OrderingQuestionResultResponse(BaseModel):
     accepted_orders: tuple[tuple[str, ...], ...] = ()
 
 
+class ImageChoiceOptionResultResponse(BaseModel):
+    key: str
+    image_path: str
+    description: str
+
+
+class ImageChoiceQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['image_choice']
+    prompt: str
+    options: tuple[ImageChoiceOptionResultResponse, ...]
+    selected_option_key: str
+    score: Decimal
+    is_correct: bool
+    option_feedback: str
+    explanation: str
+    disclosed_correct_option_key: str | None = None
+
+
 class FillBlanksSegmentResponse(BaseModel):
     text: str | None
     blank_key: str | None
@@ -202,6 +221,7 @@ class Response(BaseModel):
         | FillBlanksQuestionResultResponse
         | TranslationQuestionResultResponse
         | PairMatchingQuestionResultResponse
+        | ImageChoiceQuestionResultResponse
         | PracticalPreparationQuestionResultResponse,
         ...,
     ] = ()

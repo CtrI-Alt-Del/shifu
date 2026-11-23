@@ -6,6 +6,9 @@ from shifu.shared.core.domain.structures.structure import structure
 
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
+from .curriculum_image_choice_question_snapshot import (
+    CurriculumImageChoiceQuestionSnapshot,
+)
 from .curriculum_ordering_question_snapshot import CurriculumOrderingQuestionSnapshot
 from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapshot
 from .curriculum_fill_blanks_question_snapshot import (
@@ -51,6 +54,7 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumFillBlanksQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot
         | CurriculumPairMatchingQuestionSnapshot
+        | CurriculumImageChoiceQuestionSnapshot
         | CurriculumPracticalPreparationQuestionSnapshot,
         ...,
     ]
@@ -146,6 +150,7 @@ class CurriculumLearningActivitySnapshot:
                 CurriculumOrderingQuestionSnapshot,
                 CurriculumFillBlanksQuestionSnapshot,
                 CurriculumPairMatchingQuestionSnapshot,
+                CurriculumImageChoiceQuestionSnapshot,
                 CurriculumPracticalPreparationQuestionSnapshot,
             ),
         ) and not isinstance(part, CurriculumChoicePartSnapshot):
@@ -167,6 +172,7 @@ class CurriculumLearningActivitySnapshot:
                 CurriculumReactFastifyQuestionSnapshot,
                 CurriculumTranslationQuestionSnapshot,
                 CurriculumPairMatchingQuestionSnapshot,
+                CurriculumImageChoiceQuestionSnapshot,
                 CurriculumPracticalPreparationQuestionSnapshot,
             ),
         ):

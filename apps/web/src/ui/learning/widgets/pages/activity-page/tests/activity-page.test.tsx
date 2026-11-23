@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   ChoiceActivityDetail,
+  ImageChoiceQuestion as ImageQuestion,
   PracticalPreparationQuestion as PracticalPreparationQuestionData,
 } from '@/core/learning/choice-activity'
 import { FillBlanksQuestionFaker } from '@/core/learning/fakers'
@@ -113,6 +114,29 @@ const ORDERING_QUESTION = {
   initialOrderedStepKeys: ['wash', 'cut', 'cook'],
   verified: null,
 } as const
+
+const IMAGE_QUESTION: ImageQuestion = {
+  key: 'image-question-1',
+  kind: 'image_choice',
+  prompt: 'Qual destas cebolas está caramelizada?',
+  options: [
+    {
+      key: 'opt-1',
+      imagePath: '/curriculum/images/2d165276ed215938.webp',
+      description: 'Fatias brancas e firmes.',
+    },
+    {
+      key: 'opt-2',
+      imagePath: '/curriculum/images/5c8a6a6b47848a6f.webp',
+      description: 'Tiras marrons e macias.',
+    },
+    {
+      key: 'opt-3',
+      imagePath: '/curriculum/images/655fecc77404ac40.webp',
+      description: 'Fatias escuras com bordas pretas.',
+    },
+  ],
+}
 
 function createControllerMock(
   overrides: Partial<ActivityPageController> = {},
@@ -324,6 +348,129 @@ describe('ActivityPage', () => {
     }
     fireEvent.click(screen.getByRole('button', { name: label }))
     expect(handleContinue).toHaveBeenCalledOnce()
+  })
+
+  it('renders the image options and delegates the choice and the verification', () => {
+    const handleToggleOptionMock = vi.fn()
+    const handleContinueMock = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'revision-1',
+          questions: [IMAGE_QUESTION],
+        },
+        isMixedActivity: true,
+        currentQuestion: IMAGE_QUESTION,
+        feedback: null,
+        isLastQuestion: false,
+        selectedOptionKeys: ['opt-1'],
+        handleToggleOption: handleToggleOptionMock,
+        handleContinue: handleContinueMock,
+      }),
+    )
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByText('escolha uma imagem')).toBeVisible()
+    expect(screen.getByRole('radio', { name: 'Opção 1' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'Opção 1' })).toHaveAccessibleDescription(
+      'Fatias brancas e firmes.',
+    )
+    fireEvent.click(screen.getByRole('radio', { name: 'Opção 2' }))
+    expect(handleToggleOptionMock).toHaveBeenCalledWith('opt-2')
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar' }))
+    expect(handleContinueMock).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('region', { name: 'Resultado' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    {
+      isCorrect: true,
+      title: 'Resposta correta',
+      isLastQuestion: false,
+      action: 'Próxima questão',
+    },
+    {
+      isCorrect: false,
+      title: 'Resposta incorreta',
+      isLastQuestion: true,
+      action: 'Enviar atividade',
+    },
+  ])(
+    'locks the image choice after verifying and offers $action with the $title feedback',
+    ({ isCorrect, title, isLastQuestion, action }) => {
+      const handleContinueMock = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: {
+            ...ACTIVITY,
+            activityRevision: 'revision-1',
+            questions: [IMAGE_QUESTION],
+          },
+          isMixedActivity: true,
+          currentQuestion: IMAGE_QUESTION,
+          selectedOptionKeys: ['opt-3'],
+          feedback: {
+            status: 'conclusive',
+            score: isCorrect ? 100 : 0,
+            isCorrect,
+            optionFeedback: 'Linha da imagem escolhida.',
+            explanation: 'Explicação predefinida.',
+          },
+          frozenAnswer: {
+            kind: 'image_choice',
+            questionKey: IMAGE_QUESTION.key,
+            selectedOptionKeys: ['opt-3'],
+          },
+          isLastQuestion,
+          handleContinue: handleContinueMock,
+        }),
+      )
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+      expect(
+        screen.getByRole('radio', { name: 'Opção 3' }).closest('label'),
+      ).toHaveAttribute('data-tone', isCorrect ? 'correct' : 'incorrect')
+      expect(screen.getByRole('heading', { name: title })).toBeVisible()
+      expect(screen.getByText('Linha da imagem escolhida.')).toBeVisible()
+      expect(screen.getByText('Explicação predefinida.')).toBeVisible()
+      expect(screen.queryByRole('button', { name: 'Verificar' })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      expect(handleContinueMock).toHaveBeenCalledOnce()
+    },
+  )
+
+  it('keeps an unverified image choice frozen and offers to try the verification again', () => {
+    const handleContinueMock = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'revision-1',
+          questions: [IMAGE_QUESTION],
+        },
+        isMixedActivity: true,
+        currentQuestion: IMAGE_QUESTION,
+        selectedOptionKeys: ['opt-2'],
+        feedback: null,
+        frozenAnswer: {
+          kind: 'image_choice',
+          questionKey: IMAGE_QUESTION.key,
+          selectedOptionKeys: ['opt-2'],
+        },
+        hasFeedbackError: true,
+        handleContinue: handleContinueMock,
+      }),
+    )
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível avaliar. Tente novamente.',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar avaliação novamente' }))
+    expect(handleContinueMock).toHaveBeenCalledOnce()
   })
 
   it('announces loading without exposing stale question controls', () => {

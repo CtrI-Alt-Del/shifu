@@ -2,6 +2,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumImageChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
@@ -23,6 +24,7 @@ type LearningQuestionSnapshot = (
     | CurriculumFillBlanksQuestionSnapshot
     | CurriculumTranslationQuestionSnapshot
     | CurriculumPairMatchingQuestionSnapshot
+    | CurriculumImageChoiceQuestionSnapshot
     | CurriculumPracticalPreparationQuestionSnapshot
 )
 
@@ -40,6 +42,7 @@ class MixedQuestionSnapshots:
         CurriculumTranslationQuestionSnapshot,
         CurriculumPairMatchingQuestionSnapshot,
         CurriculumOrderingQuestionSnapshot,
+        CurriculumImageChoiceQuestionSnapshot,
         CurriculumPracticalPreparationQuestionSnapshot,
     )
 

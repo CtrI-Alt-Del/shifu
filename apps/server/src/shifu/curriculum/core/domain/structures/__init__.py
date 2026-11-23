@@ -51,6 +51,8 @@ from .curriculum_sequence_item import (
 from .evaluation_part import EvaluationPart as EvaluationPart
 from .evaluation_rule import EvaluationRule as EvaluationRule
 from .material_sequence_item import MaterialSequenceItem as MaterialSequenceItem
+from .image_choice_option import ImageChoiceOption as ImageChoiceOption
+from .image_choice_question import ImageChoiceQuestion as ImageChoiceQuestion
 from .multiple_selection_question import (
     MultipleSelectionQuestion as MultipleSelectionQuestion,
 )

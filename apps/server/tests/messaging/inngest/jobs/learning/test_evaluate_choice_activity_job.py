@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 import pytest
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 
 from shifu.curriculum.core.domain.entities import Activity, Concept
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
@@ -70,6 +71,7 @@ from shifu.learning.core.domain.events.activity_submission_requested_event impor
     ActivitySubmissionRequestedPayload,
 )
 from shifu.learning.core.domain.structures import (
+    ChoiceEvaluationResult,
     CodeAnswer,
     CodeSubmittedFile,
     FillBlanksAnswer,
@@ -85,12 +87,14 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.core.use_cases import (
     EvaluateChoiceActivityUseCase,
     RemoveSkillFromGoalUseCase,
+    RetryChoiceEvaluationUseCase,
 )
 from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
     EvaluateChoiceActivityJob,
     _emit_telemetry,  # pyright: ignore[reportPrivateUsage]
 )
 from shifu.learning.database.sqlalchemy.models import (
+    ActivityAttemptModel,
     CompetencyProgressModel,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
@@ -98,6 +102,7 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryEventInput
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.inngest_fixture import InngestFixture
 
 if TYPE_CHECKING:
@@ -619,6 +624,161 @@ class TestEvaluateChoiceActivityJob:
             assert _progress_current(engine) == progress_after_completion
             # No AI request was made for a deterministic pair question.
             assert _DecisionsHandler.requests == []
+        finally:
+            engine.dispose()
+
+    @pytest.mark.parametrize(
+        ('option_index', 'expected_score'),
+        ((2, Decimal(100)), (0, Decimal(0))),
+        ids=('correct-image', 'incorrect-image'),
+    )
+    def test_registered_job_scores_an_image_choice_activity_once_without_ai(
+        self,
+        inngest_fixture: InngestFixture,
+        option_index: int,
+        expected_score: Decimal,
+    ) -> None:
+        _DecisionsHandler.requests.clear()
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            database, provider, ids, activity, experience, _account_id = _seed_image(
+                engine
+            )
+            now = SystemClockProvider().now()
+            attempt, event = _add_image_attempt(
+                database,
+                provider,
+                ids,
+                activity,
+                experience.id,
+                now,
+                ImageChoiceActivityFixture.OPTION_KEYS[option_index],
+            )
+
+            assert _outbox_destination_after_publish(engine, event.name) == 'inngest'
+            deadline = time.monotonic() + 30
+            completed = _evaluation(database, attempt.id)
+            while (
+                completed.status is ActivityEvaluationStatus.PENDING
+                and time.monotonic() < deadline
+            ):
+                time.sleep(0.1)
+                completed = _evaluation(database, attempt.id)
+
+            assert completed.status is ActivityEvaluationStatus.COMPLETED
+            image_result = completed.parts[1]
+            assert isinstance(image_result, ChoiceEvaluationResult)
+            assert image_result.question_key == 'image-1'
+            assert image_result.score == expected_score
+            assert image_result.is_correct is (expected_score == 100)
+            # Choice questions weigh 30 each, and the image question 40.
+            assert completed.score == Decimal(60) + Decimal(40) * expected_score / 100
+            assert completed.effect_applied_at is not None
+            progress_after_completion = _progress_current(engine)
+            if expected_score == 100:
+                assert progress_after_completion > 0
+            assert _evaluated_event_count(engine) == 1
+
+            duplicate = ActivitySubmissionRequestedEvent(payload=event.payload)
+            with database.transaction() as repositories:
+                repositories.events.add(duplicate)
+            duplicate_deadline = time.monotonic() + 10
+            while (
+                _outbox_status(engine, duplicate.name) != 'published'
+                and time.monotonic() < duplicate_deadline
+            ):
+                time.sleep(0.1)
+
+            assert _outbox_status(engine, duplicate.name) == 'published'
+            assert _evaluated_event_count(engine) == 1
+            assert _evaluation(database, attempt.id).score == completed.score
+            assert _progress_current(engine) == progress_after_completion
+            # No AI request was made for a deterministic image question.
+            assert _DecisionsHandler.requests == []
+        finally:
+            engine.dispose()
+
+    def test_registered_job_recovers_a_failed_image_choice_evaluation_on_the_same_attempt(
+        self,
+        inngest_fixture: InngestFixture,
+    ) -> None:
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            database, provider, ids, activity, experience, account_id = _seed_image(
+                engine
+            )
+            now = SystemClockProvider().now()
+            correct_key = ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+            # An answer that does not fit the saved question fails the evaluation.
+            attempt, _event = _add_image_attempt(
+                database,
+                provider,
+                ids,
+                activity,
+                experience.id,
+                now,
+                'opt-ffffffffffff',
+            )
+            _wait_for_evaluation_status(
+                database, attempt.id, ActivityEvaluationStatus.FAILED
+            )
+
+            failed = _evaluation(database, attempt.id)
+            assert failed.failure_code == 'evaluation_failed'
+            # The failure is not a zero: no score, no part result, no effect.
+            assert failed.score is None
+            assert failed.parts == ()
+            assert failed.effect_applied_at is None
+            assert _evaluated_event_count(engine) == 0
+            assert _attempt_count(engine, experience.id) == 1
+            failed_run_id = failed.run_id
+            assert failed_run_id is not None
+
+            # The Shifu fault is fixed: the saved answer now matches the question.
+            with Session(engine) as session, session.begin():
+                model = session.get(ActivityAttemptModel, attempt.id)
+                assert model is not None
+                model.answers = Serialization.serialize_value(
+                    (
+                        SingleChoiceAnswer(
+                            question_key='q1', selected_option_key='correct'
+                        ),
+                        SingleChoiceAnswer(
+                            question_key='image-1', selected_option_key=correct_key
+                        ),
+                        SingleChoiceAnswer(
+                            question_key='q3', selected_option_key='correct'
+                        ),
+                    )
+                )
+
+            retried = RetryChoiceEvaluationUseCase(
+                database, SystemClockProvider(), ids
+            ).execute(
+                account_id,
+                experience.goal_id,
+                experience.skill_id,
+                activity.competency_id,
+                activity.id,
+                attempt.id,
+            )
+
+            assert retried.attempt_id == attempt.id
+            assert retried.status is ActivityEvaluationStatus.PENDING
+            _wait_for_evaluation_status(
+                database, attempt.id, ActivityEvaluationStatus.COMPLETED
+            )
+            recovered = _evaluation(database, attempt.id)
+            assert recovered.id == failed.id
+            assert recovered.run_id != failed_run_id
+            image_result = recovered.parts[1]
+            assert isinstance(image_result, ChoiceEvaluationResult)
+            assert image_result.score == Decimal(100)
+            assert image_result.is_correct is True
+            assert recovered.score == Decimal(100)
+            assert recovered.effect_applied_at is not None
+            assert _evaluated_event_count(engine) == 1
+            assert _attempt_count(engine, experience.id) == 1
         finally:
             engine.dispose()
 
@@ -1208,6 +1368,128 @@ def _add_pair_attempt(
         repositories.activity_evaluations.add(evaluation)
         repositories.events.add(event)
     return attempt, event
+
+
+def _seed_image(
+    engine: Engine,
+) -> tuple[
+    SqlalchemyLearningDatabase,
+    DatabaseCurriculumContentProvider,
+    SystemIdentifierProvider,
+    Activity,
+    SkillExperience,
+    str,
+]:
+    database, provider, ids, base_activity, experience, account_id = _seed(engine)
+    skill_content = provider.get_skill_content(experience.skill_id)
+    assert skill_content is not None
+    concept = skill_content.competencies[0].concepts[0]
+    choice_question = SingleChoiceQuestion(
+        key='q1',
+        prompt='Pergunta 1?',
+        options=(
+            ChoiceOption(key='correct', text='Correta', is_correct=True),
+            ChoiceOption(key='incorrect', text='Incorreta', is_correct=False),
+        ),
+        correct_explanation='Correta',
+        incorrect_explanation='Incorreta',
+    )
+    last_question = SingleChoiceQuestion(
+        key='q3',
+        prompt='Pergunta 3?',
+        options=choice_question.options,
+        correct_explanation='Correta',
+        incorrect_explanation='Incorreta',
+    )
+    activity = Activity.create(
+        id=ids.generate(),
+        competency_id=base_activity.competency_id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade de imagem de integracao',
+        objective='Avaliar escolha e escolha por imagem.',
+        questions=(
+            choice_question,
+            ImageChoiceActivityFixture.image_question(concept_id=concept.id),
+            last_question,
+        ),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                CorrectnessEvaluationPart(question_key='image-1', weight_percentage=40),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=30),
+            )
+        ),
+    )
+    curriculum_database = SqlalchemyCurriculumDatabase(engine)
+    with curriculum_database.transaction() as repositories:
+        repositories.activities.add_many([activity])
+    provider = DatabaseCurriculumContentProvider(curriculum_database)
+    assert provider.get_learning_activity(activity.id) is not None
+    return database, provider, ids, activity, experience, account_id
+
+
+def _add_image_attempt(
+    database: SqlalchemyLearningDatabase,
+    provider: DatabaseCurriculumContentProvider,
+    ids: SystemIdentifierProvider,
+    activity: Activity,
+    experience_id: str,
+    now: datetime,
+    option_key: str,
+) -> tuple[ActivityAttempt, ActivitySubmissionRequestedEvent]:
+    snapshot = provider.get_learning_activity(activity.id)
+    assert snapshot is not None
+    attempt = ActivityAttempt.create(
+        id=ids.generate(),
+        skill_experience_id=experience_id,
+        competency_id=activity.competency_id,
+        activity_id=activity.id,
+        kind=ActivityAttemptKind.LEARNING,
+        answers=(
+            SingleChoiceAnswer(question_key='q1', selected_option_key='correct'),
+            SingleChoiceAnswer(question_key='image-1', selected_option_key=option_key),
+            SingleChoiceAnswer(question_key='q3', selected_option_key='correct'),
+        ),
+        submitted_at=now,
+        submission_key=ids.generate(),
+        grading_snapshot=snapshot,
+    )
+    evaluation = ActivityEvaluation.create(
+        id=ids.generate(),
+        attempt_id=attempt.id,
+        status=ActivityEvaluationStatus.PENDING,
+        parts=(),
+        started_at=now,
+        run_id=ids.generate(),
+    )
+    event = ActivitySubmissionRequestedEvent(
+        payload=ActivitySubmissionRequestedPayload(
+            attempt_id=attempt.id,
+            run_id=evaluation.run_id or '',
+            skill_experience_id=experience_id,
+            activity_id=activity.id,
+            kind=ActivityAttemptKind.LEARNING,
+            requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
+        )
+    )
+    with database.transaction() as repositories:
+        repositories.activity_attempts.add(attempt)
+        repositories.activity_evaluations.add(evaluation)
+        repositories.events.add(event)
+    return attempt, event
+
+
+def _attempt_count(engine: Engine, experience_id: str) -> int:
+    with Session(engine) as session:
+        return (
+            session.scalar(
+                select(func.count())
+                .select_from(ActivityAttemptModel)
+                .where(ActivityAttemptModel.skill_experience_id == experience_id)
+            )
+            or 0
+        )
 
 
 def _outbox_destination_after_publish(engine: Engine, event_name: str) -> str | None:

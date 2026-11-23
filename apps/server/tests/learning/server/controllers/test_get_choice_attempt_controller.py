@@ -64,6 +64,7 @@ from tests.fixtures.fill_blanks_activity_fixture import (
     PARTIAL_PAIRS,
     FillBlanksActivityFixture,
 )
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.learning.rest.controllers.pair_matching_controller_fixture import (
     PairMatchingControllerFixture,
@@ -1271,6 +1272,255 @@ class TestGetChoiceAttemptController:
         assert released[2][
             'disclosed_correct_pairs'
         ] == PairMatchingControllerFixture.pairs(0, 1, 2)
+
+    def _submit_and_evaluate_image(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        revision: str,
+        option_key: str,
+        submission_key: str,
+    ) -> str:
+        created = client.post(
+            ImageChoiceActivityFixture.attempts_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+            json=ImageChoiceActivityFixture.submission(
+                revision, option_key, submission_key=submission_key
+            ),
+        )
+        assert created.status_code == 201, created.text
+        attempt_id = cast('str', created.json()['attempt_id'])
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        committed = EvaluateChoiceActivityUseCase(
+            learning,
+            _LaterClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, evaluation.run_id)
+        assert committed is True
+        return attempt_id
+
+    def _image_attempt(self, client: TestClient, attempt_id: str) -> 'Response':
+        return cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{ImageChoiceActivityFixture.activity_path()}/attempts/{attempt_id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+    @staticmethod
+    def _image_question_body(
+        index: int, *, score: str, is_correct: bool, disclosed: bool
+    ) -> dict[str, object]:
+        body: dict[str, object] = {
+            'question_key': 'image-1',
+            'kind': 'image_choice',
+            'prompt': ImageChoiceActivityFixture.PROMPT,
+            'options': [
+                {'key': key, 'image_path': path, 'description': description}
+                for key, path, description in zip(
+                    ImageChoiceActivityFixture.OPTION_KEYS,
+                    ImageChoiceActivityFixture.IMAGE_PATHS,
+                    ImageChoiceActivityFixture.DESCRIPTIONS,
+                    strict=True,
+                )
+            ],
+            'selected_option_key': ImageChoiceActivityFixture.OPTION_KEYS[index],
+            'score': score,
+            'is_correct': is_correct,
+            'option_feedback': ImageChoiceActivityFixture.FEEDBACKS[index],
+            'explanation': (
+                ImageChoiceActivityFixture.CORRECT_EXPLANATION
+                if is_correct
+                else ImageChoiceActivityFixture.INCORRECT_EXPLANATION
+            ),
+        }
+        if disclosed:
+            body['disclosed_correct_option_key'] = (
+                ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+            )
+        return body
+
+    def test_image_choice_result_hides_the_correct_image_until_a_later_correct_attempt(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        stepping_clock = _SteppingClockProvider()
+        application.dependency_overrides[LearningPipe.get_clock_provider] = lambda: (
+            stepping_clock
+        )
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        detail = client.get(
+            ImageChoiceActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert detail.status_code == 200, detail.text
+        revision = detail.json()['activity_revision']
+        incorrect_id = self._submit_and_evaluate_image(
+            client,
+            application,
+            postgres_database,
+            revision,
+            ImageChoiceActivityFixture.OPTION_KEYS[0],
+            '6a7b5f0e-3b52-45f3-9e7b-0d1b6f3a2001',
+        )
+
+        hidden = self._image_attempt(client, incorrect_id)
+
+        assert hidden.status_code == 200, hidden.json()
+        body = hidden.json()
+        assert body['status'] == 'completed'
+        assert [item['question_key'] for item in body['questions']] == [
+            'q1',
+            'image-1',
+            'q3',
+        ]
+        assert body['questions'][1] == self._image_question_body(
+            0, score='0', is_correct=False, disclosed=False
+        )
+        assert 'disclosed_correct_option_key' not in body['questions'][1]
+        assert 'is_correct": true' not in str(body['questions'][1]).lower()
+        assert ImageChoiceActivityFixture.FEEDBACKS[2] not in hidden.text
+        assert ImageChoiceActivityFixture.CORRECT_EXPLANATION not in hidden.text
+
+        correct_id = self._submit_and_evaluate_image(
+            client,
+            application,
+            postgres_database,
+            revision,
+            ImageChoiceActivityFixture.CORRECT_OPTION_KEY,
+            '6a7b5f0e-3b52-45f3-9e7b-0d1b6f3a2002',
+        )
+        released = self._image_attempt(client, incorrect_id)
+        latest = self._image_attempt(client, correct_id)
+
+        assert released.json()['questions'][1] == self._image_question_body(
+            0, score='0', is_correct=False, disclosed=True
+        )
+        assert latest.json()['questions'][1] == self._image_question_body(
+            2, score='100', is_correct=True, disclosed=True
+        )
+
+    def test_image_choice_review_attempt_is_history_and_keeps_the_official_result(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        stepping_clock = _SteppingClockProvider()
+        application.dependency_overrides[LearningPipe.get_clock_provider] = lambda: (
+            stepping_clock
+        )
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        detail = client.get(
+            ImageChoiceActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert detail.status_code == 200, detail.text
+        revision = detail.json()['activity_revision']
+        official_id = self._submit_and_evaluate_image(
+            client,
+            application,
+            postgres_database,
+            revision,
+            ImageChoiceActivityFixture.OPTION_KEYS[0],
+            '6a7b5f0e-3b52-45f3-9e7b-0d1b6f3a2004',
+        )
+        official_before = self._image_attempt(client, official_id).json()
+        self._complete_experience(application)
+
+        review_id = self._submit_and_evaluate_image(
+            client,
+            application,
+            postgres_database,
+            revision,
+            ImageChoiceActivityFixture.OPTION_KEYS[3],
+            '6a7b5f0e-3b52-45f3-9e7b-0d1b6f3a2005',
+        )
+        review = self._image_attempt(client, review_id).json()
+        official_after = self._image_attempt(client, official_id).json()
+
+        with SqlalchemyLearningDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            stored = repositories.activity_attempts.find_by_id(review_id)
+        assert stored is not None
+        assert stored.kind is ActivityAttemptKind.REVIEW
+        # The review is read-only history with its own image, grade and line.
+        assert review['status'] == 'completed'
+        assert 'completes_skill' not in review
+        assert (
+            review['questions'][1]['selected_option_key']
+            == (ImageChoiceActivityFixture.OPTION_KEYS[3])
+        )
+        assert (
+            review['questions'][1]['option_feedback']
+            == (ImageChoiceActivityFixture.FEEDBACKS[3])
+        )
+        assert review['questions'][1]['score'] == '0'
+        # The official attempt keeps its grade, progress and chosen image.
+        for field in (
+            'status',
+            'score',
+            'progress_before',
+            'progress_after',
+            'status_before',
+            'status_after',
+        ):
+            assert official_after.get(field) == official_before.get(field), field
+        assert (
+            official_after['questions'][1]['selected_option_key']
+            == (ImageChoiceActivityFixture.OPTION_KEYS[0])
+        )
+        assert official_after['questions'][1]['score'] == '0'
+
+    def test_image_choice_attempt_is_private_absence_for_another_goal(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ImageChoiceActivityFixture.activity()])
+        detail = client.get(
+            ImageChoiceActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        attempt_id = self._submit_and_evaluate_image(
+            client,
+            application,
+            postgres_database,
+            detail.json()['activity_revision'],
+            ImageChoiceActivityFixture.OPTION_KEYS[0],
+            '6a7b5f0e-3b52-45f3-9e7b-0d1b6f3a2003',
+        )
+
+        response = client.get(
+            ImageChoiceActivityFixture.activity_path().replace(
+                SEED_ADAPTIVE_LAB_GOAL_ID, '01SHF000000000000000000099'
+            )
+            + f'/attempts/{attempt_id}',
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+
+        assert response.status_code == 404
+        assert 'opt-' not in response.text
 
 
 def _ordering_activity() -> Activity:

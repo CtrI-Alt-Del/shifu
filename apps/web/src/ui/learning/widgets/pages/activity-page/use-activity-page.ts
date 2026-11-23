@@ -19,6 +19,7 @@ import type {
   OrderingQuestion as OrderingQuestionData,
   FillBlanksAnswer,
   FillBlanksPlacement,
+  ImageChoiceAnswer,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
@@ -856,12 +857,13 @@ export function useActivityPage(props: ActivityPageProps) {
     activity?.canSubmit &&
       currentQuestion &&
       (currentQuestion.kind === 'single_choice' ||
-        currentQuestion.kind === 'multiple_selection') &&
+        currentQuestion.kind === 'multiple_selection' ||
+        currentQuestion.kind === 'image_choice') &&
       selectedOptionKeys.length > 0 &&
       selectedOptionKeys.every((key) =>
         currentQuestion.options.some((option) => option.key === key),
       ) &&
-      (currentQuestion.kind !== 'single_choice' || selectedOptionKeys.length === 1),
+      (currentQuestion.kind === 'multiple_selection' || selectedOptionKeys.length === 1),
   )
   const fillBlanksPlacements =
     currentAnswer && 'placements' in currentAnswer ? currentAnswer.placements : []
@@ -978,7 +980,8 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       !currentQuestion ||
       (currentQuestion.kind !== 'single_choice' &&
-        currentQuestion.kind !== 'multiple_selection') ||
+        currentQuestion.kind !== 'multiple_selection' &&
+        currentQuestion.kind !== 'image_choice') ||
       isSubmitting ||
       isAssessing ||
       feedback ||
@@ -987,6 +990,20 @@ export function useActivityPage(props: ActivityPageProps) {
       !currentQuestion.options.some((option) => option.key === optionKey)
     )
       return
+    if (currentQuestion.kind === 'image_choice') {
+      const imageAnswer: ImageChoiceAnswer = {
+        kind: 'image_choice',
+        questionKey: currentQuestion.key,
+        selectedOptionKeys: [optionKey],
+      }
+      setAnswers((current) => [
+        ...current.filter((item) => item.questionKey !== imageAnswer.questionKey),
+        imageAnswer,
+      ])
+      setUnsentAnswers(true)
+      setHasFeedbackError(false)
+      return
+    }
     const existing = answers.find((answer) => answer.questionKey === currentQuestion.key)
     const previous =
       existing && 'selectedOptionKeys' in existing ? existing.selectedOptionKeys : []
@@ -1196,7 +1213,7 @@ export function useActivityPage(props: ActivityPageProps) {
               ? { ...answer }
               : 'pairs' in answer
                 ? { ...answer, pairs: answer.pairs.map((pair) => ({ ...pair })) }
-                : 'draftRevision' in answer
+                : answer.kind === 'image_choice' || 'draftRevision' in answer
                   ? { ...answer }
                   : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     const passageKey = snapshot.kind === 'ordering' ? getOrderingPassageKey() : undefined
@@ -1486,9 +1503,18 @@ export function useActivityPage(props: ActivityPageProps) {
         })
         return
       }
+      if (currentQuestion.kind === 'image_choice' && hasValidSelection) {
+        void assess({
+          kind: 'image_choice',
+          questionKey: currentQuestion.key,
+          selectedOptionKeys: [selectedOptionKeys[0]],
+        })
+        return
+      }
       if (
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'ordering' &&
+        currentQuestion.kind !== 'image_choice' &&
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
@@ -1821,6 +1847,13 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
           typeof pair.wordKey === 'string' &&
           typeof pair.translationKey === 'string',
       )
+    )
+  }
+  if (value.kind === 'image_choice') {
+    return (
+      Array.isArray(value.selectedOptionKeys) &&
+      value.selectedOptionKeys.length === 1 &&
+      typeof value.selectedOptionKeys[0] === 'string'
     )
   }
   return (

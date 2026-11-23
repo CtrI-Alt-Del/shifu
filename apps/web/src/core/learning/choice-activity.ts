@@ -168,6 +168,19 @@ export type PairMatchingQuestion = {
   translations: readonly PairMatchingItem[]
 }
 
+export type ImageChoiceOption = {
+  key: string
+  imagePath: string
+  description: string
+}
+
+export type ImageChoiceQuestion = {
+  key: string
+  kind: 'image_choice'
+  prompt: string
+  options: readonly ImageChoiceOption[]
+}
+
 export type PracticalPreparationRecord = {
   key: string
   label: string
@@ -218,6 +231,7 @@ export type ActivityQuestion =
   | FillBlanksQuestion
   | TranslationQuestion
   | PairMatchingQuestion
+  | ImageChoiceQuestion
   | PracticalPreparationQuestion
 
 export type ChoiceActivityDetail = {
@@ -273,6 +287,12 @@ export type PairMatchingAnswer = {
   pairs: readonly PairMatchingPair[]
 }
 
+export type ImageChoiceAnswer = {
+  kind: 'image_choice'
+  questionKey: string
+  selectedOptionKeys: readonly [string]
+}
+
 export type PracticalPreparationAnswer = {
   kind: 'practical_preparation'
   questionKey: string
@@ -289,6 +309,7 @@ export type ActivityAnswer =
   | FillBlanksAnswer
   | TranslationAnswer
   | PairMatchingAnswer
+  | ImageChoiceAnswer
   | PracticalPreparationAnswer
 
 export type PreliminaryQuestionResult = {
@@ -311,6 +332,7 @@ export type PreliminaryQuestionResult = {
   correctPairCount?: number
   totalPairCount?: number
   outcome?: PairMatchingOutcome
+  optionFeedback?: string
 }
 
 export type ChoiceSubmission = {
@@ -418,6 +440,19 @@ export type PairMatchingResultQuestion = {
   disclosedCorrectPairs?: readonly PairMatchingPair[]
 }
 
+export type ImageChoiceResultQuestion = {
+  kind: 'image_choice'
+  key: string
+  prompt: string
+  options: readonly ImageChoiceOption[]
+  selectedOptionKey: string
+  score: number
+  isCorrect: boolean
+  optionFeedback: string
+  explanation: string
+  disclosedCorrectOptionKey?: string
+}
+
 export type PracticalPreparationResultQuestion = {
   key: string
   kind: 'practical_preparation'
@@ -445,6 +480,7 @@ export type ActivityResultQuestion =
   | FillBlanksResultQuestion
   | TranslationResultQuestion
   | PairMatchingResultQuestion
+  | ImageChoiceResultQuestion
   | PracticalPreparationResultQuestion
 
 export type ChoiceAttemptDetail = {

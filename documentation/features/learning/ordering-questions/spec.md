@@ -15,7 +15,7 @@ last_updated_at: 2026-11-12
 
 # Objective
 
-Adicionar a questão de ordenação de etapas às Atividades de aprendizagem. O aprendiz reorganiza todas as etapas, verifica uma única sequência por passagem e recebe retorno provisório objetivo. A tentativa e a nota oficiais surgem apenas no envio final. Este é um contrato completo, pois atravessa conteúdo, persistência, concorrência, avaliação durável e interface. O levantamento e as decisões de SHIFU-129 estão em [diagnóstico](../../../../SHIFU-129-diagnostico.md).
+Adicionar a questão de ordenação de etapas às Atividades de aprendizagem. O aprendiz reorganiza todas as etapas, verifica uma única sequência por passagem e recebe retorno provisório objetivo. A tentativa e a nota oficiais surgem apenas no envio final. Este é um contrato completo, pois atravessa conteúdo, persistência, concorrência, avaliação durável e interface. O contrato e as decisões de SHIFU-129 estão registrados nesta Spec e nos PRDs canônicos.
 
 # Scope
 
@@ -344,7 +344,7 @@ Usar contas de teste descartáveis e Atividade publicada por fixture isolada com
 | [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83066881/Shifu+PRD+Learning), ID `83066881`, v33, parent `82804737`, atualizado 13/11/2026 01:18:41 UTC | RP-09/13/14/18/20/25/27/29/33; JN-07/08/13 | Página completa relida após emenda; contrato de registro provisório confirmado | Reconfirmar versão antes de `ready` e na conclusão. |
 | [Curriculum PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83034113/Shifu+PRD+Curriculum), ID `83034113`, v19, parent `82804737`, atualizado 02/11/2026 17:48:59 UTC | RP-03/04/06; JN-03/04 | Página completa lida e reconfirmada em 12/11/2026 | Reconfirmar versão antes de `ready`. |
 | [Jira SHIFU-129](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-129), ID `12671` | Entrega e rastreio | Escopo reconciliado com PRDs atuais | Sem transição ou comentário autorizado. |
-| [Diagnóstico](../../../../SHIFU-129-diagnostico.md), [Design](../../../design.md), [SDD](../../../sdd.md), [Architecture](../../../architecture.md), [Modules](../../../modules.md), [Tooling](../../../tooling.md) | Decisões locais, limites e validação | Design alinhado a Learning v33; artefatos de implementação e `evaluation.md` após aprovação da Spec | O diagnóstico não substitui Spec/Evaluation. |
+| [Design](../../../design.md), [SDD](../../../sdd.md), [Architecture](../../../architecture.md), [Modules](../../../modules.md), [Tooling](../../../tooling.md) | Limites e validação | Design alinhado a Learning v33; artefatos de implementação e `evaluation.md` após aprovação da Spec | A Spec e os PRDs canônicos permanecem como fontes do contrato. |
 | [Rule Pack](../../../rules.md) | Código e testes selecionados na Architecture Mapping, inclusive regra AI do fluxo misto com código | Ler regras correspondentes antes de cada novo escopo; reavaliar se rotas, geração ou outros módulos mudarem | Revisão independente da Spec antes de `ready`. |
 
 # Revision History

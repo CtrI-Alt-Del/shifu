@@ -19,6 +19,7 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
+from tests.fixtures.image_choice_activity_fixture import ImageChoiceActivityFixture
 from tests.fixtures.fill_blanks_activity_fixture import (
     CORRECT_PAIRS,
     FillBlanksActivityFixture,
@@ -138,6 +139,23 @@ class TestSubmitDiagnosticBatchController:
 
         assert response.status_code == 422, response.json()
         assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    def test_should_reject_an_image_choice_answer_without_persistence(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        before = ImageChoiceActivityFixture.write_counts(postgres_database)
+
+        response = _submit(
+            client,
+            _batch(
+                ImageChoiceActivityFixture.image_answer(
+                    ImageChoiceActivityFixture.CORRECT_OPTION_KEY
+                )
+            ),
+        )
+
+        assert response.status_code == 422, response.json()
+        assert ImageChoiceActivityFixture.write_counts(postgres_database) == before
 
     def test_should_let_other_kinds_past_the_request_boundary_to_the_run_check(
         self, client: TestClient, postgres_database: PostgresDatabase
