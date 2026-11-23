@@ -1,12 +1,12 @@
-import { motion } from 'motion/react'
+import { closestCenter, DndContext } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 import type { OrderingQuestion as OrderingQuestionData } from '@/core/learning/choice-activity'
-import { ENTRANCE_RISE } from '@/constants/motion-variants'
-import { Button } from '@/ui/shadcn/button'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { ActivityQuestionHeader } from '../components/activity-question-header'
+import { OrderingStep } from './ordering-step'
 import { useOrderingQuestion } from './use-ordering-question'
 
 export type OrderingQuestionProps = {
@@ -21,6 +21,17 @@ export type OrderingQuestionProps = {
   onOrderChange?: (orderedStepKeys: readonly string[]) => void
 }
 
+const SCREEN_READER_INSTRUCTIONS =
+  'Para mover uma etapa com o teclado, use os botões Mover para cima e Mover para baixo.'
+
+// The hook owns the single polite region, so the library announcements stay silent.
+const ANNOUNCEMENTS = {
+  onDragStart: () => undefined,
+  onDragOver: () => undefined,
+  onDragEnd: () => undefined,
+  onDragCancel: () => undefined,
+}
+
 export const OrderingQuestion = ({
   activityTitle,
   disabled = false,
@@ -33,7 +44,17 @@ export const OrderingQuestion = ({
   totalQuestions,
 }: OrderingQuestionProps) => {
   const questionLabelId = `ordering-question-${question.key}`
-  const { announcement, handleMoveStep, order } = useOrderingQuestion({
+  const {
+    announcement,
+    order,
+    sensors,
+    handleDragCancel,
+    handleDragEnd,
+    handleDragStart,
+    handleMoveStep,
+    moveCount,
+    sortableIds,
+  } = useOrderingQuestion({
     question,
     orderedStepKeys,
     disabled: disabled || isVerified,
@@ -53,57 +74,43 @@ export const OrderingQuestion = ({
         <QuestionPrompt id={questionLabelId} prompt={question.prompt} />
         {!isVerified ? (
           <p className='text-sm text-muted-foreground'>
-            A ordem exibida é apenas um ponto de partida. Use os controles para organizar
-            as etapas.
+            A ordem exibida é apenas um ponto de partida. Arraste as etapas ou use os
+            controles para organizá-las.
           </p>
         ) : null}
-        <ol aria-label='Etapas do procedimento' className='space-y-2'>
-          {order.map((stepKey, index) => {
-            const step = question.steps.find(({ key }) => key === stepKey)
-            if (!step) return null
-            return (
-              <motion.li
-                className='flex min-h-14 items-center gap-3 rounded-md border border-control-border bg-card p-2 sm:p-3'
-                key={step.key}
-                variants={ENTRANCE_RISE}
-              >
-                <span
-                  aria-hidden='true'
-                  className='w-7 shrink-0 text-center font-mono text-sm text-muted-foreground'
-                >
-                  {index + 1}
-                </span>
-                <span className='min-w-0 flex-1 whitespace-pre-wrap text-sm'>
-                  {step.text}
-                </span>
-                {!isVerified ? (
-                  <span className='flex shrink-0 gap-1'>
-                    <Button
-                      aria-label={`Mover para cima: ${step.text}`}
-                      className='h-11 w-11 min-h-11 px-0'
-                      disabled={disabled || index === 0}
-                      onClick={() => handleMoveStep(step.key, -1)}
-                      type='button'
-                      variant='outline'
-                    >
-                      <Icon name='arrow-up' size={18} />
-                    </Button>
-                    <Button
-                      aria-label={`Mover para baixo: ${step.text}`}
-                      className='h-11 w-11 min-h-11 px-0'
-                      disabled={disabled || index === order.length - 1}
-                      onClick={() => handleMoveStep(step.key, 1)}
-                      type='button'
-                      variant='outline'
-                    >
-                      <Icon className='rotate-180' name='arrow-up' size={18} />
-                    </Button>
-                  </span>
-                ) : null}
-              </motion.li>
-            )
-          })}
-        </ol>
+        <DndContext
+          collisionDetection={closestCenter}
+          accessibility={{
+            announcements: ANNOUNCEMENTS,
+            screenReaderInstructions: { draggable: SCREEN_READER_INSTRUCTIONS },
+          }}
+          onDragCancel={handleDragCancel}
+          onDragEnd={handleDragEnd}
+          onDragStart={handleDragStart}
+          sensors={sensors}
+        >
+          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+            <ol aria-label='Etapas do procedimento' className='space-y-2'>
+              {order.map((stepKey, index) => {
+                const step = question.steps.find(({ key }) => key === stepKey)
+                if (!step) return null
+                return (
+                  <OrderingStep
+                    disabled={disabled}
+                    isFirst={index === 0}
+                    isLast={index === order.length - 1}
+                    isVerified={isVerified}
+                    key={step.key}
+                    moveCount={moveCount}
+                    onMove={handleMoveStep}
+                    position={index + 1}
+                    step={step}
+                  />
+                )
+              })}
+            </ol>
+          </SortableContext>
+        </DndContext>
         {!isVerified ? (
           <p aria-live='polite' className='sr-only'>
             {announcement}
