@@ -26,7 +26,7 @@ describe('getPendingConfirmationStatus', () => {
   it.each(['ready', 'cooldown', 'delivery_issue'] as const)(
     'returns a valid %s status',
     async (state) => {
-      const handleAuthRequest = vi.fn(async () =>
+      const handleAuthRequest = vi.fn(async (_request: Request) =>
         Response.json({ state, hasPendingContext: true }),
       )
 
