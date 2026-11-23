@@ -6,6 +6,8 @@ import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
   CodeResultQuestion,
+  PracticalPreparationQuestion,
+  PracticalPreparationResultQuestion,
 } from '@/core/learning/choice-activity'
 import type {
   ActivityRecommendation,
@@ -624,6 +626,393 @@ describe('ChoiceResultPage', () => {
       )
 
       expect(screen.queryByText('Habilidade concluída')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('practical preparation', () => {
+    const PRACTICAL_QUESTION: PracticalPreparationQuestion = {
+      key: 'practice-1',
+      kind: 'practical_preparation',
+      prompt: 'Prepare legumes salteados.',
+      guidance: ['Use fogo alto.'],
+      references: [],
+      difficulty: 'easy',
+      records: [
+        { key: 'cuts', label: 'Cortes', mustShow: 'Os cortes' },
+        { key: 'dish', label: 'Prato final', mustShow: 'O prato' },
+      ],
+      criteria: [
+        {
+          key: 'cut',
+          name: 'Regularidade dos cortes',
+          description: 'Cortes',
+          weight: 40,
+        },
+        { key: 'heat', name: 'Aplicação da técnica', description: 'Técnica', weight: 60 },
+      ],
+    }
+    const PRACTICAL_ACTIVITY: ChoiceActivityDetail = {
+      ...ACTIVITY,
+      title: 'Legumes salteados',
+      questions: [PRACTICAL_QUESTION],
+    }
+    const GRADED_QUESTION: PracticalPreparationResultQuestion = {
+      key: 'practice-1',
+      kind: 'practical_preparation',
+      prompt: 'Prepare legumes salteados.',
+      records: [
+        { key: 'cuts', label: 'Cortes' },
+        { key: 'dish', label: 'Prato final' },
+      ],
+      photos: [
+        { recordKey: 'cuts', photoId: 'photo-cuts' },
+        { recordKey: 'dish', photoId: 'photo-dish' },
+      ],
+      reflection: 'Usei fogo alto e pouco óleo.',
+      criteria: [
+        {
+          key: 'cut',
+          name: 'Regularidade dos cortes',
+          weight: 40,
+          level: 75,
+          comment: 'Cortes quase uniformes.',
+        },
+        {
+          key: 'heat',
+          name: 'Aplicação da técnica',
+          weight: 60,
+          level: null,
+          comment: 'Não foi possível observar o ponto.',
+        },
+      ],
+      score: 45,
+      closedWithoutGrade: false,
+      unassessableRecords: [],
+      guidance: null,
+    }
+    const NO_GRADE_QUESTION: PracticalPreparationResultQuestion = {
+      ...GRADED_QUESTION,
+      criteria: [],
+      closedWithoutGrade: true,
+      unassessableRecords: [
+        {
+          key: 'dish',
+          label: 'Prato final',
+          comment: 'O prato não aparece inteiro na foto.',
+        },
+      ],
+      guidance: 'Fotografe o prato inteiro com boa luz.',
+    }
+    const DETAIL_IDS = {
+      goalId: '01SHF000000000000000000001',
+      skillId: '01SHF000000000000000000002',
+      competencyId: '01SHF000000000000000000003',
+      activityId: '01SHF000000000000000000004',
+    }
+
+    function buildPhotoUrl(photoId: string) {
+      return `/api/photos/${photoId}`
+    }
+
+    function renderAttempt(
+      attempt: ChoiceAttemptDetail,
+      props: {
+        buildPracticePhotoUrl?: (photoId: string) => string
+        detailIds?: {
+          goalId: string
+          skillId: string
+          competencyId: string
+          activityId?: string
+        }
+        onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
+        recommendation?: ActivityRecommendation | null
+      } = {},
+    ) {
+      return render(
+        <ChoiceResultPage
+          activity={PRACTICAL_ACTIVITY}
+          attempt={attempt}
+          buildPracticePhotoUrl={buildPhotoUrl}
+          detailIds={DETAIL_IDS}
+          onRetryEvaluation={vi.fn()}
+          state='result'
+          {...props}
+        />,
+      )
+    }
+
+    it('shows the Curriculum brief with weighted criteria beside the attempt card', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        status: 'pending',
+        score: null,
+        questions: undefined,
+      })
+
+      expect(screen.getByText('Prepare legumes salteados.')).toBeVisible()
+      expect(screen.getByText('Use fogo alto.')).toBeVisible()
+      expect(screen.getByText('Regularidade dos cortes')).toBeVisible()
+      expect(screen.getByText('Peso 40%')).toBeVisible()
+    })
+
+    it('keeps an evaluation in progress distinct from a score and from no grade', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        status: 'pending',
+        score: null,
+        questions: undefined,
+      })
+
+      expect(
+        screen.getByRole('heading', { name: 'Avaliação em andamento' }),
+      ).toBeVisible()
+      expect(screen.getByRole('status')).toHaveTextContent('Tentativa enviada')
+      expect(screen.getByText('Você pode continuar estudando')).toBeVisible()
+      expect(screen.getByRole('link', { name: 'Voltar à Habilidade' })).toBeVisible()
+      expect(screen.queryByText(/sem nota/)).not.toBeInTheDocument()
+      expect(screen.queryByText('/ 100')).not.toBeInTheDocument()
+    })
+
+    it('shows a recoverable failure that keeps the photos and retries the same attempt', () => {
+      const attempt: ChoiceAttemptDetail = {
+        ...COMPLETED_ATTEMPT,
+        status: 'failed',
+        retryAllowed: true,
+        failureMessage: 'A avaliação foi interrompida.',
+        score: null,
+        questions: [GRADED_QUESTION],
+      }
+      const handleRetryEvaluationMock = vi.fn()
+      useChoiceResultPageMock.mockReturnValue(
+        createControllerMock({
+          attempt,
+          canRetry: true,
+          handleRetryEvaluation: handleRetryEvaluationMock,
+        }),
+      )
+      renderAttempt(attempt)
+
+      expect(
+        screen.getByRole('heading', { name: 'A avaliação não pôde terminar' }),
+      ).toBeVisible()
+      expect(screen.getByRole('alert')).toHaveTextContent('Avaliação pendente')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Sua tentativa e suas fotos estão preservadas.',
+      )
+      expect(screen.getByText('A avaliação foi interrompida.')).toBeVisible()
+      expect(screen.getByAltText('Foto do registro: Cortes')).toBeVisible()
+      fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+
+      expect(handleRetryEvaluationMock).toHaveBeenCalledOnce()
+    })
+
+    it('disables the retry while it restarts and reports a failed restart', () => {
+      const attempt: ChoiceAttemptDetail = {
+        ...COMPLETED_ATTEMPT,
+        status: 'failed',
+        retryAllowed: true,
+        score: null,
+        questions: undefined,
+      }
+      useChoiceResultPageMock.mockReturnValue(
+        createControllerMock({
+          attempt,
+          canRetry: false,
+          isRetrying: true,
+          hasRetryError: true,
+        }),
+      )
+      renderAttempt(attempt)
+
+      expect(
+        screen.getByRole('button', { name: 'Reiniciando avaliação…' }),
+      ).toBeDisabled()
+      expect(
+        screen.getByText('Não foi possível reiniciar agora. Tente novamente.'),
+      ).toBeVisible()
+    })
+
+    it('hides the retry when the failure cannot be retried', () => {
+      const attempt: ChoiceAttemptDetail = {
+        ...COMPLETED_ATTEMPT,
+        status: 'failed',
+        retryAllowed: false,
+        score: null,
+        questions: undefined,
+      }
+      renderAttempt(attempt)
+
+      expect(
+        screen.queryByRole('button', { name: /Tentar novamente/ }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('shows a closed attempt as without grade with its improvement records and two actions', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        status: 'closed_without_grade',
+        score: null,
+        progressBefore: null,
+        progressAfter: null,
+        questions: [NO_GRADE_QUESTION],
+      })
+
+      expect(
+        screen.getByRole('heading', { name: 'Não foi possível avaliar estas fotos' }),
+      ).toBeVisible()
+      expect(screen.getByText('Tentativa encerrada · sem nota')).toBeVisible()
+      expect(screen.getByText('O que ajustar na próxima tentativa')).toBeVisible()
+      expect(screen.getByText('Registros a melhorar')).toBeVisible()
+      expect(screen.getByText('O prato não aparece inteiro na foto.')).toBeVisible()
+      expect(screen.getByText('Fotografe o prato inteiro com boa luz.')).toBeVisible()
+      expect(screen.queryByText('/ 100')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Nota da Atividade/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Avaliação em andamento')).not.toBeInTheDocument()
+      const newAttempt = screen.getByRole('link', { name: 'Iniciar nova tentativa' })
+      expect(newAttempt).toHaveAttribute(
+        'href',
+        '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
+      )
+      expect(JSON.parse(newAttempt.getAttribute('data-params') ?? '{}')).toEqual(
+        DETAIL_IDS,
+      )
+      const back = screen.getByRole('link', { name: 'Voltar à Habilidade' })
+      expect(back).toHaveAttribute('href', '/learning/goals/$goalId/skills/$skillId')
+      expect(JSON.parse(back.getAttribute('data-params') ?? '{}')).toEqual({
+        goalId: DETAIL_IDS.goalId,
+        skillId: DETAIL_IDS.skillId,
+      })
+    })
+
+    it('keeps the photos and the reflection of a no-grade attempt read only', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        status: 'closed_without_grade',
+        score: null,
+        questions: [NO_GRADE_QUESTION],
+      })
+
+      expect(screen.getByAltText('Foto do registro: Cortes')).toHaveAttribute(
+        'src',
+        '/api/photos/photo-cuts',
+      )
+      expect(screen.getByAltText('Foto do registro: Prato final')).toBeVisible()
+      expect(screen.getByText('Resposta enviada · somente leitura')).toBeVisible()
+      expect(screen.getByText('Usei fogo alto e pouco óleo.')).toBeVisible()
+      expect(screen.getByText('Relato escrito por você · somente leitura')).toBeVisible()
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /Remover|Trocar/ }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('does not offer a new attempt link when the Activity identity is unknown', () => {
+      renderAttempt(
+        {
+          ...COMPLETED_ATTEMPT,
+          status: 'closed_without_grade',
+          score: null,
+          questions: [NO_GRADE_QUESTION],
+        },
+        {
+          buildPracticePhotoUrl: undefined,
+          detailIds: {
+            goalId: DETAIL_IDS.goalId,
+            skillId: DETAIL_IDS.skillId,
+            competencyId: DETAIL_IDS.competencyId,
+          },
+        },
+      )
+
+      expect(
+        screen.queryByRole('link', { name: 'Iniciar nova tentativa' }),
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Voltar à Habilidade' })).toBeVisible()
+      expect(screen.getAllByText('Foto indisponível')).toHaveLength(2)
+    })
+
+    it('shows a completed result with each criterion weight, level and preset comment', () => {
+      renderAttempt({ ...COMPLETED_ATTEMPT, score: 45, questions: [GRADED_QUESTION] })
+
+      expect(screen.getByRole('heading', { name: 'Atividade avaliada' })).toBeVisible()
+      expect(screen.getByLabelText('Nota da Atividade 45 de 100')).toBeVisible()
+      expect(screen.getByText('75 / 100')).toBeVisible()
+      expect(screen.getByText('Cortes quase uniformes.')).toBeVisible()
+      expect(screen.getByText('Sem nível')).toBeVisible()
+      expect(screen.getByText('Não foi possível observar o ponto.')).toBeVisible()
+      expect(screen.getAllByText('Peso 60%').length).toBeGreaterThan(0)
+      expect(screen.getByText('Seu relato')).toBeVisible()
+      expect(
+        screen.getByText(
+          'O resultado será considerado no progresso da Competência. A reflexão não entra na nota.',
+        ),
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('link', { name: 'Iniciar nova tentativa' }),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.getByRole('link', { name: 'Voltar para a Competência' }),
+      ).toBeVisible()
+    })
+
+    it('renders a completed review attempt with null progress fields using the question score', () => {
+      renderAttempt({
+        attemptId: 'attempt-review',
+        activityId: 'activity-1',
+        status: 'completed',
+        submittedAt: '2026-09-23T12:00:00Z',
+        retryAllowed: false,
+        completesSkill: false,
+        score: null,
+        progressBefore: null,
+        progressAfter: null,
+        statusBefore: null,
+        statusAfter: null,
+        nextAction: null,
+        questions: [{ ...GRADED_QUESTION, score: 80 }],
+      })
+
+      expect(screen.getByRole('heading', { name: 'Atividade avaliada' })).toBeVisible()
+      expect(screen.getByLabelText('Nota da Atividade 80 de 100')).toBeVisible()
+      expect(screen.getByText('75 / 100')).toBeVisible()
+      expect(screen.getByText('Cortes quase uniformes.')).toBeVisible()
+      expect(screen.getAllByText('Peso 40%').length).toBeGreaterThan(0)
+    })
+
+    it('shows no score block when neither the attempt nor the question carries one', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        score: null,
+        questions: [{ ...GRADED_QUESTION, score: null }],
+      })
+
+      expect(screen.queryByText(/Nota da Atividade/)).not.toBeInTheDocument()
+      expect(screen.getByText('Cortes quase uniformes.')).toBeVisible()
+    })
+
+    it('opens the recommended next Activity from a completed result', () => {
+      const onOpenRecommendationMock = vi.fn()
+      renderAttempt(
+        { ...COMPLETED_ATTEMPT, score: 45, questions: [GRADED_QUESTION] },
+        {
+          onOpenRecommendation: onOpenRecommendationMock,
+          recommendation: RECOMMENDATION,
+        },
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Próxima Atividade' }))
+
+      expect(onOpenRecommendationMock).toHaveBeenCalledWith(RECOMMENDATION)
+    })
+
+    it('omits the reflection section when the learner wrote none', () => {
+      renderAttempt({
+        ...COMPLETED_ATTEMPT,
+        score: 45,
+        questions: [{ ...GRADED_QUESTION, reflection: '' }],
+      })
+
+      expect(screen.queryByText('Seu relato')).not.toBeInTheDocument()
     })
   })
 })

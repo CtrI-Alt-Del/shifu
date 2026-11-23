@@ -111,6 +111,8 @@ class ConsoleTelemetryProvider(TelemetryProvider):
             'learning.evaluate_choice_activity',
             'learning.purge_data_on_account_erasure',
             'intelligence.purge_account_data_on_account_erasure',
+            'learning.purge_practice_photo',
+            'learning.purge_practice_data_on_account_deleted',
             'intelligence.purge_mentor_attachments_on_account_deleted',
             'intelligence.purge_mentor_summaries_on_account_deleted',
             'intelligence.purge_learner_memories_on_account_deleted',

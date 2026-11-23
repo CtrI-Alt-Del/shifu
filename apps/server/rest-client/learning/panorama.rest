@@ -1,0 +1,23 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+@skillExperienceId = replace-with-skill-experience-id
+
+### Learning panorama of the authenticated account (Progresso > Aprendizagem)
+# Counts, stage distribution, up to three Continue items, eight local weeks of
+# evaluated activities, the experiences selectable in the evolution chart (with
+# the default selection), completed experiences newest first and up to five
+# recent masteries. Weeks and dates use the account's current time zone, or UTC
+# when it is absent or unresolvable. Nothing here averages Objetivos.
+# Responses: 200 with the body above, 401 without a valid access token.
+GET {{baseUrl}}/learning/panorama
+Authorization: Bearer {{accessToken}}
+
+### Evolution of one Habilidade experience (the chart's selected series)
+# Use a `skillExperienceId` from `evolutionOptions` of the panorama response.
+# `points` is chronological: an optional diagnostic base point (`isBaseline`)
+# followed by one point per changed official learning result. Review
+# evaluations never create points.
+# Responses: 200 with the series, 401 without a valid access token, and 404 with
+# the same body for an unknown, removed or foreign experience.
+GET {{baseUrl}}/learning/panorama/skill-experiences/{{skillExperienceId}}/evolution
+Authorization: Bearer {{accessToken}}

@@ -4,7 +4,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field, TypeAdapter
 
-from shifu.gamification.core.domain.enums import CalendarDayState
+from shifu.gamification.core.domain.enums import (
+    AchievementCriterionKind,
+    CalendarDayState,
+)
 from shifu.gamification.core.interfaces import GamificationDatabase
 from shifu.gamification.core.use_cases import GetGamificationOverviewUseCase
 from shifu.gamification.pipes import GamificationPipe
@@ -21,10 +24,25 @@ class RecentAchievementResponse(BaseModel):
     achieved_at: datetime = Field(serialization_alias='achievedAt')
 
 
+class NextAchievementResponse(BaseModel):
+    achievement_id: str = Field(serialization_alias='achievementId')
+    name: str
+    criterion_label: str = Field(serialization_alias='criterionLabel')
+    criterion_kind: AchievementCriterionKind = Field(
+        serialization_alias='criterionKind'
+    )
+    xp_reward: int = Field(serialization_alias='xpReward')
+    progress_current: int = Field(serialization_alias='progressCurrent')
+    progress_target: int = Field(serialization_alias='progressTarget')
+
+
 class AchievementsSummaryResponse(BaseModel):
     recent: tuple[RecentAchievementResponse, ...]
     obtained_count: int = Field(serialization_alias='obtainedCount')
     catalog_count: int = Field(serialization_alias='catalogCount')
+    next_achievement: NextAchievementResponse | None = Field(
+        serialization_alias='nextAchievement'
+    )
 
 
 class CalendarDayResponse(BaseModel):
@@ -39,11 +57,15 @@ class StreakResponse(BaseModel):
 
 class StreakOverviewResponse(BaseModel):
     streak: StreakResponse
-    last_seven_days: tuple[CalendarDayResponse, ...] = Field(
-        serialization_alias='lastSevenDays'
+    current_month: tuple[CalendarDayResponse, ...] = Field(
+        serialization_alias='currentMonth'
     )
     today: date
-    is_today_pending: bool = Field(serialization_alias='isTodayPending')
+
+
+class WeeklyXpResponse(BaseModel):
+    week_start: date = Field(serialization_alias='weekStart')
+    xp: int
 
 
 class Response(BaseModel):
@@ -55,6 +77,7 @@ class Response(BaseModel):
     level_percentage: int = Field(serialization_alias='levelPercentage')
     streak: StreakOverviewResponse
     achievements: AchievementsSummaryResponse
+    weekly_xp: tuple[WeeklyXpResponse, ...] = Field(serialization_alias='weeklyXp')
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

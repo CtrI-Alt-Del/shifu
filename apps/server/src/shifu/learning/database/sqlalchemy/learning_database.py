@@ -14,6 +14,8 @@ from shifu.learning.database.sqlalchemy.repositories import (
     SqlalchemyGoalsRepository,
     SqlalchemyMentorActionReceiptsRepository,
     SqlalchemyOrderingPassagesRepository,
+    SqlalchemyPracticeDraftsRepository,
+    SqlalchemyPracticePhotosRepository,
     SqlalchemySkillExperiencesRepository,
 )
 from shifu.shared.core.interfaces import IdentifierProvider
@@ -49,6 +51,8 @@ class SqlalchemyLearningDatabase:
                     session
                 ),
                 ordering_passages=SqlalchemyOrderingPassagesRepository(session),
+                practice_drafts=SqlalchemyPracticeDraftsRepository(session),
+                practice_photos=SqlalchemyPracticePhotosRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

@@ -22,6 +22,9 @@ from shifu.learning.core.domain.structures.ordering_result_detail import (
 from shifu.learning.core.domain.structures.pair_matching_result_detail import (
     PairMatchingResultDetail,
 )
+from shifu.learning.core.domain.structures.practical_preparation_result_detail import (
+    PracticalPreparationResultDetail,
+)
 from shifu.learning.core.domain.structures.translation_result_detail import (
     TranslationResultDetail,
 )
@@ -48,6 +51,7 @@ class ChoiceAttemptDetail:
         | OrderingResultDetail
         | FillBlanksResultDetail
         | TranslationResultDetail
-        | PairMatchingResultDetail,
+        | PairMatchingResultDetail
+        | PracticalPreparationResultDetail,
         ...,
     ] = ()

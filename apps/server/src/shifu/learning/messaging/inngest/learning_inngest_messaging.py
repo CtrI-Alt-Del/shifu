@@ -4,9 +4,12 @@ from inngest import Function, Inngest
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import PurgeLearningDataForAccountUseCase
+from shifu.learning.core.use_cases import PurgePracticePhotosUseCase
 from shifu.learning.messaging.inngest.jobs import (
     EvaluateChoiceActivityJob,
     PurgeLearningDataOnAccountErasureJob,
+    PurgePracticeDataOnAccountDeletedJob,
+    PurgePracticePhotoJob,
 )
 from shifu.shared.core.interfaces import (
     AccountErasureAcknowledgementProvider,
@@ -34,6 +37,8 @@ class LearningInngestMessaging:
         account_erasure_acknowledgement_provider: AccountErasureAcknowledgementProvider,
         curriculum_content_provider: CurriculumContentProvider | None = None,
         max_code_assessment_input_bytes: int = 262144,
+        purge_practice_photos_use_case: PurgePracticePhotosUseCase,
+        account_deleted_event_name: str,
         telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         return [
@@ -56,6 +61,23 @@ class LearningInngestMessaging:
                     PurgeLearningDataForAccountUseCase(learning_database),
                     target_provider=account_erasure_target_provider,
                     acknowledgement_provider=account_erasure_acknowledgement_provider,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgePracticePhotoJob.handle(
+                    inngest,
+                    purge_practice_photos_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgePracticeDataOnAccountDeletedJob.handle(
+                    inngest,
+                    purge_practice_photos_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
                     telemetry_provider=telemetry_provider,
                 ),
             ),

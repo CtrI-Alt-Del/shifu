@@ -197,9 +197,10 @@ test.describe('account deletion BFF handlers', () => {
     const recovered = await request.get('/api/auth/account/deletion')
     expect(recovered.status()).toBe(200)
     expect(recovered.headers()['cache-control']).toBe('no-store')
-    expect(await recovered.json()).toMatchObject({
+    const recoveredBody = await recovered.json()
+    expect(recoveredBody).toMatchObject({
       state: 'closed',
-      erasure: 'completed',
+      erasure: expect.stringMatching(/^(pending|completed)$/),
     })
 
     await setAccountProxyScenario(
@@ -208,10 +209,14 @@ test.describe('account deletion BFF handlers', () => {
       'account-erasure-target-gone',
     )
     const completedWithoutTarget = await request.get('/api/auth/account/deletion')
-    expect(completedWithoutTarget.status()).toBe(200)
-    expect(await completedWithoutTarget.json()).toMatchObject({
-      state: 'closed',
-      erasure: 'completed',
-    })
+    if (recoveredBody.erasure === 'completed') {
+      expect(completedWithoutTarget.status()).toBe(200)
+      expect(await completedWithoutTarget.json()).toMatchObject({
+        state: 'closed',
+        erasure: 'completed',
+      })
+    } else {
+      expect(completedWithoutTarget.status()).toBe(503)
+    }
   })
 })

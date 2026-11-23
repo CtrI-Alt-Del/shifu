@@ -233,7 +233,7 @@ test.describe('AppLayout', () => {
     await trigger.click()
     const gamificationMain = authenticatedPage
       .getByRole('main')
-      .filter({ hasText: 'Gamificação' })
+      .filter({ hasText: 'Progresso' })
     await expect(gamificationMain).toBeVisible()
 
     await gamificationMain.click({ position: { x: 20, y: 20 } })

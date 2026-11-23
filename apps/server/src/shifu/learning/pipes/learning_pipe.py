@@ -1,13 +1,20 @@
 from fastapi import Request
 from sqlalchemy.engine import Engine
 
-from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.interfaces import (
+    LearningDatabase,
+    PracticePhotoInspectorProvider,
+)
+from shifu.learning.providers.practice_photo_inspector.pillow import (
+    PillowPracticePhotoInspectorProvider,
+)
 from shifu.shared.core.interfaces import (
     AccountActivityProvider,
     ClockProvider,
     CodeRubricAssessorProvider,
     CurriculumCatalogProvider,
     CurriculumContentProvider,
+    FileStorageProvider,
     IdentifierProvider,
     TranslationRubricAssessorProvider,
 )
@@ -45,6 +52,14 @@ class LearningPipe:
     @staticmethod
     def get_max_code_assessment_input_bytes(request: Request) -> int:
         return request.app.state.max_code_assessment_input_bytes
+
+    @staticmethod
+    def get_practice_photo_storage_provider(request: Request) -> FileStorageProvider:
+        return request.app.state.practice_photo_storage_provider
+
+    @staticmethod
+    def get_practice_photo_inspector_provider() -> PracticePhotoInspectorProvider:
+        return PillowPracticePhotoInspectorProvider()
 
     @staticmethod
     def get_database(request: Request) -> LearningDatabase:

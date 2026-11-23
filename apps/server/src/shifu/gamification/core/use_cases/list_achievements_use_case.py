@@ -2,6 +2,9 @@ from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATAL
 from shifu.gamification.core.domain.achievement_criterion_label import (
     achievement_criterion_label,
 )
+from shifu.gamification.core.domain.achievement_criterion_progress import (
+    achievement_criterion_progress,
+)
 from shifu.gamification.core.domain.entities import Achievement, EarnedAchievement
 from shifu.gamification.core.domain.enums import (
     AchievementCriterionKind,
@@ -14,12 +17,6 @@ from shifu.gamification.core.domain.structures import (
     AchievementsOverview,
 )
 from shifu.gamification.core.interfaces import GamificationDatabase
-
-_CRITERION_TO_MILESTONE: dict[AchievementCriterionKind, MilestoneKind] = {
-    AchievementCriterionKind.DIAGNOSTICS_COMPLETED: MilestoneKind.DIAGNOSIS,
-    AchievementCriterionKind.COMPETENCIES_MASTERED: MilestoneKind.COMPETENCY_MASTERY,
-    AchievementCriterionKind.SKILLS_COMPLETED: MilestoneKind.SKILL_COMPLETION,
-}
 
 _FAMILY_BY_CRITERION: dict[AchievementCriterionKind, AchievementFamily] = {
     AchievementCriterionKind.DIAGNOSTICS_COMPLETED: AchievementFamily.DIAGNOSIS,
@@ -123,16 +120,18 @@ class ListAchievementsUseCase:
             progress_target=None,
         )
 
-    @classmethod
+    @staticmethod
     def _locked_entry(
-        cls,
         achievement: Achievement,
         level: int,
         streak_longest: int,
         counts: dict[MilestoneKind, int],
     ) -> AchievementOverviewEntry:
-        progress_current, progress_target = cls._progress(
-            achievement, level, streak_longest, counts
+        progress_current, progress_target = achievement_criterion_progress(
+            achievement.criterion,
+            level=level,
+            longest_streak=streak_longest,
+            milestone_counts=counts,
         )
         return AchievementOverviewEntry(
             code=achievement.id,
@@ -170,19 +169,3 @@ class ListAchievementsUseCase:
             progress_current=None,
             progress_target=None,
         )
-
-    @staticmethod
-    def _progress(
-        achievement: Achievement,
-        level: int,
-        streak_longest: int,
-        counts: dict[MilestoneKind, int],
-    ) -> tuple[int, int]:
-        kind = achievement.criterion.kind
-        target = achievement.criterion.target
-        if kind is AchievementCriterionKind.LEVEL:
-            return level, target
-        if kind is AchievementCriterionKind.LONGEST_STREAK:
-            return streak_longest, target
-        milestone_kind = _CRITERION_TO_MILESTONE[kind]
-        return counts[milestone_kind], target

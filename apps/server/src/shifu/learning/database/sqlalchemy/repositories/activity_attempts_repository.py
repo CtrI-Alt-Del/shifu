@@ -1,13 +1,19 @@
-from sqlalchemy import delete, select
+from datetime import datetime
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from shifu.learning.core.domain.entities import ActivityAttempt
-from shifu.learning.core.domain.enums import ActivityAttemptKind
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+)
 from shifu.learning.database.sqlalchemy.mappers import ActivityAttemptMapper
 from shifu.learning.database.sqlalchemy.models import (
     ActivityAttemptModel,
     GoalModel,
     SkillExperienceModel,
+    ActivityEvaluationModel,
 )
 
 
@@ -118,6 +124,55 @@ class SqlalchemyActivityAttemptsRepository:
             .order_by(ActivityAttemptModel.submitted_at)
         ).all()
         return [ActivityAttemptMapper.to_domain(model) for model in models]
+
+    def find_many_latest_submitted_at_by_skill_experience_ids(
+        self,
+        skill_experience_ids: list[str],
+    ) -> dict[str, datetime]:
+        if not skill_experience_ids:
+            return {}
+
+        rows = self._session.execute(
+            select(
+                ActivityAttemptModel.skill_experience_id,
+                func.max(ActivityAttemptModel.submitted_at).label('submitted_at'),
+            )
+            .where(ActivityAttemptModel.skill_experience_id.in_(skill_experience_ids))
+            .group_by(ActivityAttemptModel.skill_experience_id)
+        ).all()
+        return {row.skill_experience_id: row.submitted_at for row in rows}
+
+    def find_many_evaluated_submitted_at_by_skill_experience_ids(
+        self,
+        skill_experience_ids: list[str],
+        *,
+        since: datetime,
+    ) -> list[datetime]:
+        if not skill_experience_ids:
+            return []
+
+        return list(
+            self._session.scalars(
+                select(ActivityAttemptModel.submitted_at)
+                .join(
+                    ActivityEvaluationModel,
+                    ActivityEvaluationModel.attempt_id == ActivityAttemptModel.id,
+                )
+                .where(
+                    ActivityAttemptModel.skill_experience_id.in_(skill_experience_ids),
+                    ActivityAttemptModel.kind.in_(
+                        (
+                            ActivityAttemptKind.LEARNING.value,
+                            ActivityAttemptKind.REVIEW.value,
+                        )
+                    ),
+                    ActivityAttemptModel.submitted_at >= since,
+                    ActivityEvaluationModel.status
+                    == ActivityEvaluationStatus.COMPLETED.value,
+                )
+                .order_by(ActivityAttemptModel.submitted_at)
+            ).all()
+        )
 
     def add(self, attempt: ActivityAttempt) -> None:
         self._session.add(ActivityAttemptMapper.to_model(attempt))

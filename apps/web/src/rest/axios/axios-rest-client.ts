@@ -125,6 +125,7 @@ export const AxiosRestClient = (
         url,
         data: body,
         headers: { ...defaultHeaders, ...requestOptions?.headers },
+        signal: requestOptions?.signal,
       })
     },
 

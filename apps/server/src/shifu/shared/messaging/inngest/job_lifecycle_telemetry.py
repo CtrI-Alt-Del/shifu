@@ -61,6 +61,10 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'intelligence-purge-account-data-on-account-erasure': (
         'intelligence.purge_account_data_on_account_erasure'
     ),
+    'learning-purge-practice-photo': 'learning.purge_practice_photo',
+    'learning-purge-practice-data-on-account-deleted': (
+        'learning.purge_practice_data_on_account_deleted'
+    ),
     'intelligence-purge-mentor-attachments-on-account-deleted': (
         'intelligence.purge_mentor_attachments_on_account_deleted'
     ),

@@ -27,6 +27,15 @@ from .mentor_action_receipts_repository import (
 from .ordering_passages_repository import (
     OrderingPassagesRepository as OrderingPassagesRepository,
 )
+from .practice_drafts_repository import (
+    PracticeDraftsRepository as PracticeDraftsRepository,
+)
+from .practice_photos_repository import (
+    PracticePhotosRepository as PracticePhotosRepository,
+)
+from .practice_photo_inspector_provider import (
+    PracticePhotoInspectorProvider as PracticePhotoInspectorProvider,
+)
 from .skill_experiences_repository import (
     SkillExperiencesRepository as SkillExperiencesRepository,
 )

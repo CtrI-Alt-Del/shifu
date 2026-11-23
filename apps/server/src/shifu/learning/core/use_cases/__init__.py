@@ -28,8 +28,14 @@ from .get_competency_detail_use_case import (
 )
 from .get_diagnostic_use_case import GetDiagnosticUseCase as GetDiagnosticUseCase
 from .get_goal_detail_use_case import GetGoalDetailUseCase as GetGoalDetailUseCase
+from .get_learning_panorama_use_case import (
+    GetLearningPanoramaUseCase as GetLearningPanoramaUseCase,
+)
 from .get_material_detail_use_case import (
     GetMaterialDetailUseCase as GetMaterialDetailUseCase,
+)
+from .get_skill_evolution_use_case import (
+    GetSkillEvolutionUseCase as GetSkillEvolutionUseCase,
 )
 from .get_skill_experience_detail_use_case import (
     GetSkillExperienceDetailUseCase as GetSkillExperienceDetailUseCase,
@@ -37,6 +43,9 @@ from .get_skill_experience_detail_use_case import (
 from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCase
 from .list_skill_experiences_of_skill_use_case import (
     ListSkillExperiencesOfSkillUseCase as ListSkillExperiencesOfSkillUseCase,
+)
+from .prepare_practical_preparation_activity_evaluation_use_case import (
+    PreparePracticalPreparationActivityEvaluationUseCase as PreparePracticalPreparationActivityEvaluationUseCase,
 )
 from .prepare_code_activity_evaluation_use_case import (
     PrepareCodeActivityEvaluationUseCase as PrepareCodeActivityEvaluationUseCase,
@@ -69,4 +78,28 @@ from .submit_choice_activity_use_case import (
 )
 from .submit_diagnostic_batch_use_case import (
     SubmitDiagnosticBatchUseCase as SubmitDiagnosticBatchUseCase,
+)
+from .discard_practice_draft_use_case import (
+    DiscardPracticeDraftUseCase as DiscardPracticeDraftUseCase,
+)
+from .get_practice_attempt_photo_use_case import (
+    GetPracticeAttemptPhotoUseCase as GetPracticeAttemptPhotoUseCase,
+)
+from .get_practice_draft_use_case import (
+    GetPracticeDraftUseCase as GetPracticeDraftUseCase,
+)
+from .get_practice_photo_use_case import (
+    GetPracticePhotoUseCase as GetPracticePhotoUseCase,
+)
+from .purge_practice_photos_use_case import (
+    PurgePracticePhotosUseCase as PurgePracticePhotosUseCase,
+)
+from .remove_practice_photo_use_case import (
+    RemovePracticePhotoUseCase as RemovePracticePhotoUseCase,
+)
+from .save_practice_reflection_use_case import (
+    SavePracticeReflectionUseCase as SavePracticeReflectionUseCase,
+)
+from .upload_practice_photo_use_case import (
+    UploadPracticePhotoUseCase as UploadPracticePhotoUseCase,
 )

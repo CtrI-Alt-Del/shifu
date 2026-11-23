@@ -197,3 +197,48 @@ from .pair_matching_result_detail import (
     PairMatchingResultDetail as PairMatchingResultDetail,
 )
 from .pair_matching_selection import PairMatchingSelection as PairMatchingSelection
+from .completed_skill import CompletedSkill as CompletedSkill
+from .evolution_option import EvolutionOption as EvolutionOption
+from .learning_panorama import LearningPanorama as LearningPanorama
+from .recent_mastery import RecentMastery as RecentMastery
+from .resume_item import ResumeItem as ResumeItem
+from .skill_evolution import SkillEvolution as SkillEvolution
+from .skill_evolution_point import SkillEvolutionPoint as SkillEvolutionPoint
+from .stage_distribution import StageDistribution as StageDistribution
+from .weekly_count import WeeklyCount as WeeklyCount
+from .practice_draft_view import PracticeDraftView as PracticeDraftView
+from .practice_photo_content import PracticePhotoContent as PracticePhotoContent
+from .practice_photo_upload import PracticePhotoUpload as PracticePhotoUpload
+from .practice_photo_view import PracticePhotoView as PracticePhotoView
+from .practical_concept_evidence import (
+    PracticalConceptEvidence as PracticalConceptEvidence,
+)
+from .practical_criterion_result import (
+    PracticalCriterionResult as PracticalCriterionResult,
+)
+from .practical_preparation_answer import (
+    PracticalPreparationAnswer as PracticalPreparationAnswer,
+)
+from .practical_preparation_answer_submission import (
+    PracticalPreparationAnswerSubmission as PracticalPreparationAnswerSubmission,
+)
+from .practical_preparation_question_detail import (
+    PracticalPreparationCriterionDetail as PracticalPreparationCriterionDetail,
+    PracticalPreparationQuestionDetail as PracticalPreparationQuestionDetail,
+    PracticalPreparationRecordDetail as PracticalPreparationRecordDetail,
+    PracticalPreparationReferenceDetail as PracticalPreparationReferenceDetail,
+)
+from .practical_preparation_result import (
+    PracticalPreparationResult as PracticalPreparationResult,
+)
+from .practical_preparation_result_detail import (
+    PracticalPreparationResultDetail as PracticalPreparationResultDetail,
+    PracticalResultCriterionDetail as PracticalResultCriterionDetail,
+    PracticalResultPhotoDetail as PracticalResultPhotoDetail,
+    PracticalResultRecordDetail as PracticalResultRecordDetail,
+    PracticalUnassessableRecordDetail as PracticalUnassessableRecordDetail,
+)
+from .prepared_practical_preparation_evaluation import (
+    PreparedPracticalPreparationEvaluation as PreparedPracticalPreparationEvaluation,
+    PreparedPracticePhoto as PreparedPracticePhoto,
+)

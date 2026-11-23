@@ -1,11 +1,17 @@
 from collections.abc import Mapping
 from datetime import timedelta
 
-from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
+from shifu.learning.core.domain.entities import (
+    ActivityAttempt,
+    ActivityEvaluation,
+    PracticePhoto,
+)
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    PracticePhotoOwnerKind,
+    PracticePhotoState,
     SkillExperienceStatus,
 )
 from shifu.learning.core.domain.structures import (
@@ -29,6 +35,13 @@ from shifu.learning.core.domain.structures import (
     PairMatchingEvaluationResult,
     PairMatchingResultDetail,
     PairMatchingSelection,
+    PracticalPreparationAnswer,
+    PracticalPreparationResult,
+    PracticalPreparationResultDetail,
+    PracticalResultCriterionDetail,
+    PracticalResultPhotoDetail,
+    PracticalResultRecordDetail,
+    PracticalUnassessableRecordDetail,
     TranslationAnswer,
     TranslationResultDetail,
     TranslationRubricResult,
@@ -49,6 +62,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -61,6 +75,7 @@ type ResultDetail = (
     | FillBlanksResultDetail
     | TranslationResultDetail
     | PairMatchingResultDetail
+    | PracticalPreparationResultDetail
 )
 
 
@@ -128,7 +143,18 @@ class GetChoiceAttemptUseCase:
                 evaluation.time_out('evaluation_timeout')
                 repositories.activity_evaluations.update(evaluation)
 
-            if evaluation.status is not ActivityEvaluationStatus.COMPLETED:
+            attempt_photos = (
+                repositories.practice_photos.list_for_attempt(attempt.id)
+                if any(
+                    isinstance(item, CurriculumPracticalPreparationQuestionSnapshot)
+                    for item in attempt.grading_snapshot.questions
+                )
+                else ()
+            )
+            if evaluation.status not in {
+                ActivityEvaluationStatus.COMPLETED,
+                ActivityEvaluationStatus.CLOSED_WITHOUT_GRADE,
+            }:
                 return ChoiceAttemptDetail(
                     attempt_id=attempt.id,
                     activity_id=attempt.activity_id,
@@ -140,7 +166,7 @@ class GetChoiceAttemptUseCase:
                         if evaluation.status is ActivityEvaluationStatus.FAILED
                         else None
                     ),
-                    questions=self._pending_question_details(attempt),
+                    questions=self._pending_question_details(attempt, attempt_photos),
                 )
 
             all_attempts = (
@@ -167,7 +193,9 @@ class GetChoiceAttemptUseCase:
                 is_mastered,
                 evaluation,
             )
-            detail = self._result_detail(attempt, evaluation, disclosure)
+            detail = self._result_detail(
+                attempt, evaluation, disclosure, attempt_photos
+            )
             completes_skill = self._completes_skill(
                 attempt, experience.status, all_attempts
             )
@@ -269,6 +297,7 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
+        photos: tuple[PracticePhoto, ...] = (),
     ) -> tuple[ResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
@@ -282,6 +311,9 @@ class GetChoiceAttemptUseCase:
         )
         pair_results = GetChoiceAttemptUseCase._parts_of(
             evaluation, PairMatchingEvaluationResult
+        )
+        practical_results = GetChoiceAttemptUseCase._parts_of(
+            evaluation, PracticalPreparationResult
         )
         fill_blanks_details = GetChoiceAttemptUseCase._fill_blanks_details(
             snapshot.questions, answers, evaluation, disclosed_keys
@@ -309,6 +341,10 @@ class GetChoiceAttemptUseCase:
             elif isinstance(question, CurriculumTranslationQuestionSnapshot):
                 detail = GetChoiceAttemptUseCase._translation_result_detail(
                     question, answer, translation_results.get(question.key)
+                )
+            elif isinstance(question, CurriculumPracticalPreparationQuestionSnapshot):
+                detail = GetChoiceAttemptUseCase._practical_result_detail(
+                    question, answer, practical_results.get(question.key), photos
                 )
             elif isinstance(question, CurriculumPairMatchingQuestionSnapshot):
                 detail = GetChoiceAttemptUseCase._pair_result_detail(
@@ -556,9 +592,98 @@ class GetChoiceAttemptUseCase:
         )
 
     @staticmethod
+    def _practical_result_detail(
+        question: CurriculumPracticalPreparationQuestionSnapshot,
+        answer: object | None,
+        result: PracticalPreparationResult | None,
+        photos: tuple[PracticePhoto, ...],
+    ) -> PracticalPreparationResultDetail | None:
+        """Per-criterion weight, level and predefined comment, plus the frozen photos
+        and reflection. Without a result the criteria carry no level yet."""
+        if not isinstance(answer, PracticalPreparationAnswer):
+            return None
+
+        observed = (
+            {item.criterion_key: item for item in result.criterion_results}
+            if result is not None
+            else {}
+        )
+        criteria: list[PracticalResultCriterionDetail] = []
+        for criterion in question.criteria:
+            item = observed.get(criterion.key)
+            level = (
+                next(
+                    (
+                        candidate
+                        for candidate in criterion.levels
+                        if candidate.comment_key == item.comment_key
+                    ),
+                    None,
+                )
+                if item is not None
+                else None
+            )
+            criteria.append(
+                PracticalResultCriterionDetail(
+                    key=criterion.key,
+                    name=criterion.name,
+                    weight=criterion.weight,
+                    level=item.level if item is not None else None,
+                    comment=level.description if level is not None else None,
+                )
+            )
+        closed = result is not None and result.closed_without_grade
+        records = {record.key: record for record in question.records}
+        unassessable = tuple(
+            PracticalUnassessableRecordDetail(
+                key=key,
+                label=records[key].label,
+                comment=' '.join(
+                    dict.fromkeys(
+                        rule.comment
+                        for rule in question.insufficiency_rules
+                        if rule.record_key == key
+                    )
+                ),
+            )
+            for key in (result.unassessable_record_keys if result is not None else ())
+            if key in records
+        )
+        return PracticalPreparationResultDetail(
+            question_key=question.key,
+            prompt=question.prompt,
+            records=tuple(
+                PracticalResultRecordDetail(key=record.key, label=record.label)
+                for record in question.records
+            ),
+            photos=tuple(
+                PracticalResultPhotoDetail(
+                    record_key=photo.record_key, photo_id=photo.id
+                )
+                for photo in photos
+                if photo.owner_kind is PracticePhotoOwnerKind.ATTEMPT
+                and photo.state is PracticePhotoState.READY
+            ),
+            reflection=answer.reflection,
+            criteria=tuple(criteria),
+            score=result.score if result is not None else None,
+            closed_without_grade=closed,
+            unassessable_records=unassessable,
+            guidance=(
+                ' '.join(dict.fromkeys(item.comment for item in unassessable))
+                if closed and unassessable
+                else None
+            ),
+        )
+
+    @staticmethod
     def _pending_question_details(
         attempt: ActivityAttempt,
-    ) -> tuple[CodeResultDetail | TranslationResultDetail, ...]:
+        photos: tuple[PracticePhoto, ...] = (),
+    ) -> tuple[
+        CodeResultDetail | TranslationResultDetail | PracticalPreparationResultDetail,
+        ...,
+    ]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             return ()
@@ -581,9 +706,29 @@ class GetChoiceAttemptUseCase:
             for item in snapshot.questions
             if isinstance(item, CurriculumTranslationQuestionSnapshot)
         }
-        details: list[CodeResultDetail | TranslationResultDetail] = []
+        practical_questions = {
+            item.key: item
+            for item in snapshot.questions
+            if isinstance(item, CurriculumPracticalPreparationQuestionSnapshot)
+        }
+        details: list[
+            CodeResultDetail
+            | TranslationResultDetail
+            | PracticalPreparationResultDetail
+        ] = []
         for answer in attempt.answers:
-            if isinstance(answer, CodeAnswer) and answer.question_key in code_questions:
+            if (
+                isinstance(answer, PracticalPreparationAnswer)
+                and answer.question_key in practical_questions
+            ):
+                practical = GetChoiceAttemptUseCase._practical_result_detail(
+                    practical_questions[answer.question_key], answer, None, photos
+                )
+                if practical is not None:
+                    details.append(practical)
+            elif (
+                isinstance(answer, CodeAnswer) and answer.question_key in code_questions
+            ):
                 question = code_questions[answer.question_key]
                 project = {item.path: item.content for item in question.initial_files}
                 project.update({item.path: item.content for item in answer.files})

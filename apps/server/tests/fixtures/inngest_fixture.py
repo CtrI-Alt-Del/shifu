@@ -27,6 +27,8 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
+from tests.fixtures.practice_photo_storage_fixture import PracticePhotoS3Stub
+
 
 # Native NLP imports and model initialization may exceed 30s during test startup.
 _APPLICATION_STARTUP_TIMEOUT: int = 90
@@ -52,6 +54,7 @@ class InngestFixture:
     output_reader: Thread | None = None
     runtime_environment: dict[str, str] | None = None
     runtime_directory: Path | None = None
+    practice_photo_storage: PracticePhotoS3Stub | None = None
 
     def restart_application(self) -> None:
         """Gracefully restart the owned worker while preserving its runtime."""
@@ -453,9 +456,19 @@ def _inngest_runtime(inngest_app_target: tuple[str, bool]) -> Iterator[InngestFi
                 )
         finally:
             admin_engine.dispose()
+        practice_photo_storage = PracticePhotoS3Stub('shifu-practice-photo-tests')
+        practice_photo_storage.start()
+        stack.callback(practice_photo_storage.stop)
         environment = os.environ.copy()
         environment.update(
             {
+                'LEARNING_PRACTICE_PHOTO_STORAGE_BUCKET': practice_photo_storage.bucket,
+                'LEARNING_PRACTICE_PHOTO_STORAGE_ENDPOINT_URL': (
+                    f'http://127.0.0.1:{practice_photo_storage.port}'
+                ),
+                'LEARNING_PRACTICE_PHOTO_STORAGE_ADDRESSING_STYLE': 'path',
+                'LEARNING_PRACTICE_PHOTO_STORAGE_ACCESS_KEY': 'practice-test-key',
+                'LEARNING_PRACTICE_PHOTO_STORAGE_SECRET_KEY': 'practice-test-secret',
                 'DATABASE_URL': database_url,
                 'AGENTOS_DATABASE_URL': agentos_url,
                 'AGENTOS_RUNTIME_ROLE_PASSWORD': agentos_password,
@@ -508,6 +521,7 @@ def _inngest_runtime(inngest_app_target: tuple[str, bool]) -> Iterator[InngestFi
             inngest_container=inngest,
             runtime_environment=environment,
             runtime_directory=server_directory,
+            practice_photo_storage=practice_photo_storage,
         )
         fixture.start_output_reader()
         try:

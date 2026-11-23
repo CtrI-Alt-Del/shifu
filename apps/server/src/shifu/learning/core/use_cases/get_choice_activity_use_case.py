@@ -17,6 +17,10 @@ from shifu.learning.core.domain.structures import (
     VerifiedOrdering,
     PairMatchingItemDetail,
     PairMatchingQuestionDetail,
+    PracticalPreparationCriterionDetail,
+    PracticalPreparationQuestionDetail,
+    PracticalPreparationRecordDetail,
+    PracticalPreparationReferenceDetail,
     TranslationQuestionCriterionDetail,
     TranslationQuestionDetail,
 )
@@ -37,6 +41,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -345,6 +350,10 @@ class GetChoiceActivityUseCase:
                         ),
                     )
                     if isinstance(question, CurriculumPairMatchingQuestionSnapshot)
+                    else self.practical_question_detail(question)
+                    if isinstance(
+                        question, CurriculumPracticalPreparationQuestionSnapshot
+                    )
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -402,6 +411,39 @@ class GetChoiceActivityUseCase:
         )
 
     @staticmethod
+    def practical_question_detail(
+        question: CurriculumPracticalPreparationQuestionSnapshot,
+    ) -> PracticalPreparationQuestionDetail:
+        """Public projection of the rubric: levels, comments and insufficiency rules stay private."""
+        return PracticalPreparationQuestionDetail(
+            key=question.key,
+            prompt=question.prompt,
+            guidance=question.guidance,
+            references=tuple(
+                PracticalPreparationReferenceDetail(
+                    label=item.label, accessible_text=item.accessible_text
+                )
+                for item in question.references
+            ),
+            difficulty=question.difficulty,
+            records=tuple(
+                PracticalPreparationRecordDetail(
+                    key=item.key, label=item.label, must_show=item.must_show
+                )
+                for item in question.records
+            ),
+            criteria=tuple(
+                PracticalPreparationCriterionDetail(
+                    key=item.key,
+                    name=item.name,
+                    description=item.description,
+                    weight=item.weight,
+                )
+                for item in question.criteria
+            ),
+        )
+
+    @staticmethod
     def fill_blanks_question_detail(
         question: CurriculumFillBlanksQuestionSnapshot,
     ) -> FillBlanksQuestionDetail:
@@ -427,10 +469,16 @@ class GetChoiceActivityUseCase:
     ) -> bool:
         question_keys = tuple(question.key for question in snapshot.questions)
         part_keys = tuple(part.question_key for part in snapshot.parts)
+        is_practical = any(
+            isinstance(question, CurriculumPracticalPreparationQuestionSnapshot)
+            for question in snapshot.questions
+        )
         return (
             (
                 bool(snapshot.questions)
                 if diagnostic
+                else len(snapshot.questions) == 1
+                if is_practical
                 else 3 <= len(snapshot.questions) <= 5
             )
             and len(set(question_keys)) == len(question_keys)

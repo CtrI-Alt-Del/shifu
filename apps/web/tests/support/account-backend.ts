@@ -65,6 +65,7 @@ export async function installAccountBackend(
               : null,
             displayName: isClosed ? '' : profile.displayName,
             email: isClosed ? '' : profile.email,
+            appearance: profile.appearance,
           },
         }),
       })

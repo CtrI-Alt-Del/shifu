@@ -17,6 +17,9 @@ from .curriculum_javascript_stdin_question_snapshot import (
 from .curriculum_pair_matching_question_snapshot import (
     CurriculumPairMatchingQuestionSnapshot,
 )
+from .curriculum_practical_preparation_question_snapshot import (
+    CurriculumPracticalPreparationQuestionSnapshot,
+)
 from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
 from .curriculum_html_css_js_question_snapshot import (
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -47,7 +50,8 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumReactFastifyQuestionSnapshot
         | CurriculumFillBlanksQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot
-        | CurriculumPairMatchingQuestionSnapshot,
+        | CurriculumPairMatchingQuestionSnapshot
+        | CurriculumPracticalPreparationQuestionSnapshot,
         ...,
     ]
     parts: tuple[
@@ -79,7 +83,7 @@ class CurriculumLearningActivitySnapshot:
             self.activity_type not in {'learning', 'diagnostic'}
             or self.schema_version != 1
             or (
-                not 3 <= len(self.questions) <= 5
+                not self._has_valid_question_count()
                 if self.activity_type == 'learning'
                 else not self.questions
             )
@@ -112,6 +116,15 @@ class CurriculumLearningActivitySnapshot:
         ):
             raise ValidationError
 
+    def _has_valid_question_count(self) -> bool:
+        if any(
+            isinstance(question, CurriculumPracticalPreparationQuestionSnapshot)
+            for question in self.questions
+        ):
+            return len(self.questions) == 1
+
+        return 3 <= len(self.questions) <= 5
+
     @staticmethod
     def _validate_question_part(
         question: object, part: object, activity_type: str
@@ -133,6 +146,7 @@ class CurriculumLearningActivitySnapshot:
                 CurriculumOrderingQuestionSnapshot,
                 CurriculumFillBlanksQuestionSnapshot,
                 CurriculumPairMatchingQuestionSnapshot,
+                CurriculumPracticalPreparationQuestionSnapshot,
             ),
         ) and not isinstance(part, CurriculumChoicePartSnapshot):
             raise ValidationError
@@ -153,6 +167,7 @@ class CurriculumLearningActivitySnapshot:
                 CurriculumReactFastifyQuestionSnapshot,
                 CurriculumTranslationQuestionSnapshot,
                 CurriculumPairMatchingQuestionSnapshot,
+                CurriculumPracticalPreparationQuestionSnapshot,
             ),
         ):
             raise ValidationError

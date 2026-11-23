@@ -45,6 +45,7 @@ class ActivityEvaluationFaker:
         failure_code: str | None = None,
         completed_at: datetime | None = None,
         effect_applied_at: datetime | None = None,
+        progress_after: Decimal | None = None,
     ) -> ActivityEvaluation:
         started = started_at or cls._faker.date_time(tzinfo=UTC)
         completed = completed_at
@@ -72,6 +73,7 @@ class ActivityEvaluationFaker:
             failure_code=resolved_failure_code,
             completed_at=completed,
             effect_applied_at=effect_applied_at,
+            progress_after=progress_after,
         )
 
     @classmethod

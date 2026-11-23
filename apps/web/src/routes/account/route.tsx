@@ -21,6 +21,7 @@ const requireAccountAccessOrDeletionStatus = createServerFn({ method: 'GET' })
         accountDeletionStatus: null,
         displayName: access.displayName,
         email: access.email,
+        appearance: access.appearance,
       }
     }
 
