@@ -6,9 +6,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.fakers.gamification.entities import GamificationProfileFaker
 from shifu.gamification.core.domain.structures import PracticeStreak
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -37,6 +39,9 @@ class _TestAuthenticationProvider:
             account_id=account_id,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -46,6 +51,22 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     application = FastAPIApp.register(postgres_database.engine)
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=ACCOUNT_ID,
+                email='gamification-reminder@example.test',
+                access_version=1,
+            )
+        )
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=OTHER_ACCOUNT_ID,
+                email='other-gamification-reminder@example.test',
+                access_version=1,
+            )
+        )
     application.state.authentication_provider = _TestAuthenticationProvider()
     application.state.gamification_database = SqlalchemyGamificationDatabase(
         postgres_database.engine
