@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ChoiceActivityDetail,
   ImageChoiceQuestion as ImageQuestion,
+  PracticalPreparationQuestion as PracticalPreparationQuestionData,
 } from '@/core/learning/choice-activity'
 import { FillBlanksQuestionFaker } from '@/core/learning/fakers'
 import type { HtmlCssJsQuestion as HtmlQuestion } from '@/core/learning/choice-activity'
@@ -20,6 +21,8 @@ import { HtmlCssJsQuestion } from '../html-css-js-question'
 import type { ActivityPageController } from '../use-activity-page'
 import { useActivityPage } from '../use-activity-page'
 import { PairMatchingQuestion } from '../pair-matching-question'
+import { PracticalPreparationQuestion } from '../practical-preparation-question'
+import type { PracticalPreparationQuestionWidgetProps } from '../practical-preparation-question'
 import { createReactDraftStoreMock } from './react-draft-store-mock'
 import type { CodeEditorProps } from '@/ui/learning/widgets/components/code-editor'
 
@@ -29,6 +32,13 @@ vi.mock('../use-activity-page', () => ({
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
 vi.mock('../pair-matching-question', () => ({
   PairMatchingQuestion: vi.fn(() => <div data-testid='pair-matching-question' />),
+}))
+vi.mock('../practical-preparation-question', () => ({
+  PracticalPreparationQuestion: vi.fn(
+    ({ footer }: PracticalPreparationQuestionWidgetProps) => (
+      <div data-testid='practical-preparation-question'>{footer}</div>
+    ),
+  ),
 }))
 vi.mock('../html-css-js-question', () => ({
   HtmlCssJsQuestion: vi.fn(() => <div data-testid='html-css-js-question' />),
@@ -142,6 +152,12 @@ function createControllerMock(
     isOnlineAuthority: false,
     handleReactAnswerValidityChange: vi.fn(),
     isMixedActivity: false,
+    isPracticalPreparation: false,
+    practiceIds: null,
+    practiceConflictCount: 0,
+    isPracticeLocked: false,
+    handlePracticalPreparationDraftStateChange: vi.fn(),
+    handleSessionExpired: undefined,
     canContinue: true,
     feedback: { status: 'conclusive', score: 100 },
     frozenAnswer: null,
@@ -1261,6 +1277,122 @@ describe('ActivityPage', () => {
       render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
 
       expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+    })
+  })
+
+  describe('practical preparation question', () => {
+    const PRACTICAL_QUESTION: PracticalPreparationQuestionData = {
+      key: 'practice-question-1',
+      kind: 'practical_preparation',
+      prompt: 'Prepare legumes salteados.',
+      guidance: ['Use fogo alto.'],
+      references: [{ label: 'Guia de cortes', accessibleText: 'Texto acessível' }],
+      difficulty: 'easy',
+      records: [{ key: 'cuts', label: 'Cortes', mustShow: 'Os cortes uniformes' }],
+      criteria: [
+        { key: 'cut', name: 'Corte', description: 'Cortes uniformes', weight: 100 },
+      ],
+    }
+    const PRACTICAL_ACTIVITY: ChoiceActivityDetail = {
+      ...ACTIVITY,
+      activityRevision: 'revision-practice',
+      questions: [PRACTICAL_QUESTION],
+    }
+    const IDS = {
+      goalId: 'goal-test',
+      skillId: 'skill-test',
+      competencyId: 'competency-test',
+      activityId: 'activity-1',
+    }
+
+    it('renders the practical widget instead of the choice widget and sends the route IDs', () => {
+      const handlePracticalPreparationDraftStateChange = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: PRACTICAL_ACTIVITY,
+          currentQuestion: PRACTICAL_QUESTION,
+          isMixedActivity: true,
+          isPracticalPreparation: true,
+          isOnlineAuthority: true,
+          practiceIds: IDS,
+          practiceConflictCount: 2,
+          handlePracticalPreparationDraftStateChange,
+          canContinue: false,
+          feedback: null,
+        }),
+      )
+
+      render(<ActivityPage activity={PRACTICAL_ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByTestId('practical-preparation-question')).toBeVisible()
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+      expect(vi.mocked(PracticalPreparationQuestion).mock.lastCall?.[0]).toMatchObject({
+        ids: IDS,
+        isOnlineAuthority: true,
+        conflictCount: 2,
+        disabled: false,
+        onDraftStateChange: handlePracticalPreparationDraftStateChange,
+        question: PRACTICAL_QUESTION,
+      })
+    })
+
+    it('locks the practical widget while the submission is in flight', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: PRACTICAL_ACTIVITY,
+          currentQuestion: PRACTICAL_QUESTION,
+          isMixedActivity: true,
+          isPracticalPreparation: true,
+          isPracticeLocked: true,
+          isSubmitting: true,
+          canContinue: false,
+          feedback: null,
+        }),
+      )
+
+      render(<ActivityPage activity={PRACTICAL_ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(vi.mocked(PracticalPreparationQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: true,
+      })
+      expect(screen.getByRole('button', { name: 'Enviando…' })).toBeDisabled()
+    })
+
+    it('labels the footer action Enviar Atividade and delegates the submission', () => {
+      const handleContinue = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: PRACTICAL_ACTIVITY,
+          currentQuestion: PRACTICAL_QUESTION,
+          isMixedActivity: true,
+          isPracticalPreparation: true,
+          canContinue: true,
+          feedback: null,
+          handleContinue,
+        }),
+      )
+
+      render(<ActivityPage activity={PRACTICAL_ACTIVITY} onSubmit={vi.fn()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar Atividade' }))
+
+      expect(handleContinue).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps Enviar Atividade disabled until the draft is complete', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: PRACTICAL_ACTIVITY,
+          currentQuestion: PRACTICAL_QUESTION,
+          isMixedActivity: true,
+          isPracticalPreparation: true,
+          canContinue: false,
+          feedback: null,
+        }),
+      )
+
+      render(<ActivityPage activity={PRACTICAL_ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: 'Enviar Atividade' })).toBeDisabled()
     })
   })
 })

@@ -17,6 +17,7 @@ from shifu.intelligence.ai.agno.agents import (
     MentorWriterAgent,
     PlanningInterviewAgent,
     PlanningProposalAgent,
+    PracticePhotoAssessmentAgent,
 )
 from shifu.intelligence.ai.agno.workflows import (
     AgnoGenerateMentorTitleWorkflow,
@@ -64,6 +65,9 @@ from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case im
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
+)
+from shifu.intelligence.providers.practice_photo_assessor.vision_practice_photo_assessor_provider import (
+    VisionPracticePhotoAssessorProvider,
 )
 from shifu.intelligence.providers.translation_rubric_assessor.jev.jev_translation_rubric_assessor_provider import (
     JevTranslationRubricAssessorProvider,
@@ -159,6 +163,7 @@ if TYPE_CHECKING:
         MentorContextProvider,
         MentorGoalDestinationsProvider,
         OutboxEvent,
+        PracticePhotoAssessorProvider,
         TranslationRubricAssessorProvider,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
@@ -554,6 +559,14 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_client = self._build_code_rubric_provider(
             settings, self._code_rubric_http_client
         )
+        self._practice_photo_assessor: PracticePhotoAssessorProvider = (
+            VisionPracticePhotoAssessorProvider(
+                PracticePhotoAssessmentAgent()
+                if PracticePhotoAssessmentAgent.enabled()
+                else None,
+                self._record_attachment_usage,
+            )
+        )
         self._translation_rubric_http_client = self._build_translation_rubric_client()
         self._translation_rubric_client = self._build_translation_rubric_provider(
             settings, self._translation_rubric_http_client
@@ -678,6 +691,10 @@ class IntelligenceWorkflowsRegistry:
     @property
     def translation_rubric_assessor_provider(self) -> TranslationRubricAssessorProvider:
         return self._translation_rubric_client
+
+    @property
+    def practice_photo_assessor_provider(self) -> PracticePhotoAssessorProvider:
+        return self._practice_photo_assessor
 
     @property
     def mentor_title_provider(self) -> GenerateMentorTitleProvider:

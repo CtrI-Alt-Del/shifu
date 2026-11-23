@@ -161,6 +161,35 @@ class PairMatchingQuestionResponse(BaseModel):
     translations: tuple[PairItemResponse, ...]
 
 
+class PracticalReferenceResponse(BaseModel):
+    label: str
+    accessible_text: str
+
+
+class PracticalRecordResponse(BaseModel):
+    key: str
+    label: str
+    must_show: str
+
+
+class PracticalCriterionResponse(BaseModel):
+    key: str
+    name: str
+    description: str
+    weight: Decimal
+
+
+class PracticalPreparationQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['practical_preparation']
+    prompt: str
+    guidance: tuple[str, ...]
+    references: tuple[PracticalReferenceResponse, ...]
+    difficulty: str
+    records: tuple[PracticalRecordResponse, ...]
+    criteria: tuple[PracticalCriterionResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
@@ -172,7 +201,8 @@ class Response(BaseModel):
         | FillBlanksQuestionResponse
         | TranslationQuestionResponse
         | PairMatchingQuestionResponse
-        | ImageChoiceQuestionResponse,
+        | ImageChoiceQuestionResponse
+        | PracticalPreparationQuestionResponse,
         ...,
     ]
     can_submit: bool

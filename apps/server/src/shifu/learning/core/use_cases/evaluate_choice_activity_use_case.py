@@ -54,6 +54,8 @@ from shifu.learning.core.domain.structures import (
     OrderingAnswer,
     PairMatchingAnswer,
     PairMatchingEvaluationResult,
+    PracticalPreparationAnswer,
+    PracticalPreparationResult,
     SingleChoiceAnswer,
     SkillCompletionSummary,
     TranslationAnswer,
@@ -67,7 +69,13 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    LearningQuestionSnapshot,
+)
 from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
+from shifu.learning.core.use_cases.practical_preparation_scoring import (
+    PracticalPreparationScoring,
+)
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreviewActivityQuestionFeedbackUseCase,
 )
@@ -84,6 +92,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumPairMatchingQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
@@ -91,6 +100,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumSkillSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
+    PracticePhotoDecisions,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -119,9 +129,14 @@ class EvaluateChoiceActivityUseCase:
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...] = (),
         translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
+        practical_decisions: PracticePhotoDecisions | None = None,
     ) -> bool:
         should_return, mixed_results = self._prepare_mixed_results(
-            attempt_id, run_id, code_decisions, translation_decisions
+            attempt_id,
+            run_id,
+            code_decisions,
+            translation_decisions,
+            practical_decisions,
         )
         if should_return:
             return False
@@ -164,20 +179,23 @@ class EvaluateChoiceActivityUseCase:
 
             part_results = self._get_part_results(attempt, mixed_results)
 
-            if any(result.score is None for result in part_results):
-                raise EvaluationUnavailableError
+            score = self._weighted_score(attempt, part_results)
+            if score is None:
+                # No grade, no effect: the evaluation closes and only the inconclusive
+                # Concept observation reaches the adaptive policy.
+                evaluation.close_without_grade(now, part_results)
+                self._apply_v2(
+                    repositories,
+                    goal,
+                    experience,
+                    attempt,
+                    evaluation,
+                    part_results,
+                    now,
+                    graded=False,
+                )
+                return True
 
-            score = sum(
-                (
-                    (result.score if result.score is not None else Decimal(0))
-                    * part.weight_percentage
-                    / Decimal(100)
-                    for part, result in zip(
-                        attempt.grading_snapshot.parts, part_results, strict=True
-                    )
-                ),
-                start=Decimal(0),
-            )
             progress_before = progress.current_progress
             if progress_before is None:
                 progress_before = progress.initial_progress or Decimal(0)
@@ -193,6 +211,35 @@ class EvaluateChoiceActivityUseCase:
                 now,
             )
             return True
+
+    @staticmethod
+    def _weighted_score(
+        attempt: ActivityAttempt, part_results: tuple[EvaluationPartResult, ...]
+    ) -> Decimal | None:
+        """The weighted grade, or None when the attempt closes without a grade."""
+        snapshot = attempt.grading_snapshot
+        if snapshot is None:
+            raise InvalidAttemptError
+
+        if any(
+            isinstance(result, PracticalPreparationResult)
+            and result.closed_without_grade
+            for result in part_results
+        ):
+            return None
+
+        if any(result.score is None for result in part_results):
+            raise EvaluationUnavailableError
+
+        return sum(
+            (
+                (result.score if result.score is not None else Decimal(0))
+                * part.weight_percentage
+                / Decimal(100)
+                for part, result in zip(snapshot.parts, part_results, strict=True)
+            ),
+            start=Decimal(0),
+        )
 
     def _get_part_results(
         self,
@@ -225,6 +272,7 @@ class EvaluateChoiceActivityUseCase:
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
         translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
+        practical_decisions: PracticePhotoDecisions | None = None,
     ) -> tuple[bool, tuple[EvaluationPartResult, ...] | None]:
         with self._learning_database.transaction() as repositories:
             preflight = repositories.activity_attempts.find_by_id(attempt_id)
@@ -250,9 +298,12 @@ class EvaluateChoiceActivityUseCase:
                 saved_attempt = None
         if saved_attempt is not None:
             return False, self._score_mixed(
-                saved_attempt, code_decisions, translation_decisions
+                saved_attempt,
+                code_decisions,
+                translation_decisions,
+                practical_decisions,
             )
-        if code_decisions or translation_decisions:
+        if code_decisions or translation_decisions or practical_decisions is not None:
             raise EvaluationUnavailableError
         return False, None
 
@@ -265,6 +316,8 @@ class EvaluateChoiceActivityUseCase:
         evaluation: ActivityEvaluation,
         part_results: tuple[EvaluationPartResult, ...],
         now: datetime,
+        *,
+        graded: bool = True,
     ) -> None:
         catalog = self._validate_v2_attempt(experience, attempt)
         snapshot = attempt.grading_snapshot
@@ -272,7 +325,8 @@ class EvaluateChoiceActivityUseCase:
             raise InvalidAttemptError
 
         if attempt.kind is ActivityAttemptKind.REVIEW:
-            evaluation.apply_effect(now)
+            if graded:
+                evaluation.apply_effect(now)
             repositories.activity_evaluations.update(evaluation)
             return
 
@@ -342,6 +396,7 @@ class EvaluateChoiceActivityUseCase:
             observations,
             snapshot.difficulty,
             now,
+            graded=graded,
         )
 
     def _validate_v2_attempt(
@@ -382,19 +437,7 @@ class EvaluateChoiceActivityUseCase:
 
     @staticmethod
     def _v2_observation_scores(
-        questions: tuple[
-            CurriculumChoiceQuestionSnapshot
-            | CurriculumJavascriptStdinQuestionSnapshot
-            | CurriculumReactQuestionSnapshot
-            | CurriculumHtmlCssJsQuestionSnapshot
-            | CurriculumReactFastifyQuestionSnapshot
-            | CurriculumOrderingQuestionSnapshot
-            | CurriculumFillBlanksQuestionSnapshot
-            | CurriculumTranslationQuestionSnapshot
-            | CurriculumPairMatchingQuestionSnapshot
-            | CurriculumImageChoiceQuestionSnapshot,
-            ...,
-        ],
+        questions: tuple[LearningQuestionSnapshot, ...],
         part_results: tuple[EvaluationPartResult, ...],
     ) -> dict[str, list[Decimal | None]]:
         observation_scores: dict[str, list[Decimal | None]] = {}
@@ -418,16 +461,26 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, PairMatchingEvaluationResult)
         }
+        practical_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, PracticalPreparationResult)
+        }
         for question in questions:
             if isinstance(
                 question,
                 (
                     CurriculumFillBlanksQuestionSnapshot,
                     CurriculumPairMatchingQuestionSnapshot,
+                    CurriculumPracticalPreparationQuestionSnapshot,
                 ),
             ):
                 EvaluateChoiceActivityUseCase._add_objective_observation_scores(
-                    observation_scores, question, fill_blanks_results, pair_results
+                    observation_scores,
+                    question,
+                    fill_blanks_results,
+                    pair_results,
+                    practical_results,
                 )
                 continue
 
@@ -467,10 +520,23 @@ class EvaluateChoiceActivityUseCase:
     def _add_objective_observation_scores(
         observation_scores: dict[str, list[Decimal | None]],
         question: CurriculumFillBlanksQuestionSnapshot
-        | CurriculumPairMatchingQuestionSnapshot,
+        | CurriculumPairMatchingQuestionSnapshot
+        | CurriculumPracticalPreparationQuestionSnapshot,
         fill_blanks_results: dict[str, FillBlanksEvaluationResult],
         pair_results: dict[str, PairMatchingEvaluationResult],
+        practical_results: dict[str, PracticalPreparationResult],
     ) -> None:
+        if isinstance(question, CurriculumPracticalPreparationQuestionSnapshot):
+            practical_result = practical_results.get(question.key)
+            if practical_result is None:
+                raise InvalidAttemptError
+
+            for evidence in practical_result.concept_evidence:
+                observation_scores.setdefault(evidence.concept_id, []).append(
+                    evidence.value
+                )
+            return
+
         if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
             EvaluateChoiceActivityUseCase._add_pair_observation_scores(
                 observation_scores, question, pair_results.get(question.key)
@@ -515,6 +581,8 @@ class EvaluateChoiceActivityUseCase:
         observations: tuple[ConceptObservation, ...],
         difficulty: str,
         now: datetime,
+        *,
+        graded: bool = True,
     ) -> None:
         all_observations = (
             tuple(
@@ -616,39 +684,42 @@ class EvaluateChoiceActivityUseCase:
             progress.updated_at = now
             repositories.competency_progresses.update(progress)
         after = progress_by_id[attempt.competency_id]
-        evaluation.save_progress_effect(
-            progress_before=displayed_before
-            if displayed_before is not None
-            else progress_before,
-            progress_after=displayed_after,
-            status_before=status_before,
-            status_after=after.status or CompetencyProgressStatus.LEARNING,
-        )
-        evaluation.apply_effect(now)
+        if graded:
+            evaluation.save_progress_effect(
+                progress_before=displayed_before
+                if displayed_before is not None
+                else progress_before,
+                progress_after=displayed_after,
+                status_before=status_before,
+                status_after=after.status or CompetencyProgressStatus.LEARNING,
+            )
+            evaluation.apply_effect(now)
         repositories.activity_evaluations.update(evaluation)
         evaluated_at = now.astimezone(UTC).isoformat().replace('+00:00', 'Z')
-        repositories.events.add(
-            ActivityEvaluatedEvent(
-                payload=ActivityEvaluatedPayload(
-                    account_id=goal.account_id,
-                    goal_id=goal.id,
-                    skill_experience_id=experience.id,
-                    skill_id=experience.skill_id,
-                    competency_id=attempt.competency_id,
-                    activity_id=attempt.activity_id,
-                    attempt_id=attempt.id,
-                    evaluation_id=evaluation.id,
-                    kind=attempt.kind,
-                    difficulty=ActivityDifficulty(difficulty),
-                    score=str(evaluation.score),
-                    evaluated_at=evaluated_at,
-                    submitted_at=attempt.submitted_at.astimezone(UTC)
-                    .isoformat()
-                    .replace('+00:00', 'Z'),
-                    time_zone=attempt.time_zone,
+        if graded:
+            # A closed-without-grade attempt earns no XP: it emits no evaluated event.
+            repositories.events.add(
+                ActivityEvaluatedEvent(
+                    payload=ActivityEvaluatedPayload(
+                        account_id=goal.account_id,
+                        goal_id=goal.id,
+                        skill_experience_id=experience.id,
+                        skill_id=experience.skill_id,
+                        competency_id=attempt.competency_id,
+                        activity_id=attempt.activity_id,
+                        attempt_id=attempt.id,
+                        evaluation_id=evaluation.id,
+                        kind=attempt.kind,
+                        difficulty=ActivityDifficulty(difficulty),
+                        score=str(evaluation.score),
+                        evaluated_at=evaluated_at,
+                        submitted_at=attempt.submitted_at.astimezone(UTC)
+                        .isoformat()
+                        .replace('+00:00', 'Z'),
+                        time_zone=attempt.time_zone,
+                    )
                 )
             )
-        )
         self._publish_mastery_transition(
             repositories,
             goal,
@@ -874,6 +945,7 @@ class EvaluateChoiceActivityUseCase:
         attempt: ActivityAttempt,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
         translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
+        practical_decisions: PracticePhotoDecisions | None = None,
     ) -> tuple[EvaluationPartResult, ...]:
         snapshot = attempt.grading_snapshot
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
@@ -915,6 +987,11 @@ class EvaluateChoiceActivityUseCase:
             or set(decisions_by_key) != code_keys
             or len(translation_decisions_by_key) != len(translation_decisions)
             or set(translation_decisions_by_key) != translation_keys
+            or (practical_decisions is not None)
+            != any(
+                isinstance(question, CurriculumPracticalPreparationQuestionSnapshot)
+                for question in snapshot.questions
+            )
         ):
             raise EvaluationUnavailableError
 
@@ -925,6 +1002,7 @@ class EvaluateChoiceActivityUseCase:
                 answers_by_key[part.question_key],
                 decisions_by_key,
                 translation_decisions_by_key,
+                practical_decisions,
             )
             for part in snapshot.parts
         )
@@ -934,22 +1012,23 @@ class EvaluateChoiceActivityUseCase:
         part: CurriculumChoicePartSnapshot
         | CurriculumCodeRubricPartSnapshot
         | CurriculumTranslationRubricPartSnapshot,
-        question: CurriculumChoiceQuestionSnapshot
-        | CurriculumJavascriptStdinQuestionSnapshot
-        | CurriculumReactQuestionSnapshot
-        | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot
-        | CurriculumOrderingQuestionSnapshot
-        | CurriculumFillBlanksQuestionSnapshot
-        | CurriculumTranslationQuestionSnapshot
-        | CurriculumPairMatchingQuestionSnapshot
-        | CurriculumImageChoiceQuestionSnapshot,
+        question: LearningQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
         translation_decisions_by_key: dict[str, CodeRubricDecisions],
+        practical_decisions: PracticePhotoDecisions | None = None,
     ) -> EvaluationPartResult:
-        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
-            return self._score_fill_blanks_part(part, question, answer)
+        if isinstance(
+            question,
+            (
+                CurriculumFillBlanksQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+                CurriculumPracticalPreparationQuestionSnapshot,
+            ),
+        ):
+            return self._score_structured_part(
+                part, question, answer, practical_decisions
+            )
 
         if isinstance(
             question,
@@ -969,8 +1048,6 @@ class EvaluateChoiceActivityUseCase:
             return self._score_translation_part(
                 part, question, answer, translation_decisions_by_key
             )
-        if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
-            return self._score_pair_part(part, question, answer)
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
         return self._score_correctness_part(question, answer)
@@ -999,6 +1076,32 @@ class EvaluateChoiceActivityUseCase:
         if isinstance(question, CurriculumImageChoiceQuestionSnapshot):
             return self._score_image_choice_part(question, answer)
         return self._score_choice_part(question, answer)
+
+    def _score_structured_part(
+        self,
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumFillBlanksQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot
+        | CurriculumPracticalPreparationQuestionSnapshot,
+        answer: ActivityAnswer,
+        practical_decisions: PracticePhotoDecisions | None,
+    ) -> EvaluationPartResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return self._score_fill_blanks_part(part, question, answer)
+
+        if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+            return self._score_pair_part(part, question, answer)
+
+        if (
+            not isinstance(part, CurriculumChoicePartSnapshot)
+            or not isinstance(answer, PracticalPreparationAnswer)
+            or practical_decisions is None
+        ):
+            raise EvaluationUnavailableError
+
+        return PracticalPreparationScoring.evaluate(question, practical_decisions)
 
     @staticmethod
     def _score_image_choice_part(

@@ -17,6 +17,9 @@
 @pairQuestionKey = replace-with-pair-matching-question-key
 @imageChoiceQuestionKey = replace-with-image-choice-question-key
 @imageOptionKey = replace-with-opt-key-from-get
+@practiceRecordKey = cuts
+@practiceUploadKey = 8b3a3f4e-2f1c-4c52-9d0b-1c2d3e4f5a6b
+@practicePhotoId = replace-with-attempt-photo-id
 
 ### GET Activity — choice or mixed question sequence
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}
@@ -392,4 +395,69 @@ Authorization: Bearer {{accessToken}}
 
 ### POST recovery — same saved integrated answer and attempt, no replacement files
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/retry
+Authorization: Bearer {{accessToken}}
+
+### GET private practice draft — practical preparation Activity (empty view if none)
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft
+Authorization: Bearer {{accessToken}}
+
+### PUT reflection — last saved wins; returns revision, reflection and photos
+PUT {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft/reflection
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "reflection": "Usei fogo alto e mexi os legumes com frequência."
+}
+
+### PUT photo — multipart; JPEG, PNG or WebP up to 10 MB.
+### Repeating the same upload_key does not duplicate the photo; a new key replaces it.
+PUT {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft/photos/{{practiceRecordKey}}
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=ShifuPracticePhoto
+
+--ShifuPracticePhoto
+Content-Disposition: form-data; name="upload_key"
+
+{{practiceUploadKey}}
+--ShifuPracticePhoto
+Content-Disposition: form-data; name="file"; filename="cortes.jpg"
+Content-Type: image/jpeg
+
+< ./cortes.jpg
+--ShifuPracticePhoto--
+
+### GET photo content — owner only, Cache-Control: private, no-store
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft/photos/{{practiceRecordKey}}/content
+Authorization: Bearer {{accessToken}}
+
+### DELETE photo — hidden at once; the object is removed within 24 hours
+DELETE {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft/photos/{{practiceRecordKey}}
+Authorization: Bearer {{accessToken}}
+
+### DELETE draft — 204; discards the reflection and removes every photo
+DELETE {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/practice-draft
+Authorization: Bearer {{accessToken}}
+
+### POST attempt — practical preparation; the draft revision must be the one the page last saw
+### Photos and reflection come from the draft. A stale revision answers 409 practice_draft_conflict;
+### a missing or uploading photo answers 409 practice_draft_incomplete. "reflection" is ignored.
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{$guid}}",
+  "activity_revision": "{{activityRevision}}",
+  "answers": [
+    {
+      "question_key": "sauteed-vegetables",
+      "kind": "practical_preparation",
+      "draft_revision": 4
+    }
+  ]
+}
+
+### GET attempt photo content — owner only, Cache-Control: private, no-store
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/practice-photos/{{practicePhotoId}}/content
 Authorization: Bearer {{accessToken}}

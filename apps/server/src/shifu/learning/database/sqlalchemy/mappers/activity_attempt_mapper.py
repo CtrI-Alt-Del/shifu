@@ -13,6 +13,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     PairMatchingAnswer,
     PairMatchingSelection,
+    PracticalPreparationAnswer,
     TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
@@ -30,6 +31,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumPairMatchingQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -94,6 +96,7 @@ class ActivityAttemptMapper:
                     'translation',
                     'pair_matching',
                     'image_choice',
+                    'practical_preparation',
                 }
                 for question in questions
             ):
@@ -119,6 +122,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'pair_matching'
                     else CurriculumImageChoiceQuestionSnapshot
                     if question.get('kind') == 'image_choice'
+                    else CurriculumPracticalPreparationQuestionSnapshot
+                    if question.get('kind') == 'practical_preparation'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
@@ -147,7 +152,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot | CurriculumImageChoiceQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot | CurriculumImageChoiceQuestionSnapshot | CurriculumPracticalPreparationQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -192,6 +197,16 @@ class ActivityAttemptMapper:
             kind = question.kind if question is not None else None
             if item.get('kind') == 'fill_blanks':
                 answers.append(ActivityAttemptMapper._fill_blanks_answer(item))
+                continue
+
+            if 'draft_revision' in item:
+                answers.append(
+                    PracticalPreparationAnswer(
+                        question_key=question_key,
+                        draft_revision=cast('int', item['draft_revision']),
+                        reflection=cast('str', item['reflection']),
+                    )
+                )
                 continue
 
             if 'files' in item:

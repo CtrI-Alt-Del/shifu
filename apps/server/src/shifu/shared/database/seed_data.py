@@ -33,6 +33,7 @@ from shifu.curriculum.core.domain.entities import (
     Material,
     Skill,
 )
+from shifu.fakers.curriculum.structures import PracticalPreparationQuestionFaker
 from shifu.fakers.curriculum.entities import (
     ActivityFaker,
     CompetencyFaker,
@@ -162,6 +163,7 @@ SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
 SEED_ACTIVITY_TRANSLATION_ID = '01SHF000000000000000000992'
 SEED_ACTIVITY_PAIR_MATCHING_ID = '01SHF000000000000000000993'
+SEED_ACTIVITY_PRACTICAL_PREPARATION_ID = '01SHF000000000000000000994'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -507,6 +509,33 @@ def _pair_matching_seed_activity() -> Activity:
                 CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
                 CorrectnessEvaluationPart(question_key='q2', weight_percentage=40),
                 CorrectnessEvaluationPart(question_key='q3', weight_percentage=40),
+            )
+        ),
+    )
+
+
+def _practical_preparation_seed_activity() -> Activity:
+    """Isolated demonstration data (sauteed vegetables); not a published Skill."""
+    question = PracticalPreparationQuestionFaker.fake(
+        concept_criteria=(
+            PracticalPreparationQuestionFaker.concept_criterion(
+                SEED_ADAPTIVE_CONCEPT_ID
+            ),
+        ),
+    )
+    return Activity.create(
+        id=SEED_ACTIVITY_PRACTICAL_PREPARATION_ID,
+        competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Preparação prática: legumes salteados',
+        objective='Preparar legumes salteados e registrar o resultado em fotos.',
+        questions=(question,),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(
+                    question_key=question.key, weight_percentage=100
+                ),
             )
         ),
     )
@@ -2481,6 +2510,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         ),
         _translation_seed_activity(),
         _pair_matching_seed_activity(),
+        _practical_preparation_seed_activity(),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -2557,6 +2587,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 ActivitySequenceItem(
                     position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 3,
                     activity_id=SEED_ACTIVITY_PAIR_MATCHING_ID,
+                ),
+                ActivitySequenceItem(
+                    position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 4,
+                    activity_id=SEED_ACTIVITY_PRACTICAL_PREPARATION_ID,
                 ),
             ),
         ),

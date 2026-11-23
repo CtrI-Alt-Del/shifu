@@ -876,4 +876,229 @@ describe('useActivityPage route consumers', () => {
       ],
     })
   })
+
+  describe('practical preparation', () => {
+    const wirePractical = {
+      ...wireActivity,
+      questions: [
+        {
+          key: 'practice-1',
+          kind: 'practical_preparation',
+          prompt: 'Prepare legumes salteados.',
+          guidance: ['Use fogo alto.'],
+          references: [{ label: 'Guia de cortes', accessible_text: 'Texto acessível' }],
+          difficulty: 'easy',
+          records: [{ key: 'cuts', label: 'Cortes', must_show: 'Os cortes' }],
+          criteria: [
+            { key: 'cut', name: 'Corte', description: 'Uniforme', weight: '100' },
+          ],
+        },
+      ],
+    }
+    const completeDraft = {
+      revision: 4,
+      reflection: 'Usei fogo alto.',
+      isComplete: true,
+      hasUnsavedChanges: false,
+    }
+
+    beforeEach(() => {
+      mocks.get.mockResolvedValue(
+        new RestResponse({ statusCode: 200, body: wirePractical }),
+      )
+    })
+
+    it('maps the practical wire contract into the question and keeps the footer locked until the draft is complete', async () => {
+      const { result } = setup()
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+
+      expect(result.current.currentQuestion).toEqual({
+        key: 'practice-1',
+        kind: 'practical_preparation',
+        prompt: 'Prepare legumes salteados.',
+        guidance: ['Use fogo alto.'],
+        references: [{ label: 'Guia de cortes', accessibleText: 'Texto acessível' }],
+        difficulty: 'easy',
+        records: [{ key: 'cuts', label: 'Cortes', mustShow: 'Os cortes' }],
+        criteria: [{ key: 'cut', name: 'Corte', description: 'Uniforme', weight: 100 }],
+      })
+      expect(result.current.practiceIds).toEqual(ids)
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(mocks.post).not.toHaveBeenCalled()
+    })
+
+    it('submits only the draft revision without a preliminary evaluation and opens the attempt', async () => {
+      mocks.post.mockResolvedValueOnce(
+        new RestResponse({
+          statusCode: 200,
+          body: { attempt_id: 'attempt-photo', status: 'pending', result_url: '/result' },
+        }),
+      )
+      const { result, props } = setup()
+      await waitFor(() => expect(result.current.isOnlineAuthority).toBe(true))
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+
+      act(() => result.current.handlePracticalPreparationDraftStateChange(completeDraft))
+      expect(result.current.canContinue).toBe(true)
+      await act(async () => result.current.handleContinue())
+
+      await waitFor(() =>
+        expect(props.onNavigateToAttempt).toHaveBeenCalledWith('attempt-photo'),
+      )
+      expect(mocks.post).toHaveBeenCalledTimes(1)
+      expect(mocks.post.mock.calls[0][1]).toMatchObject({
+        activity_revision: 'revision-react',
+        answers: [
+          {
+            kind: 'practical_preparation',
+            question_key: 'practice-1',
+            draft_revision: 4,
+          },
+        ],
+      })
+      expect(JSON.stringify(mocks.post.mock.calls[0][1])).not.toContain('Usei fogo alto')
+    })
+
+    it('blocks the submission while the draft has unsaved changes or is incomplete', async () => {
+      const { result } = setup()
+      await waitFor(() => expect(result.current.isOnlineAuthority).toBe(true))
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+
+      act(() =>
+        result.current.handlePracticalPreparationDraftStateChange({
+          ...completeDraft,
+          hasUnsavedChanges: true,
+        }),
+      )
+      expect(result.current.canContinue).toBe(false)
+      act(() =>
+        result.current.handlePracticalPreparationDraftStateChange({
+          ...completeDraft,
+          isComplete: false,
+        }),
+      )
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+
+      expect(mocks.post).not.toHaveBeenCalled()
+    })
+
+    it('warns about leaving only for unsaved draft changes and names the draft as the reason', async () => {
+      const { result, props } = setup()
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+      vi.mocked(props.onUnsentAnswersChange).mockClear()
+
+      act(() =>
+        result.current.handlePracticalPreparationDraftStateChange({
+          ...completeDraft,
+          hasUnsavedChanges: true,
+        }),
+      )
+      expect(result.current.hasUnsentAnswers).toBe(true)
+      expect(props.onUnsentAnswersChange).toHaveBeenLastCalledWith(true, 'practice-draft')
+
+      act(() => result.current.handlePracticalPreparationDraftStateChange(completeDraft))
+      expect(result.current.hasUnsentAnswers).toBe(false)
+      expect(props.onUnsentAnswersChange).toHaveBeenLastCalledWith(
+        false,
+        'practice-draft',
+      )
+    })
+
+    it('reloads the draft after a revision conflict and lets the learner submit again with a new key', async () => {
+      mocks.post
+        .mockResolvedValueOnce(
+          new RestResponse({
+            statusCode: 409,
+            body: { code: 'practice_draft_conflict' },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new RestResponse({
+            statusCode: 200,
+            body: { attempt_id: 'attempt-2', status: 'pending', result_url: '/result' },
+          }),
+        )
+      const { result, props } = setup()
+      await waitFor(() => expect(result.current.isOnlineAuthority).toBe(true))
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+      act(() => result.current.handlePracticalPreparationDraftStateChange(completeDraft))
+
+      await act(async () => result.current.handleContinue())
+
+      expect(result.current.practiceConflictCount).toBe(1)
+      expect(result.current.hasSubmissionError).toBe(false)
+      expect(props.onNavigateToAttempt).not.toHaveBeenCalled()
+      act(() =>
+        result.current.handlePracticalPreparationDraftStateChange({
+          ...completeDraft,
+          revision: 9,
+        }),
+      )
+      await act(async () => result.current.handleContinue())
+
+      await waitFor(() =>
+        expect(props.onNavigateToAttempt).toHaveBeenCalledWith('attempt-2'),
+      )
+      expect(mocks.post.mock.calls[0][1].submission_key).not.toBe(
+        mocks.post.mock.calls[1][1].submission_key,
+      )
+      expect(mocks.post.mock.calls[1][1].answers[0].draft_revision).toBe(9)
+    })
+
+    it('treats an incomplete draft conflict like a revision conflict and reloads the draft', async () => {
+      mocks.post.mockResolvedValueOnce(
+        new RestResponse({
+          statusCode: 409,
+          body: { code: 'practice_draft_incomplete' },
+        }),
+      )
+      const { result } = setup()
+      await waitFor(() => expect(result.current.isOnlineAuthority).toBe(true))
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+      act(() => result.current.handlePracticalPreparationDraftStateChange(completeDraft))
+
+      await act(async () => result.current.handleContinue())
+
+      expect(result.current.practiceConflictCount).toBe(1)
+      expect(result.current.hasSubmissionError).toBe(false)
+    })
+
+    it('keeps the submission error for a technical failure', async () => {
+      mocks.post.mockResolvedValueOnce(new RestResponse({ statusCode: 503 }))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.isOnlineAuthority).toBe(true))
+      await waitFor(() => expect(result.current.isPracticalPreparation).toBe(true))
+      act(() => result.current.handlePracticalPreparationDraftStateChange(completeDraft))
+
+      await act(async () => result.current.handleContinue())
+
+      expect(result.current.hasSubmissionError).toBe(true)
+      expect(result.current.practiceConflictCount).toBe(0)
+    })
+
+    it('rejects a malformed practical answer revision at the server-function boundary', async () => {
+      const { submitActivityAction } = await import('../use-activity-page')
+
+      const outcome = await submitActivityAction({
+        data: {
+          ...ids,
+          submission: {
+            submissionKey: 'key',
+            activityRevision: 'revision',
+            answers: [
+              {
+                kind: 'practical_preparation',
+                questionKey: 'practice-1',
+                draftRevision: 'x',
+              },
+            ],
+          },
+        },
+      } as never)
+
+      expect(outcome).toEqual({ kind: 'invalid-request' })
+    })
+  })
 })

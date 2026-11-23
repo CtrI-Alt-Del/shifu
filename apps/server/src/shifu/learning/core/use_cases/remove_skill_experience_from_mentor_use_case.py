@@ -12,6 +12,7 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases.mentor_action_receipt_recorder import (
     MentorActionReceiptRecorder,
 )
+from shifu.learning.core.use_cases.practice_photo_cleanup import PracticePhotoCleanup
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
 
@@ -97,5 +98,6 @@ class RemoveSkillExperienceFromMentorUseCase:
                 None,
             )
 
+        PracticePhotoCleanup.request_for_skill_experience(repositories, experience.id)
         repositories.skill_experiences.remove(experience)
         return MentorActionOutcome.REMOVED, None, experience.skill_id

@@ -83,6 +83,39 @@ from .curriculum_image_choice_option_snapshot import (
 from .curriculum_image_choice_question_snapshot import (
     CurriculumImageChoiceQuestionSnapshot as CurriculumImageChoiceQuestionSnapshot,
 )
+from .curriculum_practical_preparation_reference_snapshot import (
+    CurriculumPracticalPreparationReferenceSnapshot as CurriculumPracticalPreparationReferenceSnapshot,
+)
+from .curriculum_practical_preparation_record_snapshot import (
+    CurriculumPracticalPreparationRecordSnapshot as CurriculumPracticalPreparationRecordSnapshot,
+)
+from .curriculum_practical_preparation_level_snapshot import (
+    CurriculumPracticalPreparationLevelSnapshot as CurriculumPracticalPreparationLevelSnapshot,
+)
+from .curriculum_practical_preparation_criterion_snapshot import (
+    CurriculumPracticalPreparationCriterionSnapshot as CurriculumPracticalPreparationCriterionSnapshot,
+)
+from .curriculum_practical_preparation_insufficiency_rule_snapshot import (
+    CurriculumPracticalPreparationInsufficiencyRuleSnapshot as CurriculumPracticalPreparationInsufficiencyRuleSnapshot,
+)
+from .curriculum_practical_preparation_question_snapshot import (
+    CurriculumPracticalPreparationQuestionSnapshot as CurriculumPracticalPreparationQuestionSnapshot,
+)
+from .practice_photo_decisions import (
+    PracticeCriterionDecision as PracticeCriterionDecision,
+)
+from .practice_photo_decisions import (
+    PracticePhotoDecisions as PracticePhotoDecisions,
+)
+from .practice_photo_decisions import (
+    PracticeRecordDecision as PracticeRecordDecision,
+)
+from .practice_photo_assessment_input import (
+    PracticePhotoAssessmentInput as PracticePhotoAssessmentInput,
+)
+from .practice_photo_assessment_input import (
+    PracticePhotoAssessmentPhoto as PracticePhotoAssessmentPhoto,
+)
 from .curriculum_ordering_step_snapshot import (
     CurriculumOrderingStepSnapshot as CurriculumOrderingStepSnapshot,
 )

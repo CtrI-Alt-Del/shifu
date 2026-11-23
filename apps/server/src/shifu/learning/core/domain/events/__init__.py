@@ -26,3 +26,7 @@ from .mentor_skill_action_resolved_event import (
     MentorSkillActionResolvedEvent as MentorSkillActionResolvedEvent,
     MentorSkillActionResolvedPayload as MentorSkillActionResolvedPayload,
 )
+from .practice_photo_cleanup_requested_event import (
+    PracticePhotoCleanupRequestedEvent as PracticePhotoCleanupRequestedEvent,
+    PracticePhotoCleanupRequestedPayload as PracticePhotoCleanupRequestedPayload,
+)

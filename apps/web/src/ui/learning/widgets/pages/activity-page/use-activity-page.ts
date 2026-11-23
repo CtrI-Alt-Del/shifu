@@ -27,6 +27,7 @@ import type {
   PairMatchingAnswer,
   PairMatchingPair,
   PairMatchingQuestion,
+  PracticalPreparationAnswer,
   TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
@@ -48,11 +49,14 @@ import {
   setDiagnosticSequence,
   stageDiagnosticActivity,
 } from '@/ui/learning/diagnostic-run-session'
+import type { PracticalPreparationDraftState } from './practical-preparation-question/use-practical-preparation-question'
 import {
   completeDiagnosticAction,
   getDiagnosticAction,
   retryDiagnosticAction,
 } from '@/ui/learning/widgets/pages/skill-page/use-skill-page'
+
+export type UnsentAnswersReason = 'practice-draft'
 
 export type ActivityRouteProps = {
   goalId: string
@@ -64,7 +68,7 @@ export type ActivityRouteProps = {
   onNavigateToDiagnostic?: () => void
   onNavigateToNextActivity?: (competencyId: string, activityId: string) => void
   onNavigateToResult?: () => void
-  onUnsentAnswersChange: (hasUnsentAnswers: boolean) => void
+  onUnsentAnswersChange: (hasUnsentAnswers: boolean, reason?: UnsentAnswersReason) => void
   onSessionExpired: () => void
   runnerFactory?: () => CodePracticeRunner
   reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
@@ -87,7 +91,10 @@ type InjectedActivityProps = {
     answer: ActivityAnswer,
     passageKey?: string,
   ) => Promise<PreliminaryQuestionResult>
-  onUnsentAnswersChange?: (hasUnsentAnswers: boolean) => void
+  onUnsentAnswersChange?: (
+    hasUnsentAnswers: boolean,
+    reason?: UnsentAnswersReason,
+  ) => void
 }
 
 export type ActivityPageProps = ActivityRouteProps | InjectedActivityProps
@@ -107,6 +114,7 @@ type ActionFailure =
   | { kind: 'unauthorized' }
   | { kind: 'not-found'; accountId?: string }
   | { kind: 'stale-run' }
+  | { kind: 'practice-draft-conflict' }
   | { kind: 'diagnostic-entry-required' }
   | {
       kind: 'unavailable'
@@ -121,8 +129,11 @@ type GetActivityFailure = Extract<
 >
 
 const HTTP_CONFLICT_STATUS_CODE = 409
+const PRACTICE_DRAFT_CONFLICT_CODE = 'practice_draft_conflict'
+const PRACTICE_DRAFT_INCOMPLETE_CODE = 'practice_draft_incomplete'
 
 class StaleDiagnosticRunError extends RestError {}
+class PracticeDraftConflictError extends RestError {}
 class DiagnosticEntryRequiredError extends RestError {}
 class MissingActivityError extends RestError {
   constructor(readonly accountId: string) {
@@ -512,6 +523,10 @@ export function useActivityPage(props: ActivityPageProps) {
   const completionRunRef = useRef<string | null>(null)
   const [hasSubmissionError, setHasSubmissionError] = useState(false)
   const [unsentAnswers, setUnsentAnswers] = useState(false)
+  const [practiceDraftState, setPracticeDraftState] =
+    useState<PracticalPreparationDraftState | null>(null)
+  const [practiceConflictCount, setPracticeConflictCount] = useState(0)
+  const submittedPracticeRevisionRef = useRef<number | null>(null)
   const submissionKeyRef = useRef<string | null>(null)
   const didSubmitRef = useRef(false)
   const activityQuery = useQuery({
@@ -862,10 +877,23 @@ export function useActivityPage(props: ActivityPageProps) {
               ? currentAnswer.text.trim().length > 0
               : 'pairs' in currentAnswer
                 ? currentAnswer.pairs.length > 0
-                : currentAnswer.selectedOptionKeys.length > 0),
+                : 'draftRevision' in currentAnswer
+                  ? false
+                  : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
+  )
+  const isPracticalPreparation = Boolean(
+    currentQuestion && currentQuestion.kind === 'practical_preparation',
+  )
+  const canSubmitPractice = Boolean(
+    isPracticalPreparation &&
+      activity?.canSubmit &&
+      isOnlineAuthority &&
+      practiceDraftState?.isComplete &&
+      !practiceDraftState.hasUnsavedChanges &&
+      practiceDraftState.revision !== null,
   )
   const diagnosticSequence = diagnosticQuery.data?.activitySequence ?? []
   const diagnosticPosition = diagnosticSequence.findIndex(
@@ -892,8 +920,36 @@ export function useActivityPage(props: ActivityPageProps) {
   }, [hasUnsentAnswers])
 
   useEffect(() => {
-    onUnsentAnswersChange?.(hasUnsentAnswers)
-  }, [hasUnsentAnswers, onUnsentAnswersChange])
+    if (isPracticalPreparation)
+      onUnsentAnswersChange?.(hasUnsentAnswers, 'practice-draft')
+    else onUnsentAnswersChange?.(hasUnsentAnswers)
+  }, [hasUnsentAnswers, isPracticalPreparation, onUnsentAnswersChange])
+
+  function handlePracticalPreparationDraftStateChange(
+    state: PracticalPreparationDraftState,
+  ) {
+    if (!currentQuestion || currentQuestion.kind !== 'practical_preparation') return
+    const questionKey = currentQuestion.key
+    setPracticeDraftState(state)
+    setUnsentAnswers(state.hasUnsavedChanges)
+    if (
+      submissionKeyRef.current !== null &&
+      state.revision !== submittedPracticeRevisionRef.current
+    )
+      // An edited draft is a new submission, so it gets a new idempotency key.
+      submissionKeyRef.current = null
+    setAnswers((current) => {
+      const others = current.filter((answer) => answer.questionKey !== questionKey)
+      if (!state.isComplete || state.revision === null) return others
+      const answer: PracticalPreparationAnswer = {
+        kind: 'practical_preparation',
+        questionKey,
+        draftRevision: state.revision,
+        reflection: state.reflection,
+      }
+      return [...others, answer]
+    })
+  }
 
   function handleToggleOption(optionKey: string) {
     if (
@@ -1133,7 +1189,7 @@ export function useActivityPage(props: ActivityPageProps) {
               ? { ...answer }
               : 'pairs' in answer
                 ? { ...answer, pairs: answer.pairs.map((pair) => ({ ...pair })) }
-                : answer.kind === 'image_choice'
+                : answer.kind === 'image_choice' || 'draftRevision' in answer
                   ? { ...answer }
                   : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     const passageKey = snapshot.kind === 'ordering' ? getOrderingPassageKey() : undefined
@@ -1212,7 +1268,9 @@ export function useActivityPage(props: ActivityPageProps) {
         !isOnlineAuthority) ||
       (!activity.isDiagnostic &&
         isMixedActivity &&
+        !isPracticalPreparation &&
         (!feedback || feedback.status !== 'conclusive')) ||
+      (isPracticalPreparation && !canSubmitPractice) ||
       answers.length !== activity.questions.length
     )
       return
@@ -1271,6 +1329,9 @@ export function useActivityPage(props: ActivityPageProps) {
     }
     if (!submissionKeyRef.current)
       submissionKeyRef.current = globalThis.crypto.randomUUID()
+    submittedPracticeRevisionRef.current = isPracticalPreparation
+      ? (practiceDraftState?.revision ?? null)
+      : null
     setIsSubmitting(true)
     setHasSubmissionError(false)
     try {
@@ -1299,8 +1360,12 @@ export function useActivityPage(props: ActivityPageProps) {
         if (result.isDiagnostic || activity.isDiagnostic) setIsDiagnosticSubmitted(true)
         else onNavigateToAttempt?.(result.attemptId)
       }
-    } catch {
-      setHasSubmissionError(true)
+    } catch (error) {
+      if (error instanceof PracticeDraftConflictError) {
+        // Another device saved a newer draft, so the learner reviews it before sending again.
+        submissionKeyRef.current = null
+        setPracticeConflictCount((count) => count + 1)
+      } else setHasSubmissionError(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -1350,6 +1415,10 @@ export function useActivityPage(props: ActivityPageProps) {
       setCurrentQuestionIndex((index) =>
         Math.min(index + 1, activity.questions.length - 1),
       )
+      return
+    }
+    if (currentQuestion.kind === 'practical_preparation') {
+      if (canSubmitPractice) void handleSubmit()
       return
     }
     if (!isMixedActivity) {
@@ -1456,33 +1525,49 @@ export function useActivityPage(props: ActivityPageProps) {
     isOnlineAuthority,
     handleReactAnswerValidityChange,
     isMixedActivity,
+    isPracticalPreparation,
+    practiceIds:
+      routeIds && !injected
+        ? {
+            goalId: routeIds.goalId,
+            skillId: routeIds.skillId,
+            competencyId: routeIds.competencyId,
+            activityId: routeIds.activityId,
+          }
+        : null,
+    practiceConflictCount,
+    isPracticeLocked: isSubmitting || isDiagnosticProcessing || didSubmitRef.current,
+    handlePracticalPreparationDraftStateChange,
+    handleSessionExpired: onSessionExpired,
     canContinue:
       !isSubmitting &&
       !isDiagnosticSubmitted &&
       !isAssessing &&
-      (activity?.isDiagnostic
-        ? (!injected && diagnosticPosition < 0) ||
-          (!injected && !activity.activityRevision)
-          ? false
-          : currentQuestion?.kind === 'javascript_stdin' ||
-              currentQuestion?.kind === 'react' ||
-              currentQuestion?.kind === 'react_fastify'
-            ? hasDiagnosticAnswer
-            : currentQuestion?.kind === 'ordering'
-              ? false
-              : hasValidSelection
-        : currentQuestion?.kind === 'ordering'
-          ? hasValidOrdering || feedback !== null || frozenAnswer !== null
-          : currentQuestion?.kind === 'react' ||
-              currentQuestion?.kind === 'html_css_js' ||
-              currentQuestion?.kind === 'react_fastify'
-            ? isReactAnswerValid && (injected || isOnlineAuthority)
-            : feedback !== null ||
-              frozenAnswer !== null ||
-              hasValidSelection ||
-              hasValidTranslationText ||
-              hasCompleteFillBlanks ||
-              hasValidPairs),
+      (isPracticalPreparation
+        ? canSubmitPractice
+        : activity?.isDiagnostic
+          ? (!injected && diagnosticPosition < 0) ||
+            (!injected && !activity.activityRevision)
+            ? false
+            : currentQuestion?.kind === 'javascript_stdin' ||
+                currentQuestion?.kind === 'react' ||
+                currentQuestion?.kind === 'react_fastify'
+              ? hasDiagnosticAnswer
+              : currentQuestion?.kind === 'ordering'
+                ? false
+                : hasValidSelection
+          : currentQuestion?.kind === 'ordering'
+            ? hasValidOrdering || feedback !== null || frozenAnswer !== null
+            : currentQuestion?.kind === 'react' ||
+                currentQuestion?.kind === 'html_css_js' ||
+                currentQuestion?.kind === 'react_fastify'
+              ? isReactAnswerValid && (injected || isOnlineAuthority)
+              : feedback !== null ||
+                frozenAnswer !== null ||
+                hasValidSelection ||
+                hasValidTranslationText ||
+                hasCompleteFillBlanks ||
+                hasValidPairs),
     feedback,
     frozenAnswer,
     isAssessing,
@@ -1564,6 +1649,12 @@ function mapActionFailure(failure: ActionFailure): Error {
       'Esta execução foi substituída por outra aba.',
       HTTP_CONFLICT_STATUS_CODE,
     )
+  if (failure.kind === 'practice-draft-conflict')
+    return new PracticeDraftConflictError(
+      'O rascunho foi alterado em outro dispositivo.',
+      HTTP_CONFLICT_STATUS_CODE,
+      PRACTICE_DRAFT_CONFLICT_CODE,
+    )
   if (failure.kind === 'diagnostic-entry-required')
     return new RestError(
       'Inicie uma nova execução pela Habilidade.',
@@ -1581,7 +1672,11 @@ function actionFailure(error: unknown): ActionFailure {
     if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
       return { kind: 'unauthorized' }
     if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }
-    if (error.statusCode === HTTP_CONFLICT_STATUS_CODE) return { kind: 'stale-run' }
+    if (error.statusCode === HTTP_CONFLICT_STATUS_CODE)
+      return error.code === PRACTICE_DRAFT_CONFLICT_CODE ||
+        error.code === PRACTICE_DRAFT_INCOMPLETE_CODE
+        ? { kind: 'practice-draft-conflict' }
+        : { kind: 'stale-run' }
     if (error.statusCode === HTTP_STATUS_CODE.tooManyRequests)
       return { kind: 'unavailable', statusCode: error.statusCode }
   }
@@ -1663,6 +1758,8 @@ function isLegacyChoiceAnswer(
 
 function isActivityAnswer(value: unknown, questionKey: string): value is ActivityAnswer {
   if (!isRecord(value) || value.questionKey !== questionKey) return false
+  if (value.kind === 'practical_preparation')
+    return Number.isInteger(value.draftRevision) && Number(value.draftRevision) >= 0
   if (value.kind === 'ordering')
     return (
       Array.isArray(value.orderedStepKeys) &&

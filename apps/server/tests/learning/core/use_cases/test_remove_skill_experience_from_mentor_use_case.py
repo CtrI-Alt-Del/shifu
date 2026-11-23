@@ -28,6 +28,7 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.learning.core.use_cases import RemoveSkillExperienceFromMentorUseCase
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from tests.learning.core.use_cases.practice_draft_use_case_setup import fake_photo
 
 ACCOUNT_ID = 'account-1'
 GOAL_ID = 'goal-1'
@@ -113,6 +114,30 @@ class TestRemoveSkillExperienceFromMentorUseCase:
         self.experiences.remove.assert_called_once_with(self.experience)
         self.experiences.find_by_goal_id_and_skill_id.assert_not_called()
         self.goals.remove.assert_not_called()
+
+    def test_should_request_practice_photo_cleanup_before_removing_the_experience(
+        self,
+    ) -> None:
+        self.repositories.practice_photos.list_for_skill_experience.return_value = (
+            fake_photo(),
+        )
+        order: list[str] = []
+
+        def record_event(event: object) -> None:
+            order.append(type(event).__name__)
+
+        def record_remove(_item: object) -> None:
+            order.append('remove')
+
+        self.events.add.side_effect = record_event
+        self.experiences.remove.side_effect = record_remove
+
+        self._execute()
+
+        assert order[:2] == ['PracticePhotoCleanupRequestedEvent', 'remove']
+        self.repositories.practice_photos.list_for_skill_experience.assert_called_once_with(
+            EXPERIENCE_ID
+        )
 
     def test_should_store_a_receipt_with_identifiers_and_the_request_fingerprint(
         self,

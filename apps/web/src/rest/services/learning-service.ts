@@ -11,6 +11,7 @@ import type {
   ActivityQuestion,
   ActivityResultQuestion,
   FillBlanksAnswer,
+  PracticeDraft,
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
@@ -142,6 +143,21 @@ type ActivityWire = {
         kind: 'image_choice'
         prompt: string
         options: { key: string; image_path: string; description: string }[]
+      }
+    | {
+        key: string
+        kind: 'practical_preparation'
+        prompt: string
+        guidance: string[]
+        references: { label: string; accessible_text: string }[]
+        difficulty: string
+        records: { key: string; label: string; must_show: string }[]
+        criteria: {
+          key: string
+          name: string
+          description: string
+          weight: number | string
+        }[]
       }
   >
   can_submit: boolean
@@ -291,6 +307,30 @@ function mapActivityQuestion(
       })),
     }
   }
+  if (question.kind === 'practical_preparation') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      guidance: question.guidance,
+      references: question.references.map((reference) => ({
+        label: reference.label,
+        accessibleText: reference.accessible_text,
+      })),
+      difficulty: question.difficulty,
+      records: question.records.map((record) => ({
+        key: record.key,
+        label: record.label,
+        mustShow: record.must_show,
+      })),
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        description: criterion.description,
+        weight: Number(criterion.weight),
+      })),
+    }
+  }
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
@@ -306,6 +346,13 @@ function mapFillBlanksAnswer(answer: FillBlanksAnswer) {
 }
 
 function mapAnswer(answer: ActivityAnswer) {
+  if (answer.kind === 'practical_preparation') {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      draft_revision: answer.draftRevision,
+    }
+  }
   if (answer.kind === 'ordering') {
     return {
       kind: answer.kind,
@@ -500,7 +547,56 @@ type AttemptWire = {
         explanation: string
         disclosed_correct_option_key?: string | null
       }
+    | {
+        question_key: string
+        kind: 'practical_preparation'
+        prompt: string
+        records: { key: string; label: string }[]
+        photos: { record_key: string; photo_id: string }[]
+        reflection?: string | null
+        criteria: {
+          key: string
+          name: string
+          weight: number | string
+          level?: number | null
+          comment?: string | null
+        }[]
+        score?: number | string | null
+        closed_without_grade: boolean
+        unassessable_records: { key: string; label: string; comment: string }[]
+        guidance?: string | null
+      }
   >
+}
+
+type PracticeDraftWire = {
+  revision: number
+  reflection: string | null
+  photos: {
+    record_key: string
+    photo_id: string
+    state: 'uploading' | 'ready' | 'failed'
+    media_type: string
+    size_bytes: number
+  }[]
+}
+
+function mapPracticeDraft(wire: PracticeDraftWire): PracticeDraft {
+  return {
+    revision: wire.revision,
+    reflection: wire.reflection ?? '',
+    photos: wire.photos.map((photo) => ({
+      recordKey: photo.record_key,
+      photoId: photo.photo_id,
+      state: photo.state,
+      mediaType: photo.media_type,
+      sizeBytes: photo.size_bytes,
+    })),
+  }
+}
+
+function practiceDraftPath(ids: ActivityIds) {
+  return `${learningActivityPath(ids)}/practice-draft`
 }
 
 function mapPair(pair: { word_key: string; translation_key: string }) {
@@ -594,6 +690,33 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           isCorrect: question.is_correct,
           explanation: question.explanation,
           acceptedOrders: question.accepted_orders,
+        }
+      }
+      if ('kind' in question && question.kind === 'practical_preparation') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          records: question.records,
+          photos: question.photos.map((photo) => ({
+            recordKey: photo.record_key,
+            photoId: photo.photo_id,
+          })),
+          reflection: question.reflection ?? '',
+          criteria: question.criteria.map((criterion) => ({
+            key: criterion.key,
+            name: criterion.name,
+            weight: Number(criterion.weight),
+            level: criterion.level ?? null,
+            comment: criterion.comment ?? null,
+          })),
+          score:
+            question.score === undefined || question.score === null
+              ? null
+              : Number(question.score),
+          closedWithoutGrade: question.closed_without_grade,
+          unassessableRecords: question.unassessable_records,
+          guidance: question.guidance ?? null,
         }
       }
       if ('kind' in question && question.kind === 'pair_matching') {
@@ -952,7 +1075,10 @@ export const LearningService = (restClient: RestClient) => {
         isDiagnostic &&
         questions.some(
           ({ kind }) =>
-            kind === 'html_css_js' || kind === 'ordering' || kind === 'image_choice',
+            kind === 'html_css_js' ||
+            kind === 'ordering' ||
+            kind === 'image_choice' ||
+            kind === 'practical_preparation',
         )
       ) {
         throw new AppError(
@@ -1109,6 +1235,97 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+    },
+
+    async getPracticeDraft(
+      accessToken: string,
+      ids: ActivityIds,
+    ): Promise<PracticeDraft> {
+      const response = await restClient.get<PracticeDraftWire>(practiceDraftPath(ids), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (response.isFailure) response.throwError()
+
+      return mapPracticeDraft(response.body)
+    },
+
+    async savePracticeReflection(
+      accessToken: string,
+      ids: ActivityIds,
+      reflection: string,
+    ): Promise<PracticeDraft> {
+      const response = await restClient.put<PracticeDraftWire>(
+        `${practiceDraftPath(ids)}/reflection`,
+        { reflection },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+
+      return mapPracticeDraft(response.body)
+    },
+
+    async uploadPracticePhoto(
+      accessToken: string,
+      ids: ActivityIds,
+      input: { recordKey: string; uploadKey: string; file: File },
+      signal?: AbortSignal,
+    ): Promise<PracticeDraft> {
+      const formData = new FormData()
+      formData.append('file', input.file, input.file.name)
+      formData.append('upload_key', input.uploadKey)
+      const response = await restClient.put<PracticeDraftWire>(
+        `${practiceDraftPath(ids)}/photos/${encodeURIComponent(input.recordKey)}`,
+        formData,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+      )
+      if (response.isFailure) response.throwError()
+
+      return mapPracticeDraft(response.body)
+    },
+
+    async removePracticePhoto(
+      accessToken: string,
+      ids: ActivityIds,
+      recordKey: string,
+    ): Promise<PracticeDraft> {
+      const response = await restClient.delete<PracticeDraftWire>(
+        `${practiceDraftPath(ids)}/photos/${encodeURIComponent(recordKey)}`,
+        undefined,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+
+      return mapPracticeDraft(response.body)
+    },
+
+    async readPracticePhotoContent(
+      accessToken: string,
+      ids: ActivityIds,
+      recordKey: string,
+      signal?: AbortSignal,
+    ): Promise<RestResponse<Blob>> {
+      const response = await restClient.getFile(
+        `${practiceDraftPath(ids)}/photos/${encodeURIComponent(recordKey)}/content`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+      )
+      if (response.isFailure) response.throwError()
+
+      return response
+    },
+
+    async readAttemptPracticePhotoContent(
+      accessToken: string,
+      ids: ActivityIds & { attemptId: string },
+      photoId: string,
+      signal?: AbortSignal,
+    ): Promise<RestResponse<Blob>> {
+      const response = await restClient.getFile(
+        `${learningAttemptsPath(ids)}/${encodeURIComponent(ids.attemptId)}/practice-photos/${encodeURIComponent(photoId)}/content`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+      )
+      if (response.isFailure) response.throwError()
+
+      return response
     },
 
     async searchSkillCatalog(

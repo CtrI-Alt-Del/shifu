@@ -26,3 +26,9 @@ from .ordering_passages_repository import (
 from .skill_experiences_repository import (
     SqlalchemySkillExperiencesRepository as SqlalchemySkillExperiencesRepository,
 )
+from .practice_drafts_repository import (
+    SqlalchemyPracticeDraftsRepository as SqlalchemyPracticeDraftsRepository,
+)
+from .practice_photos_repository import (
+    SqlalchemyPracticePhotosRepository as SqlalchemyPracticePhotosRepository,
+)

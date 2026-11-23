@@ -1,16 +1,32 @@
 from shifu.shared.core.domain.structures import (
+    CurriculumChoiceQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumImageChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumPairMatchingQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 
 type QuestionSnapshots = tuple[object, ...]
+
+type LearningQuestionSnapshot = (
+    CurriculumChoiceQuestionSnapshot
+    | CurriculumJavascriptStdinQuestionSnapshot
+    | CurriculumReactQuestionSnapshot
+    | CurriculumHtmlCssJsQuestionSnapshot
+    | CurriculumReactFastifyQuestionSnapshot
+    | CurriculumOrderingQuestionSnapshot
+    | CurriculumFillBlanksQuestionSnapshot
+    | CurriculumTranslationQuestionSnapshot
+    | CurriculumPairMatchingQuestionSnapshot
+    | CurriculumImageChoiceQuestionSnapshot
+    | CurriculumPracticalPreparationQuestionSnapshot
+)
 
 
 class MixedQuestionSnapshots:
@@ -27,6 +43,7 @@ class MixedQuestionSnapshots:
         CurriculumPairMatchingQuestionSnapshot,
         CurriculumOrderingQuestionSnapshot,
         CurriculumImageChoiceQuestionSnapshot,
+        CurriculumPracticalPreparationQuestionSnapshot,
     )
 
     @staticmethod

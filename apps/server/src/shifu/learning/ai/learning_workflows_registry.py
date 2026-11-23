@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from shifu.learning.ai.agno.workflows import (
     EvaluateCodeActivityWorkflow,
+    EvaluatePracticalPreparationActivityWorkflow,
     EvaluateTranslationActivityWorkflow,
 )
 from shifu.learning.ai.agno.workflows.evaluate_code_activity_workflow import (
@@ -19,6 +20,7 @@ from shifu.learning.core.use_cases import (
     EvaluateChoiceActivityUseCase,
     FailCodeActivityEvaluationUseCase,
     PrepareCodeActivityEvaluationUseCase,
+    PreparePracticalPreparationActivityEvaluationUseCase,
     PrepareTranslationActivityEvaluationUseCase,
 )
 from shifu.learning.pipes import LearningPipe
@@ -29,6 +31,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
@@ -51,8 +54,10 @@ if TYPE_CHECKING:
     from shifu.shared.core.interfaces import (
         CodeRubricAssessorProvider,
         CurriculumContentProvider,
+        FileStorageProvider,
         MentorAccessProvider,
         OutboxEvent,
+        PracticePhotoAssessorProvider,
         TranslationRubricAssessorProvider,
     )
     from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
@@ -74,6 +79,8 @@ class LearningWorkflowsRegistry:
         translation_assessor: TranslationRubricAssessorProvider,
         access_provider: MentorAccessProvider,
         curriculum_content_provider: CurriculumContentProvider,
+        practice_photo_assessor: PracticePhotoAssessorProvider,
+        practice_photo_storage: FileStorageProvider,
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
@@ -87,6 +94,8 @@ class LearningWorkflowsRegistry:
         self._settings = settings
         self._assessor = assessor
         self._translation_assessor = translation_assessor
+        self._practice_photo_assessor = practice_photo_assessor
+        self._practice_photo_storage = practice_photo_storage
         self._access_provider = access_provider
         self._curriculum_content_provider = curriculum_content_provider
         self._database: LearningDatabase = LearningPipe.create_database(outbox_engine)
@@ -114,6 +123,14 @@ class LearningWorkflowsRegistry:
             observability,
             telemetry_provider,
         )
+        practical_workflow = EvaluatePracticalPreparationActivityWorkflow(
+            PreparePracticalPreparationActivityEvaluationUseCase(self._database),
+            evaluate,
+            fail,
+            practice_photo_assessor,
+            practice_photo_storage,
+            observability,
+        )
         translation_workflow = EvaluateTranslationActivityWorkflow(
             prepare_translation,
             evaluate,
@@ -130,7 +147,7 @@ class LearningWorkflowsRegistry:
                 database_url=str(database_url),
                 redis_url=settings.redis_url,
                 queue_settings=AgentOSQueueSettings.for_module('learning', settings),
-                workflows=[workflow, translation_workflow],
+                workflows=[workflow, translation_workflow, practical_workflow],
                 workflow_event_projector=self._project_event,
                 outbox_engine=outbox_engine,
                 observability=observability,
@@ -190,6 +207,7 @@ class LearningWorkflowsRegistry:
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
+                    CurriculumPracticalPreparationQuestionSnapshot,
                 ),
             )
             for question in snapshot.questions
@@ -213,8 +231,14 @@ class LearningWorkflowsRegistry:
             isinstance(question, CurriculumTranslationQuestionSnapshot)
             for question in snapshot.questions
         )
+        is_practical = isinstance(snapshot, CurriculumLearningActivitySnapshot) and any(
+            isinstance(question, CurriculumPracticalPreparationQuestionSnapshot)
+            for question in snapshot.questions
+        )
         workflow_id = (
-            'learning-evaluate-translation-activity'
+            'learning-evaluate-practical-preparation-activity'
+            if is_practical
+            else 'learning-evaluate-translation-activity'
             if is_translation
             else 'learning-evaluate-code-activity'
         )

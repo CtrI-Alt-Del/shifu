@@ -1305,6 +1305,128 @@ for (const viewport of [
   }
 }
 
+for (const scenario of ['closed_without_grade', 'completed'] as const) {
+  test(`shows a practical preparation attempt ${scenario === 'completed' ? 'with criteria, weights, levels and comments' : 'as without grade, never as zero or in progress'}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const isClosed = scenario === 'closed_without_grade'
+    const practicalActivity = {
+      ...activity,
+      accountId: 'playwright-account',
+      questions: [
+        {
+          key: 'practice-1',
+          kind: 'practical_preparation' as const,
+          prompt: 'Prepare legumes salteados.',
+          guidance: [],
+          references: [],
+          difficulty: 'easy',
+          records: [{ key: 'dish', label: 'Prato final', mustShow: 'O prato' }],
+          criteria: [],
+        },
+      ],
+    }
+    const practicalAttempt = {
+      ...completedAttempt,
+      status: scenario,
+      score: isClosed ? null : 60,
+      progressBefore: isClosed ? null : 10,
+      progressAfter: isClosed ? null : 20,
+      nextAction: null,
+      questions: [
+        {
+          key: 'practice-1',
+          kind: 'practical_preparation',
+          prompt: 'Prepare legumes salteados.',
+          records: [{ key: 'dish', label: 'Prato final' }],
+          photos: [{ recordKey: 'dish', photoId: 'photo-dish' }],
+          reflection: 'Usei fogo alto.',
+          criteria: isClosed
+            ? []
+            : [
+                {
+                  key: 'cut',
+                  name: 'Corte',
+                  weight: 100,
+                  level: 75,
+                  comment: 'Cortes quase uniformes.',
+                },
+              ],
+          closedWithoutGrade: isClosed,
+          unassessableRecords: isClosed
+            ? [
+                {
+                  key: 'dish',
+                  label: 'Prato final',
+                  comment: 'O prato não aparece inteiro.',
+                },
+              ]
+            : [],
+          guidance: isClosed ? 'Fotografe o prato inteiro.' : null,
+        },
+      ],
+    }
+    await authenticatedPage.route('**/api/learning/**/practice-photos/**', (route) =>
+      route.fulfill({ status: 404, body: '' }),
+    )
+    await bff.route(async (route) => {
+      const payload = decodeURIComponent(
+        `${route.request().url()} ${route.request().postData() ?? ''}`,
+      )
+      if (payload.includes(ids.attemptId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: practicalAttempt }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.activityId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: practicalActivity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fallback()
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+    if (isClosed) {
+      await expect(
+        authenticatedPage.getByRole('heading', {
+          name: 'Não foi possível avaliar estas fotos',
+        }),
+      ).toBeVisible()
+      await expect(
+        authenticatedPage.getByText('O prato não aparece inteiro.'),
+      ).toBeVisible()
+      await expect(authenticatedPage.getByText('Avaliação em andamento')).toHaveCount(0)
+      await expect(authenticatedPage.getByText('/ 100')).toHaveCount(0)
+      await expect(
+        authenticatedPage.getByRole('link', { name: 'Iniciar nova tentativa' }),
+      ).toHaveAttribute('href', activityPath)
+      await expect(
+        authenticatedPage.getByRole('link', { name: 'Voltar à Habilidade' }),
+      ).toHaveAttribute('href', `/learning/goals/${ids.goalId}/skills/${ids.skillId}`)
+    } else {
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Atividade avaliada' }),
+      ).toBeVisible()
+      await expect(authenticatedPage.getByText('75 / 100')).toBeVisible()
+      await expect(authenticatedPage.getByText('Peso 100%')).toBeVisible()
+      await expect(authenticatedPage.getByText('Cortes quase uniformes.')).toBeVisible()
+    }
+    await expect(authenticatedPage.getByText('Seu relato')).toBeVisible()
+    expect(
+      await authenticatedPage.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+  })
+}
+
 async function mockResultTransport(
   bff: BffFixtureContract,
   attempt: typeof completedAttempt,

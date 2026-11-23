@@ -18,3 +18,5 @@ from .mentor_action_receipt_mapper import (
 )
 from .ordering_passage_mapper import OrderingPassageMapper as OrderingPassageMapper
 from .skill_experience_mapper import SkillExperienceMapper as SkillExperienceMapper
+from .practice_draft_mapper import PracticeDraftMapper as PracticeDraftMapper
+from .practice_photo_mapper import PracticePhotoMapper as PracticePhotoMapper

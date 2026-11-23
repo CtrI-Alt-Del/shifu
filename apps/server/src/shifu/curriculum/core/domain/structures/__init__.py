@@ -90,3 +90,15 @@ from .pair_matching_concept_criterion import (
 from .pair_matching_item import PairMatchingItem as PairMatchingItem
 from .pair_matching_pair import PairMatchingPair as PairMatchingPair
 from .pair_matching_question import PairMatchingQuestion as PairMatchingQuestion
+from .practical_preparation_reference import PracticeReference as PracticeReference
+from .practical_preparation_record import PracticePhotoRecord as PracticePhotoRecord
+from .practical_preparation_level import (
+    PracticeCriterionLevel as PracticeCriterionLevel,
+)
+from .practical_preparation_criterion import PracticeCriterion as PracticeCriterion
+from .practical_preparation_insufficiency_rule import (
+    PracticeInsufficiencyRule as PracticeInsufficiencyRule,
+)
+from .practical_preparation_question import (
+    PracticalPreparationQuestion as PracticalPreparationQuestion,
+)

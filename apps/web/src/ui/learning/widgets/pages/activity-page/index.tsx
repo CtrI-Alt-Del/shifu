@@ -16,6 +16,7 @@ import { ImageChoiceQuestion } from './image-choice-question'
 import { ReactFastifyQuestion } from './react-fastify-question'
 import { OrderingQuestion } from './ordering-question'
 import { PairMatchingQuestion } from './pair-matching-question'
+import { PracticalPreparationQuestion } from './practical-preparation-question'
 import { TranslationQuestion } from './translation-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
@@ -78,6 +79,12 @@ export const ActivityPage = (props: ActivityPageProps) => {
     accountId,
     isOnlineAuthority,
     handleReactAnswerValidityChange,
+    isPracticalPreparation,
+    practiceIds,
+    practiceConflictCount,
+    isPracticeLocked,
+    handlePracticalPreparationDraftStateChange,
+    handleSessionExpired,
   } = useActivityPage(props)
   const isDiagnosticLoading =
     isDiagnosticProcessing &&
@@ -247,7 +254,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
     currentQuestion.kind !== 'fill_blanks' &&
     currentQuestion.kind !== 'translation' &&
     currentQuestion.kind !== 'pair_matching' &&
-    currentQuestion.kind !== 'image_choice' ? (
+    currentQuestion.kind !== 'image_choice' &&
+    currentQuestion.kind !== 'practical_preparation' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -290,6 +298,163 @@ export const ActivityPage = (props: ActivityPageProps) => {
       />
     ) : null
   const activeQuestionKeys = activity.questions.map(({ key }) => key)
+
+  const footerContent = (
+    <motion.div variants={ENTRANCE_RISE}>
+      {!isCodeQuestion ||
+      activity.isDiagnostic ||
+      hasFeedbackError ||
+      hasSubmissionError ||
+      feedback ||
+      frozenAnswer ? (
+        <div
+          aria-live='polite'
+          className={
+            isDiagnosticChoice
+              ? 'flex flex-col gap-3 pt-1 sm:items-end'
+              : 'space-y-3 pt-1'
+          }
+        >
+          {hasFeedbackError ? (
+            <p role='alert'>Não foi possível avaliar. Tente novamente.</p>
+          ) : null}
+          {hasSubmissionError ? (
+            <p
+              className='rounded-md border border-selo-text bg-accent p-3 text-sm text-selo-text'
+              role='alert'
+            >
+              Não foi possível enviar suas respostas. Tente novamente.
+            </p>
+          ) : null}
+          {isDiagnosticProcessing ? (
+            <div aria-live='polite' className='mt-6 space-y-3 text-sm'>
+              <p className='flex items-center gap-2'>
+                {isDiagnosticLoading ? (
+                  <Icon
+                    aria-hidden='true'
+                    className='shrink-0 motion-safe:animate-spin'
+                    name='loader-circle'
+                    size={16}
+                  />
+                ) : null}
+                {diagnosticStatus === 'failed'
+                  ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
+                  : diagnosticCompletionError
+                    ? 'Não foi possível consolidar o resultado.'
+                    : isCompletingDiagnostic
+                      ? 'Consolidando o resultado…'
+                      : 'Avaliando o diagnóstico…'}
+              </p>
+              {diagnosticStatus === 'failed' ? (
+                <Button
+                  disabled={isRetryingDiagnostic}
+                  onClick={() => void handleRetryDiagnostic()}
+                  type='button'
+                >
+                  {isRetryingDiagnostic
+                    ? 'Tentando novamente…'
+                    : 'Tentar avaliação novamente'}
+                </Button>
+              ) : null}
+              {diagnosticCompletionError ? (
+                <Button
+                  onClick={() => void handleRetryDiagnosticCompletion()}
+                  type='button'
+                >
+                  Tentar novamente
+                </Button>
+              ) : null}
+              {hasDiagnosticStatusError ? (
+                <Button onClick={() => void handleRetryDiagnosticStatus()} type='button'>
+                  Atualizar avaliação
+                </Button>
+              ) : null}
+              {diagnosticRetryError ? (
+                <p role='alert'>Não foi possível tentar novamente agora.</p>
+              ) : null}
+            </div>
+          ) : (currentQuestion.kind !== 'javascript_stdin' &&
+              currentQuestion.kind !== 'react' &&
+              currentQuestion.kind !== 'html_css_js' &&
+              currentQuestion.kind !== 'react_fastify') ||
+            activity.isDiagnostic ||
+            feedback ||
+            frozenAnswer ? (
+            <div
+              className={
+                avoidMobileMentorOverlap
+                  ? 'mt-6 flex items-center gap-4 sm:block'
+                  : undefined
+              }
+            >
+              <Button
+                className={
+                  avoidMobileMentorOverlap
+                    ? 'mt-0 min-w-0 w-full flex-1 bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
+                    : isPracticalPreparation
+                      ? 'mt-0 w-full bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
+                }
+                disabled={!canContinue}
+                onClick={handleContinue}
+                type='button'
+              >
+                {isAssessing
+                  ? 'Avaliando questão…'
+                  : isSubmitting
+                    ? isPracticalPreparation
+                      ? 'Enviando…'
+                      : 'Enviando respostas…'
+                    : hasSubmissionError
+                      ? 'Tentar enviar novamente'
+                      : isPracticalPreparation
+                        ? 'Enviar Atividade'
+                        : activity.isDiagnostic
+                          ? isLastQuestion
+                            ? isLastDiagnosticActivity
+                              ? 'Enviar diagnóstico'
+                              : isNextCompetency
+                                ? 'Próxima competência'
+                                : 'Próxima questão'
+                            : 'Próxima questão'
+                          : currentQuestion.kind === 'ordering' ||
+                              currentQuestion.kind === 'image_choice'
+                            ? !feedback
+                              ? frozenAnswer
+                                ? 'Tentar avaliação novamente'
+                                : 'Verificar'
+                              : feedback.status === 'inconclusive'
+                                ? 'Reverificar'
+                                : isLastQuestion
+                                  ? 'Enviar atividade'
+                                  : 'Próxima questão'
+                            : !isMixedActivity
+                              ? isLastQuestion
+                                ? isReactQuestion || isHtmlCssJsQuestion
+                                  ? 'Enviar atividade'
+                                  : 'Enviar respostas'
+                                : 'Próxima questão'
+                              : !feedback
+                                ? frozenAnswer
+                                  ? 'Tentar avaliação novamente'
+                                  : 'Avaliar resposta'
+                                : feedback.status === 'inconclusive'
+                                  ? 'Reavaliar resposta'
+                                  : isLastQuestion
+                                    ? isReactQuestion || isHtmlCssJsQuestion
+                                      ? 'Enviar atividade'
+                                      : 'Enviar respostas'
+                                    : 'Próxima questão'}
+              </Button>
+              {avoidMobileMentorOverlap ? (
+                <span aria-hidden='true' className='h-14 w-14 shrink-0 sm:hidden' />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </motion.div>
+  )
 
   // The entrance plays once per page visit. Its question area and action bar
   // stay mounted between questions, so moving to the next question does not
@@ -438,6 +603,23 @@ export const ActivityPage = (props: ActivityPageProps) => {
             skillId={'skillId' in props ? props.skillId : undefined}
             totalQuestions={totalQuestions}
           />
+        ) : currentQuestion.kind === 'practical_preparation' ? (
+          <PracticalPreparationQuestion
+            activityTitle={activity.title}
+            conflictCount={practiceConflictCount}
+            difficulty={activity.difficulty}
+            disabled={!activity.canSubmit || isPracticeLocked}
+            ids={practiceIds}
+            isOnlineAuthority={isOnlineAuthority}
+            key={currentQuestion.key}
+            onDraftStateChange={handlePracticalPreparationDraftStateChange}
+            onSessionExpired={handleSessionExpired}
+            footer={footerContent}
+            isSubmitting={isSubmitting}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            totalQuestions={totalQuestions}
+          />
         ) : currentQuestion.kind === 'pair_matching' ? (
           <PairMatchingQuestion
             activityTitle={activity.title}
@@ -520,157 +702,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
         />
       ) : null}
 
-      <motion.div variants={ENTRANCE_RISE}>
-        {!isCodeQuestion ||
-        activity.isDiagnostic ||
-        hasFeedbackError ||
-        hasSubmissionError ||
-        feedback ||
-        frozenAnswer ? (
-          <div
-            aria-live='polite'
-            className={
-              isDiagnosticChoice
-                ? 'flex flex-col gap-3 pt-1 sm:items-end'
-                : 'space-y-3 pt-1'
-            }
-          >
-            {hasFeedbackError ? (
-              <p role='alert'>Não foi possível avaliar. Tente novamente.</p>
-            ) : null}
-            {hasSubmissionError ? (
-              <p
-                className='rounded-md border border-selo-text bg-accent p-3 text-sm text-selo-text'
-                role='alert'
-              >
-                Não foi possível enviar suas respostas. Tente novamente.
-              </p>
-            ) : null}
-            {isDiagnosticProcessing ? (
-              <div aria-live='polite' className='mt-6 space-y-3 text-sm'>
-                <p className='flex items-center gap-2'>
-                  {isDiagnosticLoading ? (
-                    <Icon
-                      aria-hidden='true'
-                      className='shrink-0 motion-safe:animate-spin'
-                      name='loader-circle'
-                      size={16}
-                    />
-                  ) : null}
-                  {diagnosticStatus === 'failed'
-                    ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
-                    : diagnosticCompletionError
-                      ? 'Não foi possível consolidar o resultado.'
-                      : isCompletingDiagnostic
-                        ? 'Consolidando o resultado…'
-                        : 'Avaliando o diagnóstico…'}
-                </p>
-                {diagnosticStatus === 'failed' ? (
-                  <Button
-                    disabled={isRetryingDiagnostic}
-                    onClick={() => void handleRetryDiagnostic()}
-                    type='button'
-                  >
-                    {isRetryingDiagnostic
-                      ? 'Tentando novamente…'
-                      : 'Tentar avaliação novamente'}
-                  </Button>
-                ) : null}
-                {diagnosticCompletionError ? (
-                  <Button
-                    onClick={() => void handleRetryDiagnosticCompletion()}
-                    type='button'
-                  >
-                    Tentar novamente
-                  </Button>
-                ) : null}
-                {hasDiagnosticStatusError ? (
-                  <Button
-                    onClick={() => void handleRetryDiagnosticStatus()}
-                    type='button'
-                  >
-                    Atualizar avaliação
-                  </Button>
-                ) : null}
-                {diagnosticRetryError ? (
-                  <p role='alert'>Não foi possível tentar novamente agora.</p>
-                ) : null}
-              </div>
-            ) : (currentQuestion.kind !== 'javascript_stdin' &&
-                currentQuestion.kind !== 'react' &&
-                currentQuestion.kind !== 'html_css_js' &&
-                currentQuestion.kind !== 'react_fastify') ||
-              activity.isDiagnostic ||
-              feedback ||
-              frozenAnswer ? (
-              <div
-                className={
-                  avoidMobileMentorOverlap
-                    ? 'mt-6 flex items-center gap-4 sm:block'
-                    : undefined
-                }
-              >
-                <Button
-                  className={
-                    avoidMobileMentorOverlap
-                      ? 'mt-0 min-w-0 w-full flex-1 bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
-                      : 'mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
-                  }
-                  disabled={!canContinue}
-                  onClick={handleContinue}
-                  type='button'
-                >
-                  {isAssessing
-                    ? 'Avaliando questão…'
-                    : isSubmitting
-                      ? 'Enviando respostas…'
-                      : hasSubmissionError
-                        ? 'Tentar enviar novamente'
-                        : activity.isDiagnostic
-                          ? isLastQuestion
-                            ? isLastDiagnosticActivity
-                              ? 'Enviar diagnóstico'
-                              : isNextCompetency
-                                ? 'Próxima competência'
-                                : 'Próxima questão'
-                            : 'Próxima questão'
-                          : currentQuestion.kind === 'ordering' ||
-                              currentQuestion.kind === 'image_choice'
-                            ? !feedback
-                              ? frozenAnswer
-                                ? 'Tentar avaliação novamente'
-                                : 'Verificar'
-                              : feedback.status === 'inconclusive'
-                                ? 'Reverificar'
-                                : isLastQuestion
-                                  ? 'Enviar atividade'
-                                  : 'Próxima questão'
-                            : !isMixedActivity
-                              ? isLastQuestion
-                                ? isReactQuestion || isHtmlCssJsQuestion
-                                  ? 'Enviar atividade'
-                                  : 'Enviar respostas'
-                                : 'Próxima questão'
-                              : !feedback
-                                ? frozenAnswer
-                                  ? 'Tentar avaliação novamente'
-                                  : 'Avaliar resposta'
-                                : feedback.status === 'inconclusive'
-                                  ? 'Reavaliar resposta'
-                                  : isLastQuestion
-                                    ? isReactQuestion || isHtmlCssJsQuestion
-                                      ? 'Enviar atividade'
-                                      : 'Enviar respostas'
-                                    : 'Próxima questão'}
-                </Button>
-                {avoidMobileMentorOverlap ? (
-                  <span aria-hidden='true' className='h-14 w-14 shrink-0 sm:hidden' />
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </motion.div>
+      {isPracticalPreparation ? null : footerContent}
     </MotionEntrance>
   )
 }

@@ -6,11 +6,17 @@ from datetime import UTC
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
+    PracticeDraft,
 )
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
+    PracticePhotoState,
     SkillExperienceStatus,
+)
+from shifu.learning.core.domain.errors import (
+    PracticeDraftConflictError,
+    PracticeDraftIncompleteError,
 )
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
@@ -24,6 +30,8 @@ from shifu.learning.core.domain.structures import (
     CodeAnswer,
     FillBlanksAnswer,
     PairMatchingAnswer,
+    PracticalPreparationAnswer,
+    PracticalPreparationAnswerSubmission,
     TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
@@ -58,6 +66,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumOrderingQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumImageChoiceQuestionSnapshot,
+    CurriculumPracticalPreparationQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -67,6 +76,17 @@ from shifu.shared.core.interfaces import (
 )
 from shifu.learning.core.use_cases.ordering_answer_validation import (
     OrderingAnswerValidation,
+)
+
+
+type SubmittedAnswer = (
+    ChoiceAnswerSubmission
+    | CodeAnswer
+    | OrderingAnswerSubmission
+    | FillBlanksAnswer
+    | TranslationAnswer
+    | PairMatchingAnswer
+    | PracticalPreparationAnswerSubmission
 )
 
 
@@ -93,15 +113,7 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[
-            ChoiceAnswerSubmission
-            | CodeAnswer
-            | OrderingAnswerSubmission
-            | FillBlanksAnswer
-            | TranslationAnswer
-            | PairMatchingAnswer,
-            ...,
-        ],
+        answers: tuple[SubmittedAnswer, ...],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
         time_zone: str | None = None,
@@ -277,6 +289,16 @@ class SubmitChoiceActivityUseCase:
             if unresolved is not None:
                 raise ConflictError
 
+            practice_draft = self._confirm_practice_draft(
+                repositories, experience_id, activity_id, snapshot, normalized_answers
+            )
+            frozen_answers = (
+                self._freeze_practice_reflection(
+                    normalized_answers, practice_draft.reflection
+                )
+                if practice_draft is not None
+                else normalized_answers
+            )
             attempt_id = self._identifier_provider.generate()
             evaluation_id = self._identifier_provider.generate()
             run_id = self._identifier_provider.generate()
@@ -286,7 +308,7 @@ class SubmitChoiceActivityUseCase:
                 competency_id=competency_id,
                 activity_id=activity_id,
                 kind=kind,
-                answers=normalized_answers,
+                answers=frozen_answers,
                 submitted_at=now,
                 submission_key=submission_key,
                 grading_snapshot=snapshot,
@@ -320,6 +342,12 @@ class SubmitChoiceActivityUseCase:
             if ordering_passage is not None:
                 ordering_passage.consume()
                 repositories.ordering_passages.update(ordering_passage)
+            if practice_draft is not None:
+                repositories.practice_photos.reassign_to_attempt(
+                    practice_draft.id, attempt_id
+                )
+                practice_draft.consume()
+                repositories.practice_drafts.update(practice_draft)
             return ChoiceSubmissionOutcome(
                 attempt=ChoiceAttemptDetail(
                     attempt_id=attempt_id,
@@ -338,24 +366,18 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[
-            ChoiceAnswerSubmission
-            | CodeAnswer
-            | OrderingAnswerSubmission
-            | FillBlanksAnswer
-            | TranslationAnswer
-            | PairMatchingAnswer,
-            ...,
-        ],
+        answers: tuple[SubmittedAnswer, ...],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
             snapshot is None
             or existing.activity_id != activity_id
             or existing.competency_id != competency_id
-            or existing.answers
-            != self.normalize_answers(
-                snapshot, answers, self._max_code_assessment_input_bytes
+            or not self._same_answers(
+                existing.answers,
+                self.normalize_answers(
+                    snapshot, answers, self._max_code_assessment_input_bytes
+                ),
             )
         ):
             raise ConflictError
@@ -377,17 +399,89 @@ class SubmitChoiceActivityUseCase:
         )
 
     @staticmethod
+    def _same_answers(
+        existing: tuple[ActivityAnswer, ...], submitted: tuple[ActivityAnswer, ...]
+    ) -> bool:
+        """A practical answer replays by its confirmed draft revision; the reflection
+        was frozen from the draft and is not part of the client's request."""
+        if len(existing) != len(submitted):
+            return False
+
+        return all(
+            (
+                stored.question_key == sent.question_key
+                and stored.draft_revision == sent.draft_revision
+            )
+            if isinstance(stored, PracticalPreparationAnswer)
+            and isinstance(sent, PracticalPreparationAnswer)
+            else stored == sent
+            for stored, sent in zip(existing, submitted, strict=True)
+        )
+
+    @staticmethod
+    def _freeze_practice_reflection(
+        answers: tuple[ActivityAnswer, ...], reflection: str
+    ) -> tuple[ActivityAnswer, ...]:
+        return tuple(
+            PracticalPreparationAnswer(
+                question_key=answer.question_key,
+                draft_revision=answer.draft_revision,
+                reflection=reflection,
+            )
+            if isinstance(answer, PracticalPreparationAnswer)
+            else answer
+            for answer in answers
+        )
+
+    @staticmethod
+    def _confirm_practice_draft(
+        repositories: LearningDatabaseRepositories,
+        experience_id: str,
+        activity_id: str,
+        snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
+        answers: tuple[ActivityAnswer, ...],
+    ) -> PracticeDraft | None:
+        """Lock the draft and refuse the submit unless it is the revision the client saw,
+        with a ready photo for every record and none still uploading."""
+        answer = next(
+            (item for item in answers if isinstance(item, PracticalPreparationAnswer)),
+            None,
+        )
+        question = next(
+            (
+                item
+                for item in snapshot.questions
+                if isinstance(item, CurriculumPracticalPreparationQuestionSnapshot)
+            ),
+            None,
+        )
+        if answer is None or question is None:
+            return None
+
+        draft = repositories.practice_drafts.find_active_for_update(
+            experience_id, activity_id
+        )
+        if draft is None or draft.revision != answer.draft_revision:
+            raise PracticeDraftConflictError
+
+        photos = repositories.practice_photos.list_live_for_draft(draft.id)
+        if any(photo.state is PracticePhotoState.UPLOADING for photo in photos):
+            raise PracticeDraftIncompleteError
+
+        ready_records = {
+            photo.record_key
+            for photo in photos
+            if photo.state is PracticePhotoState.READY
+        }
+        if ready_records != {record.key for record in question.records}:
+            raise PracticeDraftIncompleteError
+
+        return draft
+
+    @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
-        answers: tuple[
-            ChoiceAnswerSubmission
-            | CodeAnswer
-            | OrderingAnswerSubmission
-            | FillBlanksAnswer
-            | TranslationAnswer
-            | PairMatchingAnswer,
-            ...,
-        ],
+        answers: tuple[SubmittedAnswer, ...],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
@@ -432,6 +526,21 @@ class SubmitChoiceActivityUseCase:
 
                 normalized.append(FillBlanksScoring.normalize(question, answer))
                 continue
+            if isinstance(question, CurriculumPracticalPreparationQuestionSnapshot):
+                if (
+                    not isinstance(answer, PracticalPreparationAnswerSubmission)
+                    or answer.draft_revision < 0
+                ):
+                    raise ValidationError
+                normalized.append(
+                    PracticalPreparationAnswer(
+                        question_key=answer.question_key,
+                        draft_revision=answer.draft_revision,
+                        reflection='',
+                    )
+                )
+                continue
+
             if isinstance(question, CurriculumTranslationQuestionSnapshot):
                 if not isinstance(answer, TranslationAnswer):
                     raise ValidationError
