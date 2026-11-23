@@ -285,24 +285,22 @@ const BetterAuthProvider = () => {
         return null
       }
       if (session.user.name !== currentSession.display_name) {
-        try {
-          const context = await auth.$context
-          await withAccountActivity(
-            currentSession.account_id,
-            session.session.accessVersion,
-            () =>
-              context.internalAdapter.updateUser(session.user.id, {
+        const context = await auth.$context
+        await withAccountActivity(
+          currentSession.account_id,
+          session.session.accessVersion,
+          async () => {
+            try {
+              await context.internalAdapter.updateUser(session.user.id, {
                 name: currentSession.display_name,
-              }),
-            request,
-            session.session.id,
-          )
-        } catch {
-          throw new AuthError(
-            'unavailable',
-            'Não foi possível validar sua conta agora. Tente novamente.',
-          )
-        }
+              })
+            } catch {
+              // Identity is authoritative; the Better Auth name is a cache.
+            }
+          },
+          request,
+          session.session.id,
+        )
       }
       return {
         accountId: currentSession.account_id,

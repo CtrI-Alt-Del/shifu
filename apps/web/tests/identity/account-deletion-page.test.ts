@@ -60,7 +60,7 @@ test.describe('AccountDeletionPage', () => {
     await expect(consent).not.toBeChecked()
     await expect(password).toHaveAttribute('type', 'password')
     await password.fill('local-preparation-secret')
-    await consent.check()
+    await dialog.getByText('Entendo que o encerramento é definitivo').click()
     await finalButton.click()
 
     await expect(
@@ -95,8 +95,8 @@ test.describe('AccountDeletionPage', () => {
     await authenticatedPage.getByRole('button', { name: 'Excluir minha conta' }).click()
     await authenticatedPage.getByLabel('Senha atual').fill('local-preparation-secret')
     await authenticatedPage
-      .getByRole('checkbox', { name: 'Entendo que o encerramento é definitivo' })
-      .check()
+      .getByText('Entendo que o encerramento é definitivo', { exact: true })
+      .click()
     await authenticatedPage
       .getByRole('button', { name: 'Excluir definitivamente' })
       .click()
@@ -119,8 +119,8 @@ test.describe('AccountDeletionPage', () => {
     await authenticatedPage.getByRole('button', { name: 'Excluir minha conta' }).click()
     await authenticatedPage.getByLabel('Senha atual').fill('wrong-password')
     await authenticatedPage
-      .getByRole('checkbox', { name: 'Entendo que o encerramento é definitivo' })
-      .check()
+      .getByText('Entendo que o encerramento é definitivo', { exact: true })
+      .click()
     await authenticatedPage
       .getByRole('button', { name: 'Excluir definitivamente' })
       .click()
