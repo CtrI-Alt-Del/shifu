@@ -49,6 +49,8 @@ const makeHookValue = (
 ): ReturnType<typeof useMessageItem> => ({
   blocks: [],
   attachments: [],
+  aiUsageAccessibleLabel: null,
+  aiUsageLabel: null,
   visibleLength: {},
   handleOpenAttachment,
   copyAccessibleLabel: 'Copiar mensagem',
@@ -123,6 +125,36 @@ describe('MessageItem', () => {
     )
     expect(screen.getByText('Mentor')).toBeVisible()
     expect(screen.getByText('Mentor').previousElementSibling).toBeNull()
+  })
+
+  it('shows the AI usage of the answer beside its time', () => {
+    useMessageItemMock.mockReturnValue(
+      makeHookValue({
+        aiUsageLabel: 'IA · 4,2%',
+        aiUsageAccessibleLabel: 'Esta resposta usou 4,2% da sua cota mensal de IA',
+      }),
+    )
+    render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+
+    expect(screen.getByText('IA · 4,2%')).toHaveAttribute('aria-hidden', 'true')
+    expect(
+      screen.getByText('Esta resposta usou 4,2% da sua cota mensal de IA'),
+    ).toHaveClass('sr-only')
+  })
+
+  it('shows no AI usage when the answer has none', () => {
+    useMessageItemMock.mockReturnValue(makeHookValue())
+    render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+
+    expect(screen.queryByText(/IA ·/)).not.toBeInTheDocument()
   })
 
   it('shows no mascot on learner messages', () => {

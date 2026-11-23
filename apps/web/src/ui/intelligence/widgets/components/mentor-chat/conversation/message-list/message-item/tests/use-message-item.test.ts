@@ -70,6 +70,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         messages: { items: [message], nextCursor: null },
       },
@@ -94,6 +95,41 @@ describe('useMessageItem', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
   })
+  it('labels a Mentor answer with the share of the monthly AI quota it spent', () => {
+    const mentorMessage: MentorMessage = {
+      ...message,
+      id: 'mentor',
+      role: 'mentor',
+      inReplyToMessageId: 'learner',
+    }
+    vi.mocked(useMentorContext).mockReturnValue({
+      shouldAnimateBlock,
+      markBlockPresented,
+      selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: { mentor: 4.2, learner: 9 },
+      sessionDetail: { messages: { items: [message], nextCursor: null } },
+    } as unknown as ReturnType<typeof useMentorContext>)
+
+    const { result: mentorResult } = renderHook(() => useMessageItem(mentorMessage))
+    const { result: learnerResult } = renderHook(() => useMessageItem(message))
+
+    expect(mentorResult.current.aiUsageLabel).toBe('IA · 4,2%')
+    expect(mentorResult.current.aiUsageAccessibleLabel).toBe(
+      'Esta resposta usou 4,2% da sua cota mensal de IA',
+    )
+    expect(learnerResult.current.aiUsageLabel).toBeNull()
+    expect(learnerResult.current.aiUsageAccessibleLabel).toBeNull()
+  })
+
+  it('shows no AI usage while a Mentor answer has no recorded usage', () => {
+    const { result } = renderHook(() =>
+      useMessageItem({ ...message, id: 'mentor', role: 'mentor' }),
+    )
+
+    expect(result.current.aiUsageLabel).toBeNull()
+    expect(result.current.aiUsageAccessibleLabel).toBeNull()
+  })
+
   it('types only a new foreground approved block and marks presentation before remount', () => {
     const { result, unmount } = renderHook(() => useMessageItem(message, snapshot))
     expect(result.current.visibleLength['attempt:block']).toBe(0)
@@ -214,6 +250,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: { messages: { items: [messageWithImage], nextCursor: null } },
     } as unknown as ReturnType<typeof useMentorContext>)
     const actualFileQuery = await vi.importActual<
@@ -280,6 +317,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: { messages: { items: [messageWithImages], nextCursor: null } },
     } as unknown as ReturnType<typeof useMentorContext>)
     const actualFileQuery = await vi.importActual<
@@ -384,6 +422,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         messages: { items: [ownLearnerMessage], nextCursor: null },
       },
@@ -484,6 +523,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: { messages: { items: [learner], nextCursor: null } },
     } as unknown as ReturnType<typeof useMentorContext>)
     const createObjectURL = vi.fn(() => 'blob:quadro')
@@ -577,6 +617,7 @@ describe('useMessageItem', () => {
       shouldAnimateBlock,
       markBlockPresented,
       selectedSessionId: 'another-session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: { messages: { items: [message], nextCursor: null } },
     } as unknown as ReturnType<typeof useMentorContext>)
     renderHook(() => useMessageItem(message, snapshot))

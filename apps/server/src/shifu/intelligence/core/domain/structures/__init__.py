@@ -119,3 +119,6 @@ from .mentor_action_proposal_item import (
 from .ai_quota_policy import AiQuotaPolicy as AiQuotaPolicy
 from .ai_quota_usage import AiQuotaUsage as AiQuotaUsage
 from .ai_token_count import AiTokenCount as AiTokenCount
+from .mentor_message_ai_charge import MentorMessageAiCharge as MentorMessageAiCharge
+from .mentor_message_ai_usage import MentorMessageAiUsage as MentorMessageAiUsage
+from .mentor_session_ai_usage import MentorSessionAiUsage as MentorSessionAiUsage

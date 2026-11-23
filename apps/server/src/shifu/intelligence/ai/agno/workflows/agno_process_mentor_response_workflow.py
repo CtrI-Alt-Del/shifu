@@ -82,6 +82,9 @@ if TYPE_CHECKING:
 _UNAVAILABLE = 'Mentor response processing is unavailable.'
 _HANDOFF_CAPABILITY = 'process-mentor-response'
 _MAX_REVIEW_ITERATIONS = 2
+# TEMPORARY: the reviewer is paused because it delays the Mentor answer.
+# Set this back to True to review every answer again.
+MENTOR_REVIEW_ENABLED = False
 
 
 class _Input(BaseModel):
@@ -402,6 +405,17 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                     scope,
                     usage_recorder,
                 )
+            if not MENTOR_REVIEW_ENABLED:
+                # The review is paused, so the written candidate is published as is.
+                approved = replace(
+                    state,
+                    candidate=candidate,
+                    correction=None,
+                    approved=True,
+                    rejected=False,
+                    iteration=next_iteration,
+                )
+                return self._store(approved, 'done')
             self._record_progress.execute(
                 attempt_id, owner, MentorWorkflowStep.REVIEW_ANSWER
             )

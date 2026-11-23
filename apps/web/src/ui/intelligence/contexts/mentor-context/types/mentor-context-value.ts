@@ -50,6 +50,8 @@ export type MentorContextValue = {
   markBlockPresented(attemptId: string, blockKey: string): void
   selectedSessionId: string | null
   sessionDetail: MentorSessionDetail | null
+  /** Share of the monthly AI quota each Mentor answer spent, by message or attempt id. */
+  aiUsagePercentageByMessageId: Record<string, number>
   summary: MentorSessionSummaryState
   isSummarizingContext: boolean
   blockingActionProposalId: string | null

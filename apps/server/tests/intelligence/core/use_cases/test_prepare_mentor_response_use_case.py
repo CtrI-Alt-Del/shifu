@@ -236,6 +236,41 @@ class TestPrepareMentorResponseUseCase(_PrepareSubjectSetup):
         self.attachment_context_use_case.execute.assert_not_called()
         self.generation_limit.try_acquire.assert_not_called()
 
+    def test_should_give_the_writer_the_page_label_without_reading_it_as_context(
+        self,
+    ) -> None:
+        hint = MentorContextHint(page='gamificationAchievements')
+        queued = replace(self.attempt, context_hint=hint)
+        self.repositories.mentor_response_attempts.find_by_id_for_update.return_value = queued
+        processing = replace(queued, status=MentorResponseStatus.PROCESSING)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = processing
+        self.repositories.mentor_response_attempts.find_current.return_value = (
+            processing
+        )
+        abstention = MentorResponseBlock(
+            block_key=PrepareMentorResponseUseCase.LOCAL_ABSTENTION_BLOCK_KEY,
+            ordinal=0,
+            intent=None,
+            content='Ainda não encontrei uma resposta local confiável.',
+        )
+        self.route_provider.route.return_value = MentorRouteResult(
+            intents=(),
+            local_blocks=(abstention,),
+            generation_requests=('Em qual página eu estou?',),
+            clarification=None,
+            unanswered_requests=('Em qual página eu estou?',),
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert prepared.attachment_request is not None
+        assert prepared.attachment_request.current_page == 'Progresso, conquistas'
+        assert all(
+            'page' not in call.kwargs
+            for call in self.context_provider.read.call_args_list
+        )
+
     def test_should_prepare_attachment_generation_with_history_and_approved_prefix(
         self,
     ) -> None:

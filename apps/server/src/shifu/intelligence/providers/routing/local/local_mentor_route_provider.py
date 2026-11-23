@@ -1,5 +1,7 @@
 import hashlib
+from dataclasses import replace
 import re
+import unicodedata
 from time import perf_counter
 from uuid import uuid4
 from typing import ClassVar
@@ -56,6 +58,17 @@ class LocalMentorRouteProvider:
     _EXPANSION_TOPIC_LIMIT: ClassVar[int] = 3
     _ACTION_INTENTS: ClassVar[frozenset[MentorIntent]] = frozenset(
         {MentorIntent.ADD_SKILL, MentorIntent.REMOVE_SKILL}
+    )
+    # Lists that only distract from a hint or from the question on screen.
+    _LISTS_OFF_TOPIC_FOR_A_QUESTION: ClassVar[frozenset[MentorIntent]] = frozenset(
+        {MentorIntent.FIND_MATERIALS_ACTIVITIES, MentorIntent.EXPLAIN_ASSESSMENT}
+    )
+    _SCREEN_QUESTION_WORDS: ClassVar[re.Pattern[str]] = re.compile(
+        r'\b(?:questao|questoes|pergunta|exercicio|enunciado|alternativas?'
+        r'|opcao|opcoes|dica|dicas|nao entendi)\b'
+    )
+    _REFERENCE_ID_PREFIX: ClassVar[re.Pattern[str]] = re.compile(
+        r'^[0-7][0-9A-HJKMNP-TV-Z]{25}: ', re.MULTILINE
     )
     _FACTS: ClassVar[dict[MentorIntent, tuple[tuple[str, str], ...]]] = {
         MentorIntent.CONSULT_PROGRESS: (
@@ -134,6 +147,19 @@ class LocalMentorRouteProvider:
             except ServiceUnavailableError:
                 proposed = ()
         blocks = self._local_blocks(block_matches, answer_ids, context)
+        if MentorIntent.REQUEST_HINT in matches or self._asks_about_screen_question(
+            content, context
+        ):
+            # The writer answers about the question; fixed lists would bury it.
+            kept = [
+                block
+                for block in blocks
+                if block.intent not in self._LISTS_OFF_TOPIC_FOR_A_QUESTION
+            ]
+            blocks = [replace(block, ordinal=index) for index, block in enumerate(kept)]
+            if not generation and self._asks_about_screen_question(content, context):
+                generation = (content,)
+                unanswered = (content,)
         clarification = None
         if (
             any(
@@ -427,9 +453,29 @@ class LocalMentorRouteProvider:
         ]
         return max(scores, default=-1.0)
 
-    @staticmethod
-    def _fact_text(fields: tuple[tuple[str, str], ...], facts: dict[str, str]) -> str:
-        available = [f'{label}: {facts[key]}' for key, label in fields if key in facts]
+    @classmethod
+    def _asks_about_screen_question(
+        cls, content: str, context: MentorContextSnapshot
+    ) -> bool:
+        """A message about the activity question the learner has open."""
+        if not any(key == 'activity_questions' for key, _ in context.facts):
+            return False
+        decomposed = unicodedata.normalize('NFKD', content.casefold())
+        normalized = ''.join(
+            char for char in decomposed if not unicodedata.combining(char)
+        )
+        return cls._SCREEN_QUESTION_WORDS.search(normalized) is not None
+
+    @classmethod
+    def _fact_text(
+        cls, fields: tuple[tuple[str, str], ...], facts: dict[str, str]
+    ) -> str:
+        # Learners read titles; the reference identifiers stay internal.
+        available = [
+            f'{label}: {cls._REFERENCE_ID_PREFIX.sub("", facts[key])}'
+            for key, label in fields
+            if key in facts
+        ]
         return (
             '\n\n'.join(available)
             if available

@@ -50,6 +50,9 @@ from shifu.intelligence.ai.agno.outputs import (
     MentorAttachmentSourceOutput,
 )
 from shifu.intelligence.ai.agno.workflows import AgnoProcessMentorResponseWorkflow
+from shifu.intelligence.ai.agno.workflows import (
+    agno_process_mentor_response_workflow as review_workflow_module,
+)
 from shifu.intelligence.ai.data.learner_memory_resources import LearnerMemoryResources
 from shifu.intelligence.ai.data.mentor_resources import MentorResources
 from shifu.intelligence.ai.data.mentor_inference_usage import report_inference_usage
@@ -796,6 +799,12 @@ def build_harness(
     )
 
 
+@pytest.fixture(autouse=True)
+def review_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The review is paused in the app for now; these tests still cover it.
+    monkeypatch.setattr(review_workflow_module, 'MENTOR_REVIEW_ENABLED', True)
+
+
 @pytest.fixture
 def harness(
     intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
@@ -808,6 +817,21 @@ def block_keys(snapshot: MentorResponseSnapshot) -> list[str]:
 
 
 class TestAgnoProcessMentorResponseWorkflow:
+    def test_publishes_the_written_answer_without_review_while_it_is_paused(
+        self, harness: Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(review_workflow_module, 'MENTOR_REVIEW_ENABLED', False)
+        session_id, attempt_id = harness.submit()
+
+        harness.run(attempt_id)
+
+        snapshot = harness.snapshot(session_id)
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert block_keys(snapshot) == ['generated-0']
+        assert snapshot.blocks[0].content == FIRST_ANSWER
+        assert harness.usage_keys(attempt_id) == {'generated-0:writer:0'}
+        harness.reviewer.review.assert_not_called()
+
     def test_publishes_the_answer_approved_on_the_first_version(
         self, harness: Harness, redis_fixture: RedisFixture
     ) -> None:
@@ -1848,8 +1872,9 @@ class TestAgnoProcessMentorResponseWorkflowActions:
 
         harness.run(attempt_id)
 
-        assert harness.status(attempt_id) is MentorResponseStatus.FAILED
-        assert harness.snapshot(session_id).blocks == ()
+        # The label is dropped: the text is published as a plain answer.
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert [block.intent for block in harness.snapshot(session_id).blocks] == [None]
         assert harness.proposals(session_id) == []
         assert MentorResponseEventKind.ACTION not in [
             event.kind for event in harness.events(session_id)

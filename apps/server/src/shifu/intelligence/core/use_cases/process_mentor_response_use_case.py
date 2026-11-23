@@ -3,12 +3,15 @@ from contextlib import contextmanager, suppress
 from contextvars import ContextVar, copy_context
 from math import isfinite
 from threading import Event, Thread
+from shifu.intelligence.core.domain.structures.mentor_context_hint import (
+    mentor_context_read_hints,
+)
 from shifu.intelligence.core.interfaces import (
     AiQuotaCalendarProvider,
     MentorTelemetryProvider,
 )
 from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
-from dataclasses import asdict, replace
+from dataclasses import replace
 import re
 import unicodedata
 from datetime import timedelta
@@ -322,7 +325,7 @@ class ProcessMentorResponseUseCase:
         )
         if learner is None:
             return self._fail(attempt)
-        hints = asdict(attempt.context_hint) if attempt.context_hint else {}
+        hints = mentor_context_read_hints(attempt.context_hint)
         explicit = tuple(
             dict.fromkeys(
                 re.findall(r'\b[0-7][0-9A-HJKMNP-TV-Z]{25}\b', learner.content)
@@ -414,7 +417,7 @@ class ProcessMentorResponseUseCase:
     ) -> bool:
         if any(existing.block_key == block.block_key for existing in approved):
             return True
-        hints = asdict(attempt.context_hint) if attempt.context_hint else {}
+        hints = mentor_context_read_hints(attempt.context_hint)
         self._assert_access(attempt)
         fresh_context = self._read_context(
             attempt.account_id, expected_context.resolved_references, **hints

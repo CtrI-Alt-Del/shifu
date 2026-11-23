@@ -19,6 +19,7 @@ export const MentorChatHeader = ({
   title,
   isDraft = false,
   surface,
+  onNewConversation,
   onShowHistory,
   onShowConversation,
   onClose,
@@ -58,6 +59,17 @@ export const MentorChatHeader = ({
             >
               <Icon name='expand' className='size-4' />
               <span className='hidden sm:inline'>Abrir conversa</span>
+            </Button>
+          ) : null}
+          {!isHistoryVisible && !isDraft ? (
+            <Button
+              aria-label='Nova conversa'
+              className='size-11 shrink-0 bg-muted! p-0!'
+              onClick={onNewConversation}
+              title='Nova conversa'
+              variant='ghost'
+            >
+              <Icon name='plus' className='size-4' />
             </Button>
           ) : null}
           {!isHistoryVisible && isDraft ? (

@@ -31,6 +31,7 @@ import type {
   MentorSessionSummaryState,
 } from '@/core/intelligence/mentor-session-summary'
 import type { AiQuotaUsage } from '@/core/intelligence/ai-quota-usage'
+import type { MentorMessageAiUsage } from '@/core/intelligence/mentor-message-ai-usage'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -236,6 +237,10 @@ type MentorResponseSnapshotDto = {
   last_sequence: number
   failure_code: string | null
 }
+type MentorSessionAiUsageDto = {
+  items: { message_id: string; attempt_id: string; percentage: number }[]
+}
+
 type AiQuotaUsageDto = {
   percentage: number
   status: AiQuotaUsage['status']
@@ -350,6 +355,8 @@ export const IntelligenceService = (
           competency_id: hint.competencyId,
           material_id: hint.materialId,
           activity_id: hint.activityId,
+          ...(hint.page ? { page: hint.page } : {}),
+          ...(hint.question ? { question: hint.question } : {}),
         }
       : null
   }
@@ -826,6 +833,22 @@ export const IntelligenceService = (
       )
       if (response.isFailure) response.throwError()
       return mapDetail(response.body)
+    },
+
+    async getMentorSessionAiUsage(
+      accessToken: string,
+      sessionId: string,
+    ): Promise<MentorMessageAiUsage[]> {
+      const response = await restClient.get<MentorSessionAiUsageDto>(
+        `/intelligence/mentor-sessions/${sessionId}/ai-usage`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return response.body.items.map((item) => ({
+        messageId: item.message_id,
+        attemptId: item.attempt_id,
+        percentage: item.percentage,
+      }))
     },
 
     async getMentorSessionSummary(

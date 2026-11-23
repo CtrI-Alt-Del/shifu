@@ -7,6 +7,10 @@ export type MentorContextHint = {
   competencyId: string | null
   materialId: string | null
   activityId: string | null
+  /** Route name of the page the learner is looking at, e.g. `learningGoal`. */
+  page?: string | null
+  /** Key of the activity question on screen. */
+  question?: string | null
 }
 export type MentorResponseStatus =
   | 'queued'

@@ -3,6 +3,7 @@ import { useLocation, useMatches } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { ROUTES } from '@/constants/routes'
+import { useMentorScreenQuestion } from '@/ui/shared/hooks/use-mentor-screen-question'
 import {
   ACCOUNT_APPEARANCES,
   type AccountAppearance,
@@ -38,6 +39,7 @@ export function useRootLayout(): {
   const location = useLocation()
   const matches = useMatches()
   const [isHydrated, setIsHydrated] = useState(false)
+  const screenQuestion = useMentorScreenQuestion()
   const rootEntry = findMainPageEntry(matches)
   const isPublic = isPublicRoute(location.pathname) || rootEntry?.mode === 'public'
   const account = isPublic
@@ -54,9 +56,15 @@ export function useRootLayout(): {
     account,
     isHydrated,
     isPublic,
-    mentorContextHint: location.pathname.startsWith('/learning/goals/')
-      ? findMentorContextHint(matches)
-      : null,
+    mentorContextHint: withScreenQuestion(
+      withMentorPage(
+        location.pathname.startsWith('/learning/goals/')
+          ? findMentorContextHint(matches)
+          : null,
+        findMentorPage(location.pathname),
+      ),
+      screenQuestion,
+    ),
     theme: isPublic ? 'dark' : resolveAccountTheme(account),
   }
 }
@@ -133,4 +141,44 @@ function findMentorContextHint(
     materialId: identifier('materialId'),
     activityId: identifier('activityId'),
   }
+}
+
+const EMPTY_MENTOR_HINT: MentorContextHint = {
+  goalId: null,
+  skillId: null,
+  competencyId: null,
+  materialId: null,
+  activityId: null,
+}
+
+function withMentorPage(
+  hint: MentorContextHint | null,
+  page: keyof typeof ROUTES | null,
+): MentorContextHint | null {
+  if (!page) return hint
+  return { ...(hint ?? EMPTY_MENTOR_HINT), page }
+}
+
+function withScreenQuestion(
+  hint: MentorContextHint | null,
+  question: string | null,
+): MentorContextHint | null {
+  return hint?.activityId && question ? { ...hint, question } : hint
+}
+
+// Routes with fewer parameters win, so "/skills/add" is not read as a Skill id.
+const MENTOR_PAGE_PATTERNS = Object.entries(ROUTES)
+  .filter(([name]) => name !== 'root')
+  .map(([name, path]) => ({
+    name,
+    params: (path.match(/\$/g) ?? []).length,
+    pattern: new RegExp(
+      `^${path.replace(/\/+$/, '').replace(/\$[A-Za-z]+/g, '[^/]+')}/?$`,
+    ),
+  }))
+  .sort((first, second) => first.params - second.params)
+
+export function findMentorPage(pathname: string): keyof typeof ROUTES | null {
+  const match = MENTOR_PAGE_PATTERNS.find(({ pattern }) => pattern.test(pathname))
+  return (match?.name as keyof typeof ROUTES | undefined) ?? null
 }

@@ -30,6 +30,7 @@ import { useUploadMentorAttachmentAction } from '@/ui/intelligence/hooks/use-upl
 import { useMentorAttachmentBatchQuery } from '@/ui/intelligence/hooks/use-mentor-attachment-batch-query'
 import { useRemoveMentorAttachmentAction } from '@/ui/intelligence/hooks/use-remove-mentor-attachment-action'
 import { useMentorSessionQuery } from '@/ui/intelligence/hooks/use-mentor-session-query'
+import { useMentorSessionAiUsageQuery } from '@/ui/intelligence/hooks/use-mentor-session-ai-usage-query'
 import { useMentorSessionsQuery } from '@/ui/intelligence/hooks/use-mentor-sessions-query'
 import { useRemoveMentorSessionAction } from '@/ui/intelligence/hooks/use-remove-mentor-session-action'
 import { useRenameMentorSessionAction } from '@/ui/intelligence/hooks/use-rename-mentor-session-action'
@@ -152,6 +153,17 @@ export function useMentorContextProvider(
 
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [sessionDetail, setSessionDetail] = useState<MentorSessionDetail | null>(null)
+  const { mentorSessionAiUsage } = useMentorSessionAiUsageQuery(
+    accountEmail,
+    selectedSessionId,
+  )
+  // The live answer is drawn under its attempt id, a stored one under its message id.
+  const aiUsagePercentageByMessageId = Object.fromEntries(
+    mentorSessionAiUsage.flatMap((usage) => [
+      [usage.messageId, usage.percentage],
+      [usage.attemptId, usage.percentage],
+    ]),
+  )
   const [sessionsPage, setSessionsPage] = useState(EMPTY_SESSIONS_PAGE)
   const [draft, setDraft] = useState('')
   const [draftAttachments, setDraftAttachments] = useState<MentorDraftAttachment[]>([])
@@ -1319,6 +1331,7 @@ export function useMentorContextProvider(
     markBlockPresented,
     selectedSessionId,
     sessionDetail,
+    aiUsagePercentageByMessageId,
     summary: sessionDetail?.summary ?? EMPTY_SUMMARY,
     isSummarizingContext,
     blockingActionProposalId,

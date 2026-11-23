@@ -31,3 +31,6 @@ from .mentor_session_summary_mapper import (
 )
 from .ai_quota_charge_mapper import AiQuotaChargeMapper as AiQuotaChargeMapper
 from .ai_quota_month_mapper import AiQuotaMonthMapper as AiQuotaMonthMapper
+from .mentor_message_ai_charge_mapper import (
+    MentorMessageAiChargeMapper as MentorMessageAiChargeMapper,
+)
