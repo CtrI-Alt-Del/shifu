@@ -54,7 +54,7 @@ class DeliverCommunicationJob:
     """Run at most five provider attempts for one stable communication ID."""
 
     FUNCTION_ID: ClassVar[str] = 'communication-deliver'
-    _EVENT_NAME: ClassVar[str] = CommunicationQueuedEvent.NAME
+    _EVENT_NAME: ClassVar[str] = CommunicationQueuedEvent.EVENT_NAME
     _MAX_ATTEMPTS: ClassVar[int] = DeliverCommunicationUseCase.MAX_ATTEMPTS
 
     @staticmethod

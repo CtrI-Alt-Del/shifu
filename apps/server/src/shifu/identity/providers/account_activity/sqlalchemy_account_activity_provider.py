@@ -26,6 +26,15 @@ from shifu.shared.database.sqlalchemy.account_activity_scope import (
 _EXTERNAL_EFFECT_OPERATION_PATTERN = r'[a-z][a-z0-9_.-]{0,119}'
 
 
+async def _wait_for_completion[T](future: asyncio.Future[T]) -> T:
+    while not future.done():
+        try:
+            await asyncio.shield(future)
+        except asyncio.CancelledError:
+            continue
+    return future.result()
+
+
 @asynccontextmanager
 async def _non_blocking_context[ContextValue](
     manager: AbstractContextManager[ContextValue],
@@ -55,10 +64,7 @@ async def _non_blocking_context[ContextValue](
         try:
             value = await asyncio.shield(enter_future)
         except asyncio.CancelledError as cancelled:
-            try:
-                await asyncio.shield(enter_future)
-            except asyncio.CancelledError:
-                raise cancelled from None
+            await _wait_for_completion(enter_future)
             exit_future = loop.run_in_executor(
                 executor,
                 exit_manager,
@@ -66,8 +72,8 @@ async def _non_blocking_context[ContextValue](
                 cancelled,
                 cancelled.__traceback__,
             )
-            await asyncio.shield(exit_future)
-            raise
+            await _wait_for_completion(exit_future)
+            raise cancelled from None
 
         bound_activity = activity_context.run(AccountActivityScope.current_context)
         if bound_activity is not None:
@@ -206,9 +212,11 @@ class SqlalchemyAccountActivityProvider:
                 raise ConflictError(
                     'O resultado do efeito externo ainda não foi reconciliado.'
                 )
-            yield False
-            with self._identity_database.transaction() as repositories:
-                repositories.external_effect_receipts.settle(account_id, effect_id)
+            try:
+                yield False
+            finally:
+                with self._identity_database.transaction() as repositories:
+                    repositories.external_effect_receipts.settle(account_id, effect_id)
             return
         if receipt.state != 'in_flight' or not receipt.is_new:
             raise ConflictError(

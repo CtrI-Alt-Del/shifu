@@ -70,7 +70,7 @@ class TestDeleteAccountUseCase:
         assert self.account.access_version == 5
         assert self.account.display_name == 'Conta encerrada'
         assert self.account.email.endswith('@invalid.local')
-        assert self.account.password_hash == '!disabled!'
+        assert self.account.password_hash == ''
         self.hasher.verify.assert_called_once_with(self.current_password, password_hash)
         self.repositories.accounts.update.assert_called_once_with(self.account)
         self.repositories.external_effect_receipts.has_unresolved_for_account_id.assert_called_once_with(

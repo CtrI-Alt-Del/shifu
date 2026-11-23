@@ -12,5 +12,5 @@ class CommunicationQueuedPayload:
 
 @structure
 class CommunicationQueuedEvent(Event[CommunicationQueuedPayload]):
-    NAME: ClassVar[str] = 'communication/communication.queued'
-    name: str = field(default=NAME, init=False)
+    EVENT_NAME: ClassVar[str] = 'communication/communication.queued'
+    name: str = field(default=EVENT_NAME, init=False)

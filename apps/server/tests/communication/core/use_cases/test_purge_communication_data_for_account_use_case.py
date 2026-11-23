@@ -38,12 +38,12 @@ class TestPurgeCommunicationDataForAccountUseCase:
         self.subject.execute('01JACCOUNT000000000000000001')
 
         self.repositories.events.remove_by_payload_values.assert_any_call(
-            CommunicationQueuedEvent.NAME,
+            CommunicationQueuedEvent.EVENT_NAME,
             'communication_id',
             communication_ids,
         )
         self.repositories.events.remove_by_payload_values.assert_any_call(
-            CommunicationDeliveryStateChangedEvent.NAME,
+            CommunicationDeliveryStateChangedEvent.EVENT_NAME,
             'communication_id',
             communication_ids,
         )

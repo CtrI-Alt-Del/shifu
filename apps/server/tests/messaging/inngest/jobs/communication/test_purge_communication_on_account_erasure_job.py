@@ -109,19 +109,19 @@ class TestPurgeCommunicationOnAccountErasureJob:
                 [
                     _outbox_event(
                         queued_event_id,
-                        CommunicationQueuedEvent.NAME,
+                        CommunicationQueuedEvent.EVENT_NAME,
                         communication_id,
                         now,
                     ),
                     _outbox_event(
                         state_event_id,
-                        CommunicationDeliveryStateChangedEvent.NAME,
+                        CommunicationDeliveryStateChangedEvent.EVENT_NAME,
                         communication_id,
                         now,
                     ),
                     _outbox_event(
                         other_event_id,
-                        CommunicationQueuedEvent.NAME,
+                        CommunicationQueuedEvent.EVENT_NAME,
                         other_communication_id,
                         now,
                     ),

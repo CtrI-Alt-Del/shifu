@@ -108,6 +108,45 @@ class TestReconcileAccountExternalEffectReceiptUseCase:
 
 
 class TestReconcileAccountExternalEffectReceiptPostgres:
+    def test_should_settle_a_durable_receipt_when_recovery_exits_early(
+        self, postgres_database: PostgresDatabase
+    ) -> None:
+        database = SqlalchemyIdentityDatabase(postgres_database.engine)
+        account = AccountFaker.fake()
+        with database.transaction() as repositories:
+            repositories.accounts.add(account)
+
+        account_activity = SqlalchemyAccountActivityProvider(
+            database, postgres_database.engine
+        )
+        effect_id = uuid4()
+        operation = 'learning.code-rubric.assess'
+        with (
+            pytest.raises(RuntimeError, match='external output persisted'),
+            account_activity.external_effect(account.id, effect_id, operation),
+        ):
+            raise RuntimeError('external output persisted')
+
+        with (
+            pytest.raises(RuntimeError, match='recovery consumer failed'),
+            account_activity.external_effect(
+                account.id,
+                effect_id,
+                operation,
+                allow_durable_result_recovery=True,
+            ) as should_run,
+        ):
+            assert should_run is False
+            raise RuntimeError('recovery consumer failed')
+
+        with database.transaction() as repositories:
+            assert (
+                repositories.external_effect_receipts.has_unresolved_for_account_id(
+                    account.id
+                )
+                is False
+            )
+
     def test_unknown_receipt_must_be_stale_before_it_can_be_reconciled(
         self, postgres_database: PostgresDatabase
     ) -> None:

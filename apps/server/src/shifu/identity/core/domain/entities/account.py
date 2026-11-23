@@ -136,7 +136,7 @@ class Account:
         self.email = EmailAddress.create(
             replacement_email, error_type=InvalidEmailError
         ).value
-        self.password_hash = '!disabled!'
+        self.password_hash = ''
         self.time_zone = None
         self._clear_retained_session()
         self.updated_at = updated_at

@@ -13,8 +13,8 @@ class PurgeCommunicationDataForAccountUseCase:
     """Delete account-owned communications, attempts, and outbox payloads."""
 
     _OUTBOX_EVENT_NAMES: ClassVar[tuple[str, ...]] = (
-        CommunicationQueuedEvent.NAME,
-        CommunicationDeliveryStateChangedEvent.NAME,
+        CommunicationQueuedEvent.EVENT_NAME,
+        CommunicationDeliveryStateChangedEvent.EVENT_NAME,
     )
 
     def __init__(self, communication_database: CommunicationDatabase) -> None:

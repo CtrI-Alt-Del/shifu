@@ -39,8 +39,8 @@ class CommunicationDeliveryStateChangedPayload:
 class CommunicationDeliveryStateChangedEvent(
     Event[CommunicationDeliveryStateChangedPayload]
 ):
-    NAME: ClassVar[str] = 'communication.delivery-state-changed'
-    name: str = field(default=NAME, init=False)
+    EVENT_NAME: ClassVar[str] = 'communication.delivery-state-changed'
+    name: str = field(default=EVENT_NAME, init=False)
 
 
 CommunicationDeliveryStateChanged = CommunicationDeliveryStateChangedEvent
