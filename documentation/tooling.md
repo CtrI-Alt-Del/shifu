@@ -223,9 +223,9 @@ does not produce the public key, so always set both from the same generated pair
 `SHIFU_WEB_PUSH_TIMEOUT_SECONDS` is optional.
 
 To demonstrate the reminder locally, run the API, Inngest and the web app, then run
-`uv run poe reminders:send-now <email>` from `apps/server`. It skips only the hour
-check, keeps every other rule, and refuses to run unless `SHIFU_SERVER_APP_MODE` is
-`local`. Before requesting, it clears the account's reminder for the current local
+`uv run poe reminders:send-now <email>` from `apps/server`. It skips the hour check
+and the check that the learner has not practiced today, keeps every other rule, and
+refuses to run unless `SHIFU_SERVER_APP_MODE` is `local`. Before requesting, it clears the account's reminder for the current local
 day, whatever its status, so every run delivers again. The scheduled flow never
 clears reminders.
 

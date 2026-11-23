@@ -47,6 +47,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(readText(payload.title) ?? DEFAULT_TITLE, {
       body: readText(payload.body),
       tag: readText(payload.tag),
+      // A reminder that replaces an unread one with the same tag alerts again.
+      renotify: Boolean(readText(payload.tag)),
       icon: '/favicon.svg',
       data: { url: readText(payload.url) ?? DEFAULT_URL },
     }),

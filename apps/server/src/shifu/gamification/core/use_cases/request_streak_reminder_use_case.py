@@ -21,6 +21,9 @@ class RequestStreakReminderUseCase:
     retry evaluates the same slot. The request changes no Gamification state:
     it grants no XP and touches no streak, calendar or achievement. It returns
     `True` only when a requested event was recorded.
+
+    The local demonstration can skip the hour check and the practiced-today check.
+    The scheduled flow never skips either.
     """
 
     def __init__(
@@ -32,7 +35,12 @@ class RequestStreakReminderUseCase:
         self._active_account_provider = active_account_provider
 
     def execute(
-        self, account_id: str, *, slot_start: datetime, ignore_hour: bool = False
+        self,
+        account_id: str,
+        *,
+        slot_start: datetime,
+        ignore_hour: bool = False,
+        ignore_today_practice: bool = False,
     ) -> bool:
         slot = require_reminder_slot_start(slot_start)
 
@@ -65,7 +73,7 @@ class RequestStreakReminderUseCase:
                     )
                 )
             )
-            if local_date in dates:
+            if local_date in dates and not ignore_today_practice:
                 return False
             run = current_practice_run(dates, today=local_date)
             if len(run) < 1:

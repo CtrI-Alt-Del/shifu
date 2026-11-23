@@ -1,7 +1,7 @@
 """Local-only demonstration: request the streak reminder for one account now.
 
-The command skips only the reminder-hour check. Every other eligibility rule and the
-normal delivery path (outbox, Inngest, Communication) stay unchanged, so the API and
+The command skips the reminder-hour check and the check that the learner has not
+practiced today. Every other eligibility rule and the normal delivery path (outbox, Inngest, Communication) stay unchanged, so the API and
 Inngest must be running for a notification to arrive.
 
 Before requesting, it clears the account's reminder for the current local day,
@@ -82,6 +82,7 @@ def run(
             account.id,
             slot_start=floor_to_slot(now or datetime.now(UTC)),
             ignore_hour=True,
+            ignore_today_practice=True,
         )
     finally:
         engine.dispose()
