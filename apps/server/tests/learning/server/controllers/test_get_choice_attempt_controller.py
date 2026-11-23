@@ -29,7 +29,9 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.fakers.learning.entities import SkillExperienceFaker
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.learning.core.domain.enums import ActivityAttemptKind, SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     CodeAnswer,
@@ -94,6 +96,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -132,6 +137,15 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        repositories.accounts.add(
+            AccountFaker.fake(
+                id=SEED_ACCOUNT_ID,
+                email='ordering-controller@example.test',
+                access_version=1,
+            )
+        )
     curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
@@ -197,7 +211,15 @@ class TestGetChoiceAttemptController:
             client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
         )
         assert detail.status_code == 200, detail.json()
-        revision = cast('str', detail.json()['activity_revision'])
+        detail_body = detail.json()
+        revision = cast('str', detail_body['activity_revision'])
+        ordering_question = cast('list[dict[str, object]]', detail_body['questions'])[0]
+        initial_order = cast(
+            'list[str]', ordering_question['initial_ordered_step_keys']
+        )
+        assert ordering_question['kind'] == 'ordering'
+        assert set(initial_order) == {'first', 'second', 'third'}
+        assert 'accepted_orders' not in ordering_question
         passage_key = '592f83f0-e269-4b62-9467-e3e17d2bb001'
         submitted_orders = {
             'q1': ['second', 'first', 'third'],
