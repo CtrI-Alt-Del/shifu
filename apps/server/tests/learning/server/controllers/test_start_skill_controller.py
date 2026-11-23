@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.learning.database.sqlalchemy.models import SkillExperienceModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -47,6 +48,9 @@ class _Authentication:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='start-skill-test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -64,6 +68,11 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        for account in seed.accounts:
+            if repositories.accounts.find_by_id(account.id) is None:
+                repositories.accounts.add(account)
     curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
