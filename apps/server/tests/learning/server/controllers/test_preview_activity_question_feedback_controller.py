@@ -30,6 +30,10 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.core.domain.enums import SkillExperienceStatus
+from shifu.fakers.identity.entities.account_faker import AccountFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import (
     AuthenticatedUser,
@@ -77,6 +81,7 @@ if TYPE_CHECKING:
 
 _ACTIVITY_ID = '01SHF000000000000000000091'
 _QUESTION_KEY = 'q3'
+_OTHER_ACCOUNT_ID = '01SHF000000000000000009999'
 
 
 class _TestAuthenticationProvider:
@@ -87,6 +92,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='preview-feedback-owner-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -95,9 +103,12 @@ class _OtherAccountAuthenticationProvider:
         if access_token != 'test-access-token':
             raise AuthorizationError
         return AuthenticatedUser(
-            account_id='01SHF000000000000000009999',
+            account_id=_OTHER_ACCOUNT_ID,
             display_name='Outra pessoa',
             time_zone='America/Sao_Paulo',
+            session_id='preview-feedback-other-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -134,6 +145,14 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    with SqlalchemyIdentityDatabase(postgres_database.engine).transaction() as repos:
+        for account in seed.accounts:
+            if repos.accounts.find_by_id(account.id) is None:
+                repos.accounts.add(account)
+        if repos.accounts.find_by_id(_OTHER_ACCOUNT_ID) is None:
+            repos.accounts.add(
+                AccountFaker.fake(id=_OTHER_ACCOUNT_ID, access_version=1)
+            )
     curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
