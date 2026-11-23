@@ -5,27 +5,27 @@
 
 ## Como ler este relatório
 
-Os números vêm do Jira (quadro 331, `Sprint = 499`), consultado em 22/11/2026 às 23:38. Nas Sprints 1 e 2, o fechamento seguiu uma decisão do solicitante. Aqui não há essa decisão registrada. **Todos os estados são os do Jira.**
+Os números vêm do Jira (quadro 331, `Sprint = 499`), consultado em 22/11/2026 às 23:38. A decisão de fechamento é do solicitante: **todas as 17 tasks são consideradas prontas**. As 3 User Stories não entram nessa decisão e seguem o estado do Jira.
 
-O Jira ainda mostra a sprint como `active`, mesmo depois do fim configurado (23:30). Ela precisa ser encerrada no quadro.
+O estado real do Jira é diferente e aparece em cada tabela. Ele mostra 14 tasks `Concluído` e 3 em `Code Review`. O Jira também ainda mostra a sprint como `active`, mesmo depois do fim configurado (23:30). Ela precisa ser encerrada no quadro.
 
 ## Resumo executivo
 
-**15 dos 20 tickets estão em `Concluído` (75%).** Cinco ficaram abertos: uma história em `A fazer` (SHIFU-22), uma em `Fazendo` (SHIFU-53) e três tasks em `Code Review` (SHIFU-98, SHIFU-121 e SHIFU-131).
+**18 dos 20 tickets estão prontos no fechamento (90%):** as 17 tasks e a história SHIFU-54. Ficaram abertas duas histórias: a SHIFU-22, em `A fazer`, e a SHIFU-53, em `Fazendo`. No Jira, só 15 tickets estão em `Concluído`.
 
 A sprint teve 3 User Stories e 17 tasks. Só uma história tem pontos: a SHIFU-54, com **8 SP**, concluída. As outras duas não têm estimativa. Por isso não dá para comparar a Sprint 3 com os 58 SP da Sprint 1 nem com os 197 SP da Sprint 2.
 
 O trabalho se concentrou em cinco frentes:
 
-- **Novos formatos de Atividade:** tradução, lacunas, associação, ordenação e Preparação Prática culinária.
+- **Novos formatos de Atividade:** tradução, lacunas, associação, ordenação, Preparação Prática culinária e escolha por imagem.
 - **IA e cota:** cota compartilhada e página Uso da IA.
 - **Progresso:** resumo de evolução da Habilidade concluída.
-- **Conta e engajamento:** aparência, landing page e lembrete de sequência por push.
+- **Conta e engajamento:** aparência, exclusão definitiva da conta, landing page e lembrete de sequência por push.
 - **Plataforma e relatórios de nuvem:** CD de staging, SonarCloud e três relatórios sobre armazenamento em nuvem.
 
 ## Requisitos entregues
 
-Itens em `Concluído` no Jira.
+Itens marcados com * estão prontos por decisão do solicitante e ainda não estão em `Concluído` no Jira (veja a próxima seção).
 
 ### Atividades e práticas
 
@@ -34,6 +34,7 @@ Itens em `Concluído` no Jira.
 - Questões de associação de palavras e traduções (SHIFU-124).
 - Questões de ordenação de etapas (SHIFU-129).
 - Questões de Preparação Prática culinária (SHIFU-130).
+- Questões de escolha por imagem (SHIFU-131*).
 
 ### IA e cota
 
@@ -47,6 +48,8 @@ Itens em `Concluído` no Jira.
 ### Conta e engajamento
 
 - Preferência de aparência em Minha conta (SHIFU-119).
+- Exclusão definitiva da conta e eliminação coordenada dos dados (SHIFU-98*).
+- Landing page pública, com foco em evolução visível (SHIFU-121*).
 - Lembrete de sequência por push no navegador, no horário escolhido (SHIFU-132).
 
 ### Plataforma e operação
@@ -60,15 +63,22 @@ Itens em `Concluído` no Jira.
 - Relatório de RDS, com banco espelhando o staging (SHIFU-127).
 - Relatório de DynamoDB e análise comparativa, com eventos do Shifu (SHIFU-128).
 
-## O que ficou aberto
+## Prontas por decisão, sem `Concluído` no Jira
 
-| Chave | Item | Estado no Jira | Situação |
+Três tasks estão em `Code Review` no Jira. O relatório as considera prontas por decisão do solicitante. A revisão ainda não aconteceu, e nenhum dos três PRs foi mesclado.
+
+| Chave | Task | Estado no Jira | Situação |
 | --- | --- | --- | --- |
-| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | História: Compreender o resultado e receber orientação pedagógica | A fazer | Sem responsável, sem estimativa e sem tasks vinculadas. Não foi iniciada. |
-| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | História: Concluir e revisar uma Habilidade preservando seu histórico | Fazendo | A task SHIFU-125 está concluída. Os critérios da história ainda não foram aceitos. Sem estimativa. |
 | [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Exclusão definitiva da conta e eliminação coordenada dos dados | Code Review | [PR 61](https://github.com/CtrI-Alt-Del/shifu/pull/61) aberto como rascunho. A interface já foi mesclada no [PR 47](https://github.com/CtrI-Alt-Del/shifu/pull/47). |
 | [SHIFU-121](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-121) | Landing page pública com foco em evolução visível | Code Review | [PR 65](https://github.com/CtrI-Alt-Del/shifu/pull/65) aberto. |
 | [SHIFU-131](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-131) | Questões de escolha por imagem | Code Review | [PR 64](https://github.com/CtrI-Alt-Del/shifu/pull/64) aberto. Sem responsável no Jira. |
+
+## O que ficou aberto
+
+| Chave | História | Estado no Jira | Situação |
+| --- | --- | --- | --- |
+| [SHIFU-22](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-22) | Compreender o resultado e receber orientação pedagógica | A fazer | Sem responsável, sem estimativa e sem tasks vinculadas. Não foi iniciada. |
+| [SHIFU-53](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-53) | Concluir e revisar uma Habilidade preservando seu histórico | Fazendo | A task SHIFU-125 está concluída. Os critérios da história ainda não foram aceitos. Sem estimativa. |
 
 ## User Stories da Sprint
 
@@ -82,16 +92,16 @@ Itens em `Concluído` no Jira.
 
 ## Tasks
 
-O Jira contém 17 tasks, sem pontos próprios. **14 estão concluídas.**
+O Jira contém 17 tasks, sem pontos próprios. **As 17 são consideradas prontas no fechamento; 14 estão em `Concluído` no Jira.**
 
-| Chave | Task | Tipo | Responsável | Estado | Resolvida em |
+| Chave | Task | Tipo | Responsável | Estado no Jira | Resolvida em |
 | --- | --- | --- | --- | --- | --- |
 | [SHIFU-85](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-85) | Implementar CD de Terraform e aplicações do Shifu para staging | Logical Task | João Pedro Carvalho | Concluído | 06/11 |
 | [SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87) | Integrar SonarCloud ao CI do Web e da API com cobertura, quality gate e comentários nos PRs | Logical Task | João Pedro Carvalho | Concluído | 15/11 |
-| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | gabrielsoliveira1606 | Code Review | — |
+| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | gabrielsoliveira1606 | **Code Review** | — |
 | [SHIFU-118](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-118) | Implementar página Uso da IA e indicador de cota no cabeçalho | Dev Task | João Pedro Carvalho | Concluído | 15/11 |
 | [SHIFU-119](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-119) | Implementar preferência de aparência em Minha conta | Dev Task | Kauan Fonseca | Concluído | 22/11 |
-| [SHIFU-121](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-121) | Implementar landing page pública do Shifu com foco em evolução visível | Dev Task | João Gabriel | Code Review | — |
+| [SHIFU-121](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-121) | Implementar landing page pública do Shifu com foco em evolução visível | Dev Task | João Gabriel | **Code Review** | — |
 | [SHIFU-122](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-122) | Implementar questões de tradução com digitação e ditado opcional | Dev Task | Kauan Fonseca | Concluído | 19/11 |
 | [SHIFU-123](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-123) | Implementar questões de lacunas com banco de palavras e arrastar e soltar | Dev Task | Kauan Fonseca | Concluído | 19/11 |
 | [SHIFU-124](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-124) | Implementar questões de associação de palavras e traduções | Dev Task | Kauan Fonseca | Concluído | 21/11 |
@@ -101,20 +111,20 @@ O Jira contém 17 tasks, sem pontos próprios. **14 estão concluídas.**
 | [SHIFU-128](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-128) | Entregar o relatório de DynamoDB e a análise comparativa da atividade de armazenamento em nuvem, com eventos do Shifu | Logical Task | gabrielsoliveira1606 | Concluído | 21/11 |
 | [SHIFU-129](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-129) | Implementar questões de ordenação de etapas | Dev Task | João Gabriel | Concluído | 21/11 |
 | [SHIFU-130](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-130) | Implementar questões de Preparação Prática culinária | Dev Task | João Gabriel | Concluído | 22/11 |
-| [SHIFU-131](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-131) | Implementar questões de escolha por imagem | Dev Task | — | Code Review | — |
+| [SHIFU-131](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-131) | Implementar questões de escolha por imagem | Dev Task | — | **Code Review** | — |
 | [SHIFU-132](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-132) | Implementar lembrete de sequência por push no navegador com horário escolhido | Dev Task | João Pedro Carvalho | Concluído | 21/11 |
 
 ## Distribuição do trabalho
 
-| Responsável | Tasks | Concluídas |
-| --- | ---: | ---: |
-| João Pedro Carvalho | 4 | 4 |
-| Kauan Fonseca | 4 | 4 |
-| gabrielsoliveira1606 | 4 | 3 |
-| João Gabriel | 3 | 2 |
-| Thigz | 1 | 1 |
-| Sem responsável | 1 | 0 |
-| **Total** | **17** | **14** |
+| Responsável | Tasks | Prontas no fechamento | Concluídas no Jira |
+| --- | ---: | ---: | ---: |
+| João Pedro Carvalho | 4 | 4 | 4 |
+| Kauan Fonseca | 4 | 4 | 4 |
+| gabrielsoliveira1606 | 4 | 4 | 3 |
+| João Gabriel | 3 | 3 | 2 |
+| Thigz | 1 | 1 | 1 |
+| Sem responsável | 1 | 1 | 0 |
+| **Total** | **17** | **17** | **14** |
 
 As três histórias não têm responsável no Jira, então não entram na tabela.
 
@@ -126,30 +136,32 @@ Quatro itens mudaram de responsável em relação ao relatório da Sprint 2:
 
 ## Tickets por épico
 
-| Épico | Tickets | Concluídos |
-| --- | ---: | ---: |
-| 05 — Atividades e Práticas | 6 | 5 |
-| 01 — Identidade e Conta do Usuário | 3 | 1 |
-| 13 — Governança e Resiliência de IA | 2 | 2 |
-| 07 — Acompanhamento de Progresso | 2 | 1 |
-| 16 — Gamificação | 1 | 1 |
-| 08/09 — Explicação e Feedback Pedagógico com IA | 1 | 0 |
-| Sem épico (Logical Tasks de infraestrutura e relatórios) | 5 | 5 |
-| **Total** | **20** | **15** |
+| Épico | Tickets | Prontos no fechamento | Concluídos no Jira |
+| --- | ---: | ---: | ---: |
+| 05 — Atividades e Práticas | 6 | 6 | 5 |
+| 01 — Identidade e Conta do Usuário | 3 | 3 | 1 |
+| 13 — Governança e Resiliência de IA | 2 | 2 | 2 |
+| 07 — Acompanhamento de Progresso | 2 | 1 | 1 |
+| 16 — Gamificação | 1 | 1 | 1 |
+| 08/09 — Explicação e Feedback Pedagógico com IA | 1 | 0 | 0 |
+| Sem épico (Logical Tasks de infraestrutura e relatórios) | 5 | 5 | 5 |
+| **Total** | **20** | **18** | **15** |
 
 ## Métricas de fechamento
 
 | Métrica | Resultado |
 | --- | ---: |
 | Tickets na Sprint | 20 |
-| Tickets em `Concluído` no Jira | 15 de 20 (75%) |
-| Tickets em `Code Review` | 3 (SHIFU-98, SHIFU-121, SHIFU-131) |
-| Tickets em `Fazendo` | 1 (SHIFU-53) |
-| Tickets em `A fazer` | 1 (SHIFU-22) |
+| Tickets considerados prontos no fechamento | 18 de 20 (90%) |
+| Tickets em `Concluído` no Jira na consulta | 15 de 20 (75%) |
+| Tickets em `Code Review` no Jira na consulta | 3 (SHIFU-98, SHIFU-121, SHIFU-131) |
+| Tickets em `Fazendo` no Jira | 1 (SHIFU-53) |
+| Tickets em `A fazer` no Jira | 1 (SHIFU-22) |
 | User Stories | 3 |
 | User Stories em `Concluído` | 1 de 3 |
 | Tasks | 17 |
-| Tasks em `Concluído` | 14 de 17 |
+| Tasks consideradas prontas no fechamento | 17 de 17 (100%) |
+| Tasks em `Concluído` no Jira na consulta | 14 de 17 |
 | Story Points estimados | 8 SP (só a SHIFU-54) |
 | Story Points em histórias `Concluído` | 8 de 8 SP |
 | Histórias sem estimativa | 2 (SHIFU-22 e SHIFU-53) |
@@ -157,9 +169,9 @@ Quatro itens mudaram de responsável em relação ao relatório da Sprint 2:
 
 ## Ritmo de conclusão
 
-Os 15 tickets concluídos foram resolvidos em sete dias diferentes. A data é a de resolução no Jira, que pode diferir do dia em que o trabalho foi feito.
+Os 15 tickets em `Concluído` no Jira foram resolvidos em sete dias diferentes. A data é a de resolução no Jira, que pode diferir do dia em que o trabalho foi feito. As três tasks prontas por decisão não têm data de resolução e ficam fora da tabela.
 
-| Dia | Resolvidos | Restantes ao fim do dia |
+| Dia | Resolvidos | Restantes no Jira ao fim do dia |
 | --- | ---: | ---: |
 | 05/11 (início) | 0 | 20 |
 | 06/11 | 1 | 19 |
@@ -183,26 +195,26 @@ Este gráfico **não é o do Jira**. Eu o calculei a partir das datas de resolu�
 
 - **Início:** parte de 20 tickets, o total atual da sprint. A SHIFU-132 foi criada em 12/11, depois do início. Ela provavelmente entrou durante a sprint, mas não consegui confirmar. Se foi isso, o início real foi de 19 tickets.
 - **Curva:** o trabalho restante fica acima da linha ideal durante toda a sprint. A queda se concentra a partir de 15/11.
-- **Fim:** termina com 5 tickets restantes, os mesmos cinco abertos listados acima.
+- **Fim:** o gráfico termina com 5 tickets restantes, porque as tasks SHIFU-98, SHIFU-121 e SHIFU-131 não estavam em `Concluído` no Jira. Com o fechamento do solicitante, restam 2 tickets: as histórias SHIFU-22 e SHIFU-53.
 
 ## Riscos e observações para o fechamento
 
 - **Meta:** o campo de meta da sprint no Jira está vazio. A meta deste relatório é uma síntese documental e precisa de confirmação da equipe.
-- **Fechamento sem decisão registrada:** os estados são os do Jira. Os cinco itens abertos precisam de uma decisão: concluir, mover para a próxima sprint ou devolver ao backlog.
+- **Tasks prontas sem revisão:** as SHIFU-98, SHIFU-121 e SHIFU-131 estão em `Code Review`, com PRs abertos e não mesclados. O código delas ainda não está na `main`. O da SHIFU-98 é rascunho, e a SHIFU-131 não tem responsável no Jira. Este relatório as considera prontas por decisão do solicitante, mas a revisão ainda não aconteceu.
+- **Histórias abertas:** as SHIFU-22 e SHIFU-53 precisam de uma decisão: concluir, mover para a próxima sprint ou devolver ao backlog.
 - **Histórias sem estimativa:** as SHIFU-22 e SHIFU-53 entraram na sprint sem SP. No backlog da Sprint 2 elas já apareciam sem estimativa e sem sprint. A checklist de ambas também mostra pendentes o protótipo aprovado e a estimativa do time.
 - **SHIFU-22 não iniciada:** a história não tem tasks vinculadas, responsável nem andamento. Ela depende de resultado oficial (SHIFU-20), resiliência de IA (SHIFU-23) e limites pedagógicos (SHIFU-47).
 - **SHIFU-53:** concluir a task SHIFU-125 não comprova os critérios da história. A história precisa de aceite.
-- **Code Review no último dia:** três PRs seguem abertos, e o da SHIFU-98 é rascunho. A SHIFU-131 não tem responsável no Jira.
 - **Itens herdados da Sprint 2:** o relatório da Sprint 2 considerou as SHIFU-85, SHIFU-87 e SHIFU-98 prontas por decisão do solicitante. No Jira, as duas primeiras só foram resolvidas nesta sprint (06/11 e 15/11), e a SHIFU-98 ainda está em revisão.
 - **Histórias da Sprint 2 fora de sprint aberta:** na consulta de hoje, 23 das 27 histórias da Sprint 2 estão `Concluído`. Quatro seguem em `Fazendo` e não estão na Sprint 3: SHIFU-33 (13 SP), SHIFU-36 (3 SP), SHIFU-114 (5 SP) e SHIFU-116 (8 SP), somando 29 SP. A task SHIFU-98, ainda em revisão, trata da exclusão de conta, tema da SHIFU-33.
 - **Capacidade:** só 8 SP têm estimativa, e a sprint foi quase toda de tasks sem pontos. Não há base para definir a capacidade da Sprint 4 por Story Points.
-- **Aceite e evidências:** não há ata de aceite nem vídeo vinculado ao Jira. Este relatório não verificou as evidências de cada feature, como a Spec e a Evaluation no repositório.
+- **Aceite e evidências:** não há ata de aceite nem vídeo vinculado ao Jira. Concluir uma task não comprova os critérios da história. Este relatório não verificou as evidências de cada feature, como a Spec e a Evaluation no repositório.
 - **Backlog da sprint:** não existe página de Backlog da Sprint 3 no Confluence nem arquivo local. O escopo foi lido direto do Jira.
 
 ## Fontes
 
-- Jira, projeto Shifu, quadro 331: `project = SHIFU AND sprint = 499`, 20 issues, consultado em 22/11/2026 às 23:38. Estados conforme o Jira.
+- Jira, projeto Shifu, quadro 331: `project = SHIFU AND sprint = 499`, 20 issues, consultado em 22/11/2026 às 23:38. Estados de fechamento das tasks conforme decisão do solicitante.
 - Descrições e critérios das histórias SHIFU-22, SHIFU-53 e SHIFU-54 no Jira, consultados na mesma data.
 - Jira, histórias da Sprint 2 (`sprint = 498`), para o estado atual dos itens herdados.
-- Pull requests do repositório no GitHub, consultados com `gh`, para os itens em `Code Review`.
+- Pull requests do repositório no GitHub, consultados com `gh`, para as tasks em `Code Review`.
 - [Relatório da Sprint 2](sprint-2-report.md), usado como modelo e como base de comparação.
