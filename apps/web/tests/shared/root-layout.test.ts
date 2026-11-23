@@ -20,7 +20,9 @@ async function answerProtectedRoutesWith(page: Page, appearance: AccountAppearan
     ).toString()
     if (
       !serverFunction.includes('middlewares/require-auth-middleware.ts') &&
-      !serverFunction.includes('middlewares/enter-main-page-middleware.ts')
+      !serverFunction.includes('middlewares/enter-main-page-middleware.ts') &&
+      !serverFunction.includes('routes/account/route.tsx') &&
+      !serverFunction.includes('requireAccountAccessOrDeletionStatus')
     ) {
       await route.fallback()
       return
@@ -72,15 +74,11 @@ for (const route of [ROUTES.dashboard, ROUTES.accountProfile]) {
       'background-color',
       LIGHT_BACKGROUND,
     )
-    expect(
-      calls.some((call) =>
-        call.includes(
-          route === ROUTES.dashboard
-            ? 'middlewares/enter-main-page-middleware.ts'
-            : 'middlewares/require-auth-middleware.ts',
-        ),
-      ),
-    ).toBe(true)
+    const expectedServerFunction =
+      route === ROUTES.dashboard
+        ? 'middlewares/enter-main-page-middleware.ts'
+        : 'requireAccountAccessOrDeletionStatus'
+    expect(calls.some((call) => call.includes(expectedServerFunction))).toBe(true)
   })
 }
 

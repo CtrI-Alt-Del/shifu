@@ -99,6 +99,15 @@ describe('DeletionPanel', () => {
         })
         if (!currentPassword || !hasConfirmed) expect(finalButton).toBeDisabled()
         else expect(finalButton).toBeEnabled()
+
+        if (!currentPassword || !hasConfirmed) {
+          const form = finalButton.closest('form')
+          if (!form) throw new Error('The deletion form must be rendered.')
+          fireEvent.submit(form)
+          expect(
+            useDeleteAccountActionMock.mock.results.at(-1)?.value.submit,
+          ).not.toHaveBeenCalled()
+        }
       })
     }
   }
@@ -119,12 +128,39 @@ describe('DeletionPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar senha' }))
     expect(result.handleTogglePasswordVisibility).toHaveBeenCalledOnce()
+
+    const visiblePanel = createPanelResult({
+      isOpen: true,
+      isPasswordVisible: true,
+      currentPassword: 'local-secret',
+      hasConfirmed: true,
+    })
+    useDeletionPanelMock.mockReturnValue(visiblePanel)
+    rerender(<DeletionPanel />)
+    expect(screen.getByLabelText('Senha atual')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Ocultar senha' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    expect(result.handleOpenChange).toHaveBeenCalledWith(false)
+    expect(visiblePanel.handleOpenChange).toHaveBeenCalledWith(false)
 
     useDeletionPanelMock.mockReturnValue(createPanelResult())
     rerender(<DeletionPanel />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('forwards password edits to the deletion form state', () => {
+    const panel = createPanelResult({ isOpen: true })
+    useDeletionPanelMock.mockReturnValue(panel)
+    render(<DeletionPanel />)
+
+    fireEvent.change(screen.getByLabelText('Senha atual'), {
+      target: { value: 'new-password' },
+    })
+
+    expect(panel.handleCurrentPasswordChange).toHaveBeenCalledWith('new-password')
   })
 
   it('clears stale feedback when the dialog opens again', () => {
@@ -181,5 +217,20 @@ describe('DeletionPanel', () => {
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Fechar confirmação' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Encerrando conta…' })).toBeDisabled()
+  })
+
+  it('shows the pending state while checking whether the account was closed', () => {
+    const panel = createPanelResult({ isOpen: true })
+    useDeletionPanelMock.mockReturnValue(panel)
+    useDeleteAccountActionMock.mockReturnValue(
+      createActionResult({ canCheckStatus: true, isCheckingStatus: true }),
+    )
+    render(<DeletionPanel />)
+
+    expect(screen.getByRole('button', { name: 'Verificando estado…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Fechar confirmação' })).toBeDisabled()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(panel.handleOpenChange).not.toHaveBeenCalledWith(false)
   })
 })

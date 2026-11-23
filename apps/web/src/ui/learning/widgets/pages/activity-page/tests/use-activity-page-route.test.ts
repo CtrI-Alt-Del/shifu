@@ -851,6 +851,31 @@ describe('ActivityPage routed React composition', () => {
     )
   })
 
+  it('ignores closure notifications while offline and unrelated storage changes', async () => {
+    setup()
+    await waitFor(() => expect(mocks.boot).toHaveBeenCalledOnce())
+    const validationCalls = mocks.validateBrowserDataCapability.mock.calls.length
+    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+
+    act(() => {
+      window.dispatchEvent(new Event('shifu:account-closure-committed'))
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'unrelated-storage-key',
+          newValue: 'closure-confirmed',
+        }),
+      )
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'shifu:account-closure-committed',
+          newValue: null,
+        }),
+      )
+    })
+
+    expect(mocks.validateBrowserDataCapability).toHaveBeenCalledTimes(validationCalls)
+  })
+
   it('purges obsolete revisions and removed questions while preserving other accounts', async () => {
     const oldKey = storeDraft(draft({ activityRevision: 'old-revision' }))
     const removedKey = storeDraft(draft({ questionKey: 'removed-question' }))
