@@ -1,7 +1,7 @@
 """Backend roadmap Skills with placeholder content to exercise the Planner.
 
 Every Skill gets the minimum content that makes it startable, so a planned Goal can
-be created from any combination; the content itself is marked as "[Teste]".
+be created from any combination; the content itself is generic placeholder text.
 """
 
 from collections.abc import Mapping
