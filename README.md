@@ -40,7 +40,7 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 | :----: | :---------------------: | :----------: | :----: |
 |   01   | 15/09/2026 – 27/09/2026 | [Relatório](documentation/sprints/sprint-1-report.md) · [Backlog](documentation/sprints/backlog-sprint-1.md) | Concluída |
 |   02   | 05/10/2026 – 25/10/2026 | [Relatório](documentation/sprints/sprint-2-report.md) · [Backlog](documentation/sprints/backlog-sprint-2.md) | Concluída |
-|   03   | 05/11/2026 – 22/11/2026 | [Relatório](documentation/sprints/sprint-3-report.md) | Concluída |
+|   03   | 05/11/2026 – 22/11/2026 | [Relatório](documentation/sprints/sprint-3-report.md) · [Backlog](documentation/sprints/backlog-sprint-3.md) | Concluída |
 
 ## 🛠️ Tecnologias
 
