@@ -79,9 +79,11 @@ class TestSweepAccountErasuresJob:
         inngest_fixture.invoke_function(SweepAccountErasuresJob.FUNCTION_ID)
         messages = inngest_fixture.wait_for_mail_count(1, timeout=60)
 
-        message_data = json.dumps(messages)
-        assert 'shifu.ctrlaltdel@gmail.com' in message_data
-        assert str(erasure_id) in message_data
-        assert 'learning' in message_data
-        assert 'erasure_deadline_exceeded' in message_data
-        assert account_id not in message_data
+        assert 'shifu.ctrlaltdel@gmail.com' in json.dumps(messages)
+        message_id = messages[0].get('ID')
+        assert isinstance(message_id, str)
+        message_text = inngest_fixture.mailpit_message_text(message_id)
+        assert str(erasure_id) in message_text
+        assert 'learning' in message_text
+        assert 'erasure_deadline_exceeded' in message_text
+        assert account_id not in message_text
