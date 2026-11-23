@@ -27,8 +27,11 @@ import { IdentityService } from '@/rest/services/identity-service'
 import { getWebTelemetryProvider } from '@/provision/telemetry/console-telemetry-provider'
 
 import { BETTER_AUTH_OPTIONS, BetterAuthConfig } from './better-auth-config'
+import {
+  getPendingConfirmationStatus as readPendingConfirmationStatus,
+  PENDING_COOKIE_NAME,
+} from './pending-confirmation-status'
 
-const PENDING_COOKIE_NAME = 'shifu-pending-flow'
 const PENDING_FLOW_LIFETIME_SECONDS = 15 * 60
 const PENDING_FLOW_LIFETIME_MS = PENDING_FLOW_LIFETIME_SECONDS * 1000
 const PASSWORD_RECOVERY_COOKIE_NAME = 'shifu-password-recovery'
@@ -311,36 +314,7 @@ const BetterAuthProvider = () => {
     state: 'ready' | 'cooldown' | 'delivery_issue'
     hasPendingContext: boolean
   }> {
-    if (!hasPendingConfirmationCookie(request)) {
-      return { state: 'delivery_issue', hasPendingContext: false }
-    }
-
-    const response = await auth.handler(
-      new Request(new URL('/api/auth/pending-confirmation', request.url), {
-        headers: request.headers,
-      }),
-    )
-    if (!response.ok) {
-      throw new AuthError('unavailable', 'Não foi possível validar a confirmação.', {
-        statusCode: response.status,
-      })
-    }
-
-    const result: unknown = await response.json()
-    if (
-      !isRecord(result) ||
-      (result.state !== 'ready' &&
-        result.state !== 'cooldown' &&
-        result.state !== 'delivery_issue') ||
-      typeof result.hasPendingContext !== 'boolean'
-    ) {
-      throw new AuthError('invalid-response', 'Resposta de confirmação inválida.')
-    }
-
-    return {
-      state: result.state,
-      hasPendingContext: result.hasPendingContext,
-    }
+    return readPendingConfirmationStatus(request, auth.handler)
   }
 
   async function deleteSession(request: Request, requestId?: string) {
@@ -1066,13 +1040,6 @@ async function getPendingContext(
   } catch {
     return null
   }
-}
-
-function hasPendingConfirmationCookie(request: Request): boolean {
-  return (request.headers.get('cookie') ?? '').split(';').some((cookie) => {
-    const separator = cookie.indexOf('=')
-    return separator >= 0 && cookie.slice(0, separator).trim() === PENDING_COOKIE_NAME
-  })
 }
 
 async function clearPendingContext(context: GenericEndpointContext) {
