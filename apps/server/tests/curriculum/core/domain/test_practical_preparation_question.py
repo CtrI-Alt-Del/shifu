@@ -8,6 +8,8 @@ from shifu.curriculum.core.domain.structures import (
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
+    JavascriptInitialFile,
+    JavascriptStdinQuestion,
     PracticalPreparationQuestion,
     PracticeCriterion,
     PracticeCriterionLevel,
@@ -214,7 +216,8 @@ class TestPracticalPreparationActivity:
 
         assert _activity(question).questions == (question,)
 
-    def test_should_reject_a_second_question(self) -> None:
+    def test_should_accept_questions_scored_by_fixed_rules(self) -> None:
+        question = PracticalPreparationQuestionFaker.fake()
         extra = SingleChoiceQuestion(
             key='extra',
             prompt='Pergunta',
@@ -226,9 +229,44 @@ class TestPracticalPreparationActivity:
             incorrect_explanation='Errado.',
         )
 
+        assert _activity(question, extra_questions=(extra,)).questions == (
+            question,
+            extra,
+        )
+
+    def test_should_reject_a_question_scored_by_another_ai_rubric(self) -> None:
+        question = PracticalPreparationQuestionFaker.fake()
+        code = JavascriptStdinQuestion(
+            key='code',
+            prompt='Imprima o resultado.',
+            initial_files=(
+                JavascriptInitialFile(path='index.js', content='', editable=True),
+            ),
+            entrypoint='index.js',
+            fixed_dependencies=(),
+            permitted_commands=(),
+            concept_criteria=(),
+        )
+
         with pytest.raises(InvalidActivityError):
-            _activity(
-                PracticalPreparationQuestionFaker.fake(), extra_questions=(extra,)
+            Activity.create(
+                id='activity-1',
+                competency_id='competency-1',
+                activity_type=ActivityType.LEARNING,
+                difficulty=ActivityDifficulty.EASY,
+                title='Misturada',
+                objective='Misturada',
+                questions=(question, code),
+                evaluation_rule=EvaluationRule(
+                    parts=(
+                        CorrectnessEvaluationPart(
+                            question_key=question.key, weight_percentage=50
+                        ),
+                        CorrectnessEvaluationPart(
+                            question_key='code', weight_percentage=50
+                        ),
+                    )
+                ),
             )
 
     def test_should_reject_two_practical_questions(self) -> None:

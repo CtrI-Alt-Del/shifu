@@ -1288,7 +1288,8 @@ def has_valid_learning_question_count(activity: Activity) -> bool:
         isinstance(question, PracticalPreparationQuestion)
         for question in activity.questions
     ):
-        return len(activity.questions) == 1
+        # A practical question stands alone or joins a mix of three to five questions.
+        return len(activity.questions) == 1 or 3 <= len(activity.questions) <= 5
 
     return 3 <= len(activity.questions) <= 5
 

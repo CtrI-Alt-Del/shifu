@@ -125,7 +125,8 @@ class CurriculumLearningActivitySnapshot:
             isinstance(question, CurriculumPracticalPreparationQuestionSnapshot)
             for question in self.questions
         ):
-            return len(self.questions) == 1
+            # A practical question stands alone or joins a mix of three to five.
+            return len(self.questions) == 1 or 3 <= len(self.questions) <= 5
 
         return 3 <= len(self.questions) <= 5
 
