@@ -27,16 +27,14 @@ _EXTERNAL_EFFECT_OPERATION_PATTERN = r'[a-z][a-z0-9_.-]{0,119}'
 
 
 async def _wait_for_completion[T](future: asyncio.Future[T]) -> T:
-    cancellation: asyncio.CancelledError | None = None
-    while not future.done():
-        try:
-            await asyncio.shield(future)
-        except asyncio.CancelledError as error:
-            cancellation = error
-    result = future.result()
-    if cancellation is not None:
-        raise cancellation
-    return result
+    """Let the work finish even when cancelled, then re-raise the cancellation."""
+    try:
+        return await asyncio.shield(future)
+    except asyncio.CancelledError:
+        if not future.done():
+            # A further cancellation re-raises from here once the work is done.
+            await _wait_for_completion(future)
+        raise
 
 
 @asynccontextmanager
