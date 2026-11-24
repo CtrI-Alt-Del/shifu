@@ -52,7 +52,7 @@ test('shows the authenticated consolidated diagnostic result without answer deta
               activityTitle: 'Prática inicial',
               difficulty: 'easy',
               type: 'new-activity',
-              reason: 'Retome a observação inicial.',
+              reason: 'coverage',
               targetConceptName: 'Laços básicos',
               materialId: null,
               gap: null,
@@ -129,7 +129,9 @@ test('shows the authenticated consolidated diagnostic result without answer deta
       name: 'Ponto de partida por Competência (0–100)',
     }),
   ).toBeVisible()
-  await expect(authenticatedPage.getByText('Retome a observação inicial.')).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('Ainda faltam evidências para cobrir este Conceito.'),
+  ).toBeVisible()
   await expect(
     authenticatedPage.getByText('Laços básicos', { exact: false }),
   ).toBeVisible()
