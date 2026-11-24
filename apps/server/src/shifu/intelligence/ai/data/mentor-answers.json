@@ -7,10 +7,7 @@
       "Explique o conceito de lista em Python"
     ],
     "answer": "Uma lista em Python reúne elementos em uma sequência que pode ser alterada. Os elementos têm posições, chamadas índices, começando em zero.",
-    "topics": [
-      "python",
-      "lists"
-    ]
+    "topics": ["python", "lists"]
   },
   {
     "id": "python_variables",
@@ -20,10 +17,7 @@
       "Como funcionam variáveis em Python?"
     ],
     "answer": "Uma variável em Python é um nome associado a um valor. A atribuição permite associar um nome a um valor e reutilizá-lo durante o programa.",
-    "topics": [
-      "python",
-      "variables"
-    ]
+    "topics": ["python", "variables"]
   },
   {
     "id": "python_tuples",
@@ -33,10 +27,7 @@
       "Explique o conceito de tupla em Python"
     ],
     "answer": "Uma tupla em Python reúne elementos em uma sequência imutável: depois de criada, suas posições não podem ser substituídas.",
-    "topics": [
-      "python",
-      "tuples"
-    ]
+    "topics": ["python", "tuples"]
   },
   {
     "id": "sql_primary_key",
@@ -46,36 +37,21 @@
       "Explique chave primária no banco de dados"
     ],
     "answer": "Uma chave primária identifica cada linha de uma tabela de forma única. Ela não admite valores nulos e pode combinar uma ou mais colunas.",
-    "topics": [
-      "sql",
-      "primary_key"
-    ]
+    "topics": ["sql", "primary_key"]
   },
   {
     "id": "html_semantics",
     "question": "O que é HTML semântico?",
-    "variations": [
-      "Para que serve HTML semântico?",
-      "Explique semântica no HTML"
-    ],
+    "variations": ["Para que serve HTML semântico?", "Explique semântica no HTML"],
     "answer": "HTML semântico usa elementos que descrevem o significado do conteúdo, como navegação, artigo e cabeçalho. Essa estrutura ajuda tecnologias assistivas e torna a página mais compreensível.",
-    "topics": [
-      "html",
-      "semantics"
-    ]
+    "topics": ["html", "semantics"]
   },
   {
     "id": "css_box_model",
     "question": "O que é o modelo de caixa do CSS?",
-    "variations": [
-      "Como funciona box model no CSS?",
-      "Explique modelo de caixa CSS"
-    ],
+    "variations": ["Como funciona box model no CSS?", "Explique modelo de caixa CSS"],
     "answer": "O modelo de caixa do CSS descreve conteúdo, preenchimento interno, borda e margem de um elemento. Essas partes determinam o espaço que ele ocupa na página.",
-    "topics": [
-      "css",
-      "box_model"
-    ]
+    "topics": ["css", "box_model"]
   },
   {
     "id": "shifu_overview",
@@ -87,10 +63,7 @@
       "O que é a plataforma Shifu?"
     ],
     "answer": "O Shifu organiza o aprendizado por Objetivos e Habilidades. Você faz um diagnóstico, pratica Atividades e acompanha os resultados; materiais de apoio e o Mentor ajudam durante o estudo.",
-    "topics": [
-      "shifu",
-      "product"
-    ]
+    "topics": ["shifu", "product"]
   },
   {
     "id": "shifu_goal",
@@ -100,10 +73,7 @@
       "Como um Objetivo organiza meu aprendizado no Shifu?"
     ],
     "answer": "Um Objetivo organiza uma intenção de aprendizagem com título e descrição. Ele pode reunir várias Habilidades, e cada uma mantém sua própria experiência de aprendizado.",
-    "topics": [
-      "shifu",
-      "goals"
-    ]
+    "topics": ["shifu", "goals"]
   },
   {
     "id": "shifu_skill",
@@ -113,10 +83,7 @@
       "Como a Habilidade representa uma capacidade específica de estudo no Shifu?"
     ],
     "answer": "Uma Habilidade é uma capacidade que você pode desenvolver com o conteúdo do Shifu. Ela reúne Competências; ao adicioná-la a um Objetivo, você passa a ter uma experiência própria de diagnóstico, prática e acompanhamento.",
-    "topics": [
-      "shifu",
-      "skills"
-    ]
+    "topics": ["shifu", "skills"]
   },
   {
     "id": "shifu_competency",
@@ -126,10 +93,7 @@
       "Como as Competências organizam uma Habilidade no Shifu?"
     ],
     "answer": "Uma Competência é uma parte de uma Habilidade. Ela reúne Conceitos, materiais e Atividades, seguindo a ordem definida no currículo do Shifu.",
-    "topics": [
-      "shifu",
-      "competencies"
-    ]
+    "topics": ["shifu", "competencies"]
   },
   {
     "id": "shifu_concept",
@@ -139,10 +103,7 @@
       "Qual é o papel dos Conceitos no aprendizado do Shifu?"
     ],
     "answer": "Um Conceito é uma unidade de conhecimento dentro de uma Competência. O Shifu acompanha o que suas respostas demonstram sobre cada Conceito para orientar o aprendizado.",
-    "topics": [
-      "shifu",
-      "concepts"
-    ]
+    "topics": ["shifu", "concepts"]
   },
   {
     "id": "shifu_material",
@@ -152,10 +113,7 @@
       "O que encontro nos materiais de estudo do Shifu?"
     ],
     "answer": "Um Material é um conteúdo de apoio ao estudo de uma Competência. Consultá-lo ajuda a aprender, mas sua leitura, por si só, não aumenta o progresso: é preciso demonstrar aprendizado nas Atividades.",
-    "topics": [
-      "shifu",
-      "materials"
-    ]
+    "topics": ["shifu", "materials"]
   },
   {
     "id": "shifu_activity",
@@ -165,10 +123,7 @@
       "Qual é a função das questões respondidas nas Atividades do Shifu?"
     ],
     "answer": "Uma Atividade é uma tarefa do currículo à qual você envia uma resposta. A avaliação dessa tentativa fornece evidências sobre os Conceitos envolvidos. Existem Atividades de diagnóstico e de aprendizagem.",
-    "topics": [
-      "shifu",
-      "activities"
-    ]
+    "topics": ["shifu", "activities"]
   },
   {
     "id": "shifu_diagnostic",
@@ -178,10 +133,7 @@
       "Qual é a finalidade da etapa diagnóstica inicial no Shifu?"
     ],
     "answer": "O diagnóstico identifica seu ponto de partida naquela experiência de Habilidade. Seus resultados consolidados orientam a etapa de aprendizagem; respostas, correções e avaliações individuais do diagnóstico permanecem ocultas.",
-    "topics": [
-      "shifu",
-      "diagnostic"
-    ]
+    "topics": ["shifu", "diagnostic"]
   },
   {
     "id": "shifu_skill_start",
@@ -191,10 +143,7 @@
       "Uma Habilidade recém-adicionada já está em diagnóstico no Shifu?"
     ],
     "answer": "Não. Uma Habilidade adicionada começa como não iniciada. O diagnóstico começa quando você escolhe Iniciar Habilidade naquela experiência.",
-    "topics": [
-      "shifu",
-      "diagnostic"
-    ]
+    "topics": ["shifu", "diagnostic"]
   },
   {
     "id": "shifu_experience_independence",
@@ -205,10 +154,7 @@
       "Se eu colocar a mesma habilidade em dois objetivos diferentes, o que aprendi em um conta automaticamente no outro?"
     ],
     "answer": "Cada Habilidade dentro de um Objetivo é uma experiência independente. Diagnóstico, progresso, tentativas e conclusão de uma experiência não são transferidos para outra.",
-    "topics": [
-      "shifu",
-      "goals"
-    ]
+    "topics": ["shifu", "goals"]
   },
   {
     "id": "shifu_goal_progress",
@@ -218,10 +164,7 @@
       "O Shifu calcula um progresso agregado para o Objetivo?"
     ],
     "answer": "O Objetivo organiza Habilidades e não possui nota, progresso agregado ou conclusão próprios. O acompanhamento do aprendizado acontece nas experiências de Habilidade e em suas Competências e Conceitos.",
-    "topics": [
-      "shifu",
-      "progress"
-    ]
+    "topics": ["shifu", "progress"]
   },
   {
     "id": "shifu_reading_progress",
@@ -231,10 +174,7 @@
       "Consumir conteúdo já conta como aprendizado no Shifu?"
     ],
     "answer": "A leitura de materiais não aumenta o progresso por si só. O progresso depende das evidências de aprendizado obtidas nas respostas às Atividades.",
-    "topics": [
-      "shifu",
-      "progress"
-    ]
+    "topics": ["shifu", "progress"]
   },
   {
     "id": "shifu_unknown_progress",
@@ -244,10 +184,7 @@
       "Por que um progresso pode aparecer como desconhecido no Shifu?"
     ],
     "answer": "Progresso desconhecido indica que ainda não há uma estimativa numérica disponível para aquele aprendizado. Isso não equivale a zero nem significa que você não sabe o assunto.",
-    "topics": [
-      "shifu",
-      "progress"
-    ]
+    "topics": ["shifu", "progress"]
   },
   {
     "id": "shifu_recommendation_choice",
@@ -257,10 +194,7 @@
       "Tenho liberdade para escolher entre as Atividades disponíveis no Shifu?"
     ],
     "answer": "A recomendação orienta o próximo passo, mas você pode escolher outra Atividade que esteja disponível naquela experiência. A escolha não libera conteúdos que ainda estejam bloqueados.",
-    "topics": [
-      "shifu",
-      "activities"
-    ]
+    "topics": ["shifu", "activities"]
   },
   {
     "id": "shifu_curriculum",
@@ -270,10 +204,7 @@
       "Quem define o conteúdo de estudo no Shifu?"
     ],
     "answer": "O currículo reúne as Habilidades, Competências, Conceitos, materiais, Atividades e regras de avaliação do Shifu. O Mentor usa o conteúdo autorizado, mas não cria nem altera o currículo.",
-    "topics": [
-      "shifu",
-      "curriculum"
-    ]
+    "topics": ["shifu", "curriculum"]
   },
   {
     "id": "shifu_mentor_purpose",
@@ -283,10 +214,7 @@
       "Como o Mentor do Shifu apoia meus estudos?"
     ],
     "answer": "O Mentor oferece explicações, dicas e orientação de estudo por texto. Pode usar o histórico da conversa e informações de aprendizagem autorizadas, mas não altera suas notas, seu progresso ou seus Objetivos.",
-    "topics": [
-      "shifu",
-      "mentor"
-    ]
+    "topics": ["shifu", "mentor"]
   },
   {
     "id": "shifu_mentor_open",
@@ -296,10 +224,7 @@
       "Qual botão abre o painel flutuante do Mentor no Shifu?"
     ],
     "answer": "Você pode abrir a página Mentor pela navegação do Shifu ou usar o botão flutuante do Mentor. Nas páginas de aprendizagem, o envio pode levar uma indicação do Objetivo ou da Habilidade que você está consultando.",
-    "topics": [
-      "shifu",
-      "mentor"
-    ]
+    "topics": ["shifu", "mentor"]
   },
   {
     "id": "shifu_mentor_resume",
@@ -309,10 +234,7 @@
       "Como escolher uma conversa salva na lista de sessões do Mentor no Shifu?"
     ],
     "answer": "Abra o histórico de conversas do Mentor e selecione a conversa desejada. As mensagens enviadas e as respostas concluídas ficam disponíveis para você continuar daquela conversa.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_rename",
@@ -322,10 +244,7 @@
       "É possível editar o nome de uma conversa do Mentor no Shifu?"
     ],
     "answer": "Sim. Use a ação Renomear da conversa para alterar seu título. Renomear não modifica as mensagens nem as respostas já salvas.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_delete",
@@ -335,10 +254,7 @@
       "Excluir uma conversa do Mentor no Shifu tem como desfazer?"
     ],
     "answer": "Não há restauração de conversas excluídas na interface atual. A exclusão pede confirmação e impede que a conversa continue acessível ou receba novos resultados.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_cancel",
@@ -348,10 +264,7 @@
       "O que o cancelamento de uma resposta do Mentor faz no Shifu?"
     ],
     "answer": "O cancelamento descarta a resposta parcial, mas conserva sua mensagem como pendente. Para continuar enviando mensagens naquela conversa, use Tentar novamente para obter uma resposta para o pedido pendente.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_retry",
@@ -361,10 +274,7 @@
       "Como funciona a opção de tentar novamente uma resposta com erro do Mentor no Shifu?"
     ],
     "answer": "Use Tentar novamente na conversa. A nova tentativa responde à mesma mensagem pendente, sem criar outra mensagem sua; ela ainda pode falhar se a geração ou a revisão estiver indisponível.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_background",
@@ -374,10 +284,7 @@
       "A resposta continua se eu sair da página do Mentor no Shifu?"
     ],
     "answer": "Fechar o painel ou navegar para outra página não cancela a resposta. O processamento pode continuar, e você pode retomar a conversa depois. Para interromper a tentativa, use a ação de cancelamento.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_history",
@@ -387,10 +294,7 @@
       "Os históricos das conversas do Mentor são separados no Shifu?"
     ],
     "answer": "Cada conversa usa seu próprio histórico. Na versão atual, o Mentor não usa automaticamente mensagens de outras conversas nem oferece memórias entre conversas.",
-    "topics": [
-      "shifu",
-      "conversations"
-    ]
+    "topics": ["shifu", "conversations"]
   },
   {
     "id": "shifu_mentor_actions",
@@ -400,10 +304,7 @@
       "O Mentor pode mudar os resultados oficiais do meu aprendizado no Shifu?"
     ],
     "answer": "Não. O Mentor orienta, mas não atribui notas, altera progresso ou conclui Habilidades. Os resultados oficiais são determinados pelo processo de avaliação e aprendizagem do Shifu.",
-    "topics": [
-      "shifu",
-      "mentor"
-    ]
+    "topics": ["shifu", "mentor"]
   },
   {
     "id": "shifu_mentor_diagnostic_help",
@@ -413,10 +314,7 @@
       "O Mentor explica a resposta de um diagnóstico ativo no Shifu?"
     ],
     "answer": "O Mentor não fornece dicas, análise ou respostas para a Atividade diagnóstica em andamento. Ele continua disponível para explicações sobre o funcionamento do Shifu e outros assuntos de aprendizagem que não ajudem a resolver esse diagnóstico.",
-    "topics": [
-      "shifu",
-      "diagnostic"
-    ]
+    "topics": ["shifu", "diagnostic"]
   },
   {
     "id": "shifu_mentor_full_solution",
@@ -426,10 +324,7 @@
       "Qual condição libera uma resposta de referência completa do Mentor no Shifu?"
     ],
     "answer": "Enquanto uma Habilidade estiver em aprendizado, o Mentor oferece dicas sem entregar a solução completa. Uma solução de referência pode ser permitida depois da conclusão daquela Habilidade naquele Objetivo, sem alterar os resultados oficiais.",
-    "topics": [
-      "shifu",
-      "mentor"
-    ]
+    "topics": ["shifu", "mentor"]
   },
   {
     "id": "shifu_mentor_attachments",
@@ -439,9 +334,6 @@
       "Como funcionam arquivos e ditado no Mentor do Shifu hoje?"
     ],
     "answer": "Você pode enviar até cinco arquivos PNG, JPG/JPEG, WebP, PDF, JSON, CSV ou TXT, com até 2 MB por arquivo, com mensagem de texto opcional. Imagens e trechos legíveis de PDFs podem ser analisados; partes ilegíveis ou não processadas são indicadas, e as respostas podem citar o nome do arquivo e a página ou trecho usado. Os arquivos ficam privados e vinculados à conversa, não criam memórias e não executam código, fórmulas ou instruções contidas neles. O ditado pode ser usado quando o navegador oferece reconhecimento em português, que pode usar seu serviço na nuvem. Grave, encerre e revise o texto antes de enviar. Se o ditado estiver indisponível, continue digitando.",
-    "topics": [
-      "shifu",
-      "mentor"
-    ]
+    "topics": ["shifu", "mentor"]
   }
 ]
