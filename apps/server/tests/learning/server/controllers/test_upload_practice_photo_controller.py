@@ -103,18 +103,37 @@ class TestUploadPracticePhotoController:
         assert practice_client.storage.objects == {}
 
     @pytest.mark.parametrize(
+        ('file', 'media_type'),
+        [
+            (
+                ('prato.png', PracticePhotoImages.build('image/jpeg'), 'image/png'),
+                'image/jpeg',
+            ),
+            (
+                ('prato.jpg', PracticePhotoImages.build('image/png'), 'image/jpeg'),
+                'image/png',
+            ),
+        ],
+        ids=['jpeg-named-png', 'png-named-jpg'],
+    )
+    def test_should_store_the_real_format_when_the_name_disagrees(
+        self,
+        practice_client: PracticeDraftClient,
+        file: tuple[str, bytes, str],
+        media_type: str,
+    ) -> None:
+        response = _put(practice_client, file=file)
+
+        assert response.status_code == 200, response.text
+        assert [item['media_type'] for item in response.json()['photos']] == [
+            media_type
+        ]
+
+    @pytest.mark.parametrize(
         ('file', 'expected_code'),
         [
             (('prato.jpg', b'', 'image/jpeg'), 'malformed_photo'),
             (('prato.jpg', b'texto simples', 'image/jpeg'), 'malformed_photo'),
-            (
-                ('prato.png', PracticePhotoImages.build('image/jpeg'), 'image/png'),
-                'malformed_photo',
-            ),
-            (
-                ('prato.jpg', PracticePhotoImages.build('image/jpeg'), 'image/png'),
-                'malformed_photo',
-            ),
             (('prato.gif', b'GIF89a', 'image/gif'), 'malformed_photo'),
             (
                 ('prato.jpg', b'\xff\xd8\xff\xe0truncated', 'image/jpeg'),
@@ -124,8 +143,6 @@ class TestUploadPracticePhotoController:
         ids=[
             'empty',
             'not-an-image',
-            'extension-mismatch',
-            'declared-mismatch',
             'unsupported',
             'undecodable',
         ],

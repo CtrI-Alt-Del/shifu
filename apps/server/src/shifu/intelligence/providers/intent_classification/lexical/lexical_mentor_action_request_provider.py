@@ -58,9 +58,14 @@ class LexicalMentorActionRequestProvider:
         r'^\s*(?:voce\s+)?(?:pode|podes|podem|poderia|consegue|conseguiria)\b'
     )
     _NEGATION: ClassVar[re.Pattern[str]] = re.compile(r'\b(?:nao|nunca|jamais|nem)\b')
+    # A polite tag after a request keeps it a request: "remova X, pode ser?".
+    _TRAILING_POLITE_TAG: ClassVar[re.Pattern[str]] = re.compile(
+        r'[\s,;.!?]*\b(?:pode\s+ser|por\s+favor|pfv|tudo\s+bem|ok|okay|beleza|blz'
+        r'|certo|pode|consegue|da\s+(?:pra|para))[\s,;.!?]*$'
+    )
 
     def explicit_intents(self, text: str) -> frozenset[MentorIntent]:
-        normalized = self._normalize(text)
+        normalized = self._without_polite_tags(self._normalize(text))
         if (
             self._QUESTION.search(normalized)
             or self._WH_ANYWHERE.search(normalized)
@@ -74,6 +79,12 @@ class LexicalMentorActionRequestProvider:
         return frozenset(
             intent for intent, verbs in self._VERBS.items() if verbs.search(normalized)
         )
+
+    @classmethod
+    def _without_polite_tags(cls, text: str) -> str:
+        while (stripped := cls._TRAILING_POLITE_TAG.sub('', text)) != text:
+            text = stripped
+        return text
 
     @staticmethod
     def _normalize(value: str) -> str:

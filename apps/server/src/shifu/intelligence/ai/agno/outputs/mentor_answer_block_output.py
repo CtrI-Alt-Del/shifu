@@ -14,13 +14,16 @@ class MentorAnswerBlockOutput(BaseModel):
     ordinal: int = Field(ge=0)
     intent: MentorIntent | None = None
     content: str = Field(min_length=1)
-    sources: list[MentorAttachmentSourceOutput] = Field(default_factory=list)
+    sources: list[MentorAttachmentSourceOutput] = Field(
+        default_factory=list[MentorAttachmentSourceOutput]
+    )
 
     @field_validator('intent')
     @classmethod
-    def reject_action_intent(cls, intent: MentorIntent | None) -> MentorIntent | None:
-        # Only the Core's local route builds an action; a generated block never does.
+    def drop_action_intent(cls, intent: MentorIntent | None) -> MentorIntent | None:
+        # Only the Core's local route builds an action; a generated block never
+        # does. The model may still label its text as one, so the label is dropped
+        # rather than failing the whole answer.
         if intent in {MentorIntent.ADD_SKILL, MentorIntent.REMOVE_SKILL}:
-            message = 'A generated block cannot carry an action intent'
-            raise ValueError(message)
+            return None
         return intent

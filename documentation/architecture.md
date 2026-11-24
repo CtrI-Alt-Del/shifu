@@ -524,6 +524,9 @@ the application lifespan, shared across module telemetry providers, and closed a
 both runtimes stop. It uses an isolated tracer provider with manual spans and
 generations; automatic Agno/model/HTTP tracing and content capture remain disabled.
 Private prompts, answers, attachments and learner identifiers never enter monitoring.
+The one exception is the opt-in `--langfuse` option of the eval runner, which
+publishes the synthetic eval cases, their expected values and the model answers as
+Langfuse datasets and experiment runs; it never runs inside the application.
 AgentOS continues to own private execution and durable runtime state; no AgentOS
 control plane or custom monitoring UI is exposed.
 Agents receive only the

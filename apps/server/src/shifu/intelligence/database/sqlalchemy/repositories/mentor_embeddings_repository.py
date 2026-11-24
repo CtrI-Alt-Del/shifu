@@ -60,6 +60,13 @@ class SqlalchemyMentorEmbeddingsRepository:
         )
         self._session.flush()
 
+    def find_active_version(self) -> str | None:
+        return self._session.scalar(
+            select(MentorEmbeddingVersionModel.version).where(
+                MentorEmbeddingVersionModel.active.is_(True)
+            )
+        )
+
     def activate_version(self, version: str) -> None:
         existing = self._session.scalar(
             select(MentorEmbeddingVersionModel)

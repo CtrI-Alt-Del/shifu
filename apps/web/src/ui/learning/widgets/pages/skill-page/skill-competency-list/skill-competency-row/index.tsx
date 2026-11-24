@@ -59,6 +59,7 @@ export const SkillCompetencyRow = ({
           className={`min-w-0 flex-1 truncate text-sm font-medium lg:order-2 lg:w-[280px] lg:flex-none lg:text-base ${
             isBlocked ? 'text-secondary-foreground' : 'text-foreground'
           }`}
+          title={competency.competencyName}
         >
           {competency.competencyName}
         </span>
@@ -68,7 +69,10 @@ export const SkillCompetencyRow = ({
           }`}
         >
           {competency.progress === null ? (
-            'Sem evidência'
+            // The status badge already says "Sem evidência"; a dash keeps the score column narrow.
+            <span aria-hidden='true' className='text-muted-foreground'>
+              —
+            </span>
           ) : (
             <AnimatedNumber
               delay={0.3}

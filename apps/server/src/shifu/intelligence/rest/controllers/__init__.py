@@ -10,6 +10,9 @@ from .create_mentor_session_controller import (
 from .get_mentor_session_controller import (
     GetMentorSessionController as GetMentorSessionController,
 )
+from .get_mentor_session_ai_usage_controller import (
+    GetMentorSessionAiUsageController as GetMentorSessionAiUsageController,
+)
 from .get_mentor_session_summary_controller import (
     GetMentorSessionSummaryController as GetMentorSessionSummaryController,
 )

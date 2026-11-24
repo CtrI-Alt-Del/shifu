@@ -58,14 +58,14 @@ class ReadySkillContentFaker:
         competency = CompetencyFaker.fake(
             id=generate(1),
             skill_id=skill.id,
-            name=f'[Teste] Fundamentos de {skill.name}',
+            name=f'Fundamentos de {skill.name}',
             description=f'Competência de teste para {skill.name}.',
             position=1,
         )
         concept = ConceptFaker.fake(
             id=generate(2),
             competency_id=competency.id,
-            name=f'[Teste] Conceito de {skill.name}',
+            name=f'Conceito de {skill.name}',
             description=f'Conceito de teste para {skill.name}.',
             position=1,
             observation_criteria='A resposta escolhe a alternativa correta.',
@@ -73,7 +73,7 @@ class ReadySkillContentFaker:
         material = MaterialFaker.fake(
             id=generate(3),
             skill_id=skill.id,
-            title=f'[Teste] Introdução a {skill.name}',
+            title=f'Introdução a {skill.name}',
             concept_ids=(concept.id,),
         )
         # Two learning Activities per difficulty and one diagnostic each satisfy
@@ -83,7 +83,7 @@ class ReadySkillContentFaker:
                 id=generate(10 + index),
                 competency_id=competency.id,
                 difficulty=difficulty,
-                title=f'[Teste] Prática de {skill.name}',
+                title=f'Prática de {skill.name}',
                 objective=f'Praticar {skill.name} em uma questão de teste.',
                 concept_id=concept.id,
             )
@@ -99,7 +99,7 @@ class ReadySkillContentFaker:
                 competency_id=competency.id,
                 activity_type=ActivityType.DIAGNOSTIC,
                 difficulty=difficulty,
-                title=f'[Teste] Diagnóstico de {skill.name}',
+                title=f'Diagnóstico de {skill.name}',
                 objective=f'Diagnosticar {skill.name} em uma questão de teste.',
                 concept_id=concept.id,
             )

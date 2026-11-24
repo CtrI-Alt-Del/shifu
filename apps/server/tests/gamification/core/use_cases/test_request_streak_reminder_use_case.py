@@ -206,6 +206,30 @@ class TestRequestStreakReminderUseCase:
 
         self._assert_no_request()
 
+    def test_should_request_after_practice_today_when_asked_to_ignore_it(
+        self,
+    ) -> None:
+        self._given_practice_days(*_days_ending(TODAY, 3))
+
+        requested = self.subject.execute(
+            ACCOUNT_ID, slot_start=SLOT, ignore_today_practice=True
+        )
+
+        assert requested is True
+        assert self._recorded_events()[0].payload.streak_days == 3
+
+    def test_should_keep_the_streak_rule_when_today_practice_is_ignored(
+        self,
+    ) -> None:
+        self._given_practice_days(*_days_ending(date(2026, 9, 13), 4))
+
+        requested = self.subject.execute(
+            ACCOUNT_ID, slot_start=SLOT, ignore_today_practice=True
+        )
+
+        assert requested is False
+        self._assert_no_request()
+
     @pytest.mark.parametrize(
         ('time_zone', 'hour', 'slot', 'expected_expires_at'),
         [

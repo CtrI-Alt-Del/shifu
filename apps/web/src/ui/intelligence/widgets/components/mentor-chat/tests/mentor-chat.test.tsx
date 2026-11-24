@@ -60,6 +60,7 @@ const contextValue: MentorContextValue = {
   markBlockPresented: vi.fn(),
   selectedSessionId: null,
   sessionDetail: null,
+  aiUsagePercentageByMessageId: {},
   summary: { current: null, failureAfterMessageId: null },
   isSummarizingContext: false,
   blockingActionProposalId: null,
@@ -319,12 +320,15 @@ describe('MentorChat', () => {
       expandConversation: expand,
       closePanel: close,
       handleSelectSession: vi.fn(),
-      handleStartNewConversation: vi.fn(),
+      handleStartNewConversation: startNewMock,
       surface: 'fab' as const,
     }
     useMentorChatMock.mockReturnValue(value)
     const { rerender } = render(<MentorChat surface='fab' />)
     expect(screen.getByRole('heading', { name: 'Mentor', level: 1 })).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Nova conversa' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('Ajuda para continuar aprendendo')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Histórico de conversas' }))
     expect(showHistory).toHaveBeenCalledOnce()
@@ -342,10 +346,13 @@ describe('MentorChat', () => {
     expect(screen.queryByRole('link', { name: 'Memórias' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Histórico de conversas' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expandir conversa' }))
+    startNewMock.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conversa' }))
     fireEvent.click(screen.getByRole('button', { name: 'Fechar painel do Mentor' }))
     expect(showHistory).toHaveBeenCalledTimes(2)
     expect(expand).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
+    expect(startNewMock).toHaveBeenCalledOnce()
   })
   it('blocks only the AI controls at the quota limit and keeps history, rename and delete working', () => {
     const sendFirstMessage = vi.fn()

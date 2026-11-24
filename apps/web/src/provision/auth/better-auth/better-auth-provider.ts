@@ -141,6 +141,7 @@ const BetterAuthProvider = () => {
     appName: 'Shifu',
     baseURL: config.baseURL,
     basePath: '/api/auth',
+    trustedOrigins: config.trustedOrigins,
     secret: config.secret,
     database: authPool,
     emailAndPassword: { enabled: false },

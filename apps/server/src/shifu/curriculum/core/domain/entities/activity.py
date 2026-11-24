@@ -156,13 +156,18 @@ class Activity:
         if not practical_keys:
             return
 
+        # One practical question may share a Learning Activity with formats that are
+        # scored by fixed rules; AI-graded translation and code questions stay apart.
         if (
-            len(self.questions) != 1
+            len(practical_keys) != 1
             or self.activity_type != ActivityType.LEARNING
             or part_keys != question_keys
             or any(
+                isinstance(question, (TranslationQuestion, *_CODE_QUESTION_TYPES))
+                for question in self.questions
+            )
+            or any(
                 not isinstance(part, CorrectnessEvaluationPart)
-                or part.weight_percentage != 100
                 for part in self.evaluation_rule.parts
             )
         ):

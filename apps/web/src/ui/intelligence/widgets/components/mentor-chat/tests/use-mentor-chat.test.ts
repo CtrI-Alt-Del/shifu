@@ -44,6 +44,7 @@ const baseValue: MentorContextValue = {
   markBlockPresented: vi.fn(),
   selectedSessionId: null,
   sessionDetail: null,
+  aiUsagePercentageByMessageId: {},
   summary: { current: null, failureAfterMessageId: null },
   isSummarizingContext: false,
   blockingActionProposalId: null,

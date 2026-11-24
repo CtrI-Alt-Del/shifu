@@ -80,7 +80,12 @@ shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic stamp h
 [tool.poe.tasks."db:current"]
 shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic current; else uv run alembic current; fi"
 
+# The Mentor and planner indexes are bound to the catalog the seed writes,
+# so a reseed always rebuilds them.
 [tool.poe.tasks."db:seed"]
+sequence = ["db:seed:data", "db:index:mentor", "db:index:planning"]
+
+[tool.poe.tasks."db:seed:data"]
 cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 
 [tool.poe.tasks."db:index:planning"]

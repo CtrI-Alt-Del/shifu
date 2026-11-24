@@ -1,4 +1,5 @@
 import type { ReactFastifyPracticeRunner } from '@/core/learning/react-fastify-practice-runner'
+import { useReportMentorScreenQuestion } from '@/ui/shared/hooks/use-mentor-screen-question'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
@@ -801,6 +802,7 @@ export function useActivityPage(props: ActivityPageProps) {
         ? props.onUnsentAnswersChange
         : undefined
   const currentQuestion = activity?.questions[currentQuestionIndex] ?? null
+  useReportMentorScreenQuestion(currentQuestion?.key ?? null)
   useEffect(() => {
     if (currentQuestion?.kind !== 'ordering' || !currentQuestion.verified) return
     const answer: ActivityAnswer = {

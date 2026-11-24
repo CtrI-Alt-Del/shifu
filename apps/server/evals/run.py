@@ -25,9 +25,10 @@ from evals.retrieve_planning_skills_eval import (
 )
 from evals.route_mentor_faq_eval import RouteMentorFaqEval
 from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
+from evals.langfuse_eval_publisher import LangfuseEvalPublisher
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from typing import TextIO
 
     from evals.eval import Eval
@@ -50,6 +51,7 @@ EVAL_CLASSES = (
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')
+DEFAULT_LANGFUSE_BASE_URL = 'http://localhost:7003'
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -75,6 +77,14 @@ def _parser() -> argparse.ArgumentParser:
         '--list',
         action='store_true',
         help='List matching case IDs (evals are built in double mode, no model call).',
+    )
+    parser.add_argument(
+        '--langfuse',
+        action='store_true',
+        help=(
+            'Also publish the synthetic cases, answers and scores to Langfuse as a '
+            'dataset run. Needs LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY.'
+        ),
     )
     return parser
 
@@ -106,6 +116,13 @@ def main(
     real = env.get('SHIFU_RUN_REAL_AI_EVALS') == '1' and not arguments.list
     mode = 'real' if real else 'double'
 
+    publisher: LangfuseEvalPublisher | None = None
+    if arguments.langfuse and not arguments.list:
+        publisher = _langfuse_publisher(env)
+        if publisher is None:
+            print('langfuse_unavailable', file=err)
+            return 2
+
     evaluators, matching = _build_and_select(
         selectors, mode=mode, name=arguments.name, tag=arguments.tag
     )
@@ -131,7 +148,24 @@ def main(
         mode=mode,
         stdout=out,
         stderr=err,
+        publisher=publisher,
     )
+
+
+def _langfuse_publisher(env: Mapping[str, str]) -> LangfuseEvalPublisher | None:
+    """Build the publisher from the Langfuse keys, or None when they are missing."""
+    public_key = env.get('LANGFUSE_PUBLIC_KEY', '')
+    secret_key = env.get('LANGFUSE_SECRET_KEY', '')
+    if not public_key or not secret_key:
+        return None
+    from langfuse import Langfuse
+
+    client = Langfuse(
+        public_key=public_key,
+        secret_key=secret_key,
+        base_url=env.get('LANGFUSE_BASE_URL', DEFAULT_LANGFUSE_BASE_URL).rstrip('/'),
+    )
+    return LangfuseEvalPublisher(client)
 
 
 def _selection_error(
@@ -181,6 +215,7 @@ def _execute(
     mode: str,
     stdout: TextIO,
     stderr: TextIO,
+    publisher: LangfuseEvalPublisher | None = None,
 ) -> int:
     reports: dict[str, dict[str, Any]] = {}
     report_write_failed = False
@@ -195,6 +230,11 @@ def _execute(
                 report = evaluator.setup_failed_report(selected)
             finally:
                 evaluator.close()
+            if publisher is not None:
+                try:
+                    publisher.publish(evaluator, report)
+                except Exception:  # noqa: BLE001 - monitoring must not fail an eval.
+                    print(f'langfuse_publish_failed {selector}', file=stderr)
         report['selected_scope'] = {
             'workflow': selector,
             'case_ids': [case.name for case in selected],

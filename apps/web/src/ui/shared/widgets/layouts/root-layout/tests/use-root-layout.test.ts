@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
-import { isPublicRoute } from '../use-root-layout'
+import { act, renderHook as renderReport } from '@testing-library/react'
+import { useReportMentorScreenQuestion } from '@/ui/shared/hooks/use-mentor-screen-question'
+import { findMentorPage, isPublicRoute } from '../use-root-layout'
+
+describe('findMentorPage', () => {
+  it('names the page the learner is on, preferring fixed segments over ids', () => {
+    expect(findMentorPage('/')).toBe('dashboard')
+    expect(findMentorPage('/gamification/achievements/')).toBe('gamificationAchievements')
+    expect(findMentorPage('/learning/goals/goal-1')).toBe('learningGoal')
+    expect(findMentorPage('/learning/goals/goal-1/skills/add')).toBe(
+      'learningGoalSkillsAdd',
+    )
+    expect(findMentorPage('/learning/goals/goal-1/skills/skill-1')).toBe('learningSkill')
+    expect(findMentorPage('/learning/goals/new')).toBe('learningGoalsNew')
+    expect(findMentorPage('/nowhere')).toBeNull()
+  })
+})
 
 describe('useRootLayout route classification', () => {
   it('classifies every public contract path without treating protected paths as public', () => {
@@ -80,15 +96,33 @@ it('captures only recognized Learning identifiers and ignores run and foreign ro
     competencyId: id,
     materialId: id,
     activityId: id,
+    page: 'learningSkill',
   })
+  const report = renderReport(() => useReportMentorScreenQuestion('heat'))
+  rerender()
+  expect(result.current.mentorContextHint?.question).toBe('heat')
+  act(() => report.unmount())
+  rerender()
+  expect(result.current.mentorContextHint?.question).toBeUndefined()
   routing.matches = [{ context: {}, params: { goalId: id, skillId: 'invalid' } }]
   rerender()
   expect(result.current.mentorContextHint?.skillId).toBeNull()
   expect(result.current.account).toBeUndefined()
   routing.matches = [{ context: null, params: { goalId: 'invalid' } }]
   rerender()
-  expect(result.current.mentorContextHint).toBeNull()
+  expect(result.current.mentorContextHint).toEqual({
+    goalId: null,
+    skillId: null,
+    competencyId: null,
+    materialId: null,
+    activityId: null,
+    page: 'learningSkill',
+  })
   routing.pathname = '/gamification'
+  rerender()
+  expect(result.current.mentorContextHint?.page).toBe('gamification')
+  expect(result.current.mentorContextHint?.goalId).toBeNull()
+  routing.pathname = '/unknown/page'
   rerender()
   expect(result.current.mentorContextHint).toBeNull()
   routing.pathname = '/login/'

@@ -94,6 +94,7 @@ const mockConversationValue = (value: object) => {
 
 const mentorValue = {
   selectedSessionId: null,
+  aiUsagePercentageByMessageId: {},
   sessionDetail: null,
   summary: { current: null, failureAfterMessageId: null },
   isSummarizingContext: false,
@@ -215,6 +216,7 @@ describe('Conversation', () => {
       refresh,
       scrollRef: { current: null },
       selectedSessionId: 'session-1',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         session: {
           id: 'session-1',
@@ -277,6 +279,7 @@ describe('Conversation', () => {
       shouldAnimateBlock: vi.fn(() => false),
       markBlockPresented: vi.fn(),
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         session: {
           id: 'session',
@@ -371,6 +374,7 @@ describe('Conversation', () => {
       const conversationState = {
         ...mentorValue,
         selectedSessionId: 'session',
+        aiUsagePercentageByMessageId: {},
         sessionDetail: {
           session: {
             id: 'session',
@@ -563,6 +567,7 @@ describe('Conversation', () => {
       isSummarizingContext: true,
       response,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         session: {
           id: 'session',
@@ -611,6 +616,7 @@ describe('Conversation', () => {
     const value = {
       ...mentorValue,
       selectedSessionId: 'session',
+      aiUsagePercentageByMessageId: {},
       sessionDetail: {
         session: {
           id: 'session',
@@ -703,6 +709,7 @@ describe('Conversation', () => {
       const value = {
         ...mentorValue,
         selectedSessionId: 'session',
+        aiUsagePercentageByMessageId: {},
         handleScroll: vi.fn(),
         scrollRef: { current: null },
         trailingMemoryItems: [],
@@ -836,6 +843,7 @@ describe('Conversation', () => {
       const value = {
         ...mentorValue,
         selectedSessionId: 'session',
+        aiUsagePercentageByMessageId: {},
         handleScroll: vi.fn(),
         scrollRef: { current: null },
         shouldAnimateBlock: vi.fn(() => false),

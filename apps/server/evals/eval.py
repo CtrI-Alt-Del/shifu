@@ -103,6 +103,20 @@ class Eval(ABC):
         input: Any
         expected: Any
 
+    @dataclass
+    class CaseContent:
+        """What one case asked, expected and answered, kept apart from the report.
+
+        The report never carries case content. Only the optional Langfuse publisher
+        reads this, and only for the synthetic eval datasets.
+        """
+
+        tags: tuple[str, ...]
+        input: Any
+        expected: Any
+        output: Any = None
+        scorer_reason: str | None = None
+
     @dataclass(frozen=True)
     class CaseOutcome:
         passed: bool
@@ -173,6 +187,7 @@ class Eval(ABC):
         self.agents: tuple[Any, ...] = ()
         self._provider_failure: Eval.ProviderFailure | None = None
         self._observed_models: set[int] = set()
+        self.case_contents: dict[str, Eval.CaseContent] = {}
 
     @property
     def dataset_revision(self) -> str:
@@ -194,6 +209,14 @@ class Eval(ABC):
     # --- execution -----------------------------------------------------------
 
     def run(self, selected: tuple[Any, ...]) -> dict[str, Any]:
+        self.case_contents = {
+            case.name: self.CaseContent(
+                tags=tuple(case.tags or ()),
+                input=case.input,
+                expected=case.expected,
+            )
+            for case in selected
+        }
         if selected and all(isinstance(case, Case) for case in selected):
             try:
                 with mentor_transport_failure_scope() as failure:
@@ -202,6 +225,8 @@ class Eval(ABC):
             except Exception:  # noqa: BLE001 - exception text can include private input or credentials.
                 return self.setup_failed_report(selected)
             case_reports = [self._agno_case_report(run) for run in runs]
+            for run in runs:
+                self._keep_answer(run.result)
         else:
             case_reports = self.run_local_cases(selected)
         return self._report(selected, case_reports)
@@ -259,6 +284,16 @@ class Eval(ABC):
                 failure=by_case.get(id(case)),
                 retried_errors=previous.retried_errors if previous else [],
             )
+
+    def _keep_answer(self, result: Any) -> None:
+        content = self.case_contents.get(result.name)
+        if content is None:
+            return
+        answer = getattr(result.response, 'content', None)
+        dump = getattr(answer, 'model_dump', None)
+        content.output = dump(mode='json') if callable(dump) else answer
+        score = result.score
+        content.scorer_reason = score.reason if score is not None else None
 
     @staticmethod
     def _should_retry(run: Eval.CaseRun) -> bool:

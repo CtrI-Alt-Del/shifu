@@ -10,8 +10,25 @@ export type BetterAuthSettings = {
   databaseURL: string
   identityURL: string
   secret: string
+  trustedOrigins: string[]
   trustedProxyIPs: string[]
   useSecureCookies: boolean
+}
+
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1']
+
+// In local development the app is opened as either localhost or 127.0.0.1, so
+// both loopback spellings of the base URL are trusted. Production trusts only
+// the configured base URL.
+export function readTrustedOrigins(baseURL: string): string[] {
+  if (process.env.NODE_ENV === 'production') return []
+
+  const url = new URL(baseURL)
+  if (!LOOPBACK_HOSTS.includes(url.hostname)) return []
+
+  return LOOPBACK_HOSTS.filter((host) => host !== url.hostname).map(
+    (host) => `${url.protocol}//${host}${url.port ? `:${url.port}` : ''}`,
+  )
 }
 
 function readTrustedProxyIPs() {
@@ -57,6 +74,7 @@ export const BetterAuthConfig = (): BetterAuthSettings => {
     databaseURL,
     identityURL,
     secret: secret ?? 'shifu-local-better-auth-secret-change-me-32-chars',
+    trustedOrigins: readTrustedOrigins(baseURL),
     trustedProxyIPs: readTrustedProxyIPs(),
     useSecureCookies: readUseSecureCookies(),
   }

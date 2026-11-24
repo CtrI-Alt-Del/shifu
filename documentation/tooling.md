@@ -211,7 +211,10 @@ uv run poe db:seed
 ```
 
 The seed command executes `shifu.shared.database.seed` and is the only supported
-entrypoint for local seed composition. Its two operational composition modules are
+entrypoint for local seed composition. It then runs `db:index:mentor` and
+`db:index:planning`, because both indexes are bound to the seeded catalog: a stale
+Mentor index stops it from recognizing add and remove requests. Restart the API
+afterwards, since it keeps the catalog version it loaded first. Its two operational composition modules are
 the explicit Tach exclusions in `check:architecture`; do not widen that exclusion.
 
 Browser push for the streak reminder needs `SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY`,
@@ -223,9 +226,9 @@ does not produce the public key, so always set both from the same generated pair
 `SHIFU_WEB_PUSH_TIMEOUT_SECONDS` is optional.
 
 To demonstrate the reminder locally, run the API, Inngest and the web app, then run
-`uv run poe reminders:send-now <email>` from `apps/server`. It skips only the hour
-check, keeps every other rule, and refuses to run unless `SHIFU_SERVER_APP_MODE` is
-`local`. Before requesting, it clears the account's reminder for the current local
+`uv run poe reminders:send-now <email>` from `apps/server`. It skips the hour check
+and the check that the learner has not practiced today, keeps every other rule, and
+refuses to run unless `SHIFU_SERVER_APP_MODE` is `local`. Before requesting, it clears the account's reminder for the current local
 day, whatever its status, so every run delivers again. The scheduled flow never
 clears reminders.
 
@@ -699,6 +702,34 @@ legacy `/api/public/traces` reads return 404 even after successful ingestion.
 Use `/api/public/v2/observations` with `traceId` and bounded
 `fromStartTime`/`toStartTime` filters to verify persisted monitoring data; the
 native UI groups those observations into traces.
+
+### Eval datasets in Langfuse
+
+The eval runner can also publish its synthetic cases to Langfuse. Each eval
+becomes the dataset `shifu-evals/<selector>`, with one item per case keyed as
+`<selector>:<case>`, so a new execution updates the items instead of copying them.
+Each execution becomes an experiment run named after the prompt revision, the mode
+and the start time, recorded through the SDK `run_experiment` path so it appears
+under **Experiments** and in the dataset. Every case is linked to the run with its
+input, expected value, model answer (or the case metrics for an eval without a
+model answer), outcome and a `passed` score of 1 or 0, so runs can be compared
+side by side. The cases run first; the experiment only records their results.
+
+```bash
+cd apps/server
+LANGFUSE_PUBLIC_KEY=<project-public-key> LANGFUSE_SECRET_KEY=<project-secret-key> \
+  uv run python evals/run.py --workflow <selector> --langfuse
+```
+
+`LANGFUSE_BASE_URL` defaults to `http://localhost:7003`. Without both keys the
+command stops with `langfuse_unavailable` before any case runs. A publish failure
+prints `langfuse_publish_failed <selector>` and never changes the eval result.
+Add `SHIFU_RUN_REAL_AI_EVALS=1` to score the real models; without it the runner
+publishes the deterministic double answers. CI does not pass `--langfuse`.
+
+This is the only path that sends prompt, input and answer content to Langfuse. It
+is allowed because the eval datasets are synthetic and hold no learner data. The
+JSON reports keep excluding case content.
 
 ## Delivery handoff
 

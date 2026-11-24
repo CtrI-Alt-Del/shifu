@@ -1,7 +1,7 @@
-"""Backend roadmap Skills with placeholder content to exercise the Planner.
+"""Backend, cooking and English roadmap Skills with placeholder content for the Planner.
 
 Every Skill gets the minimum content that makes it startable, so a planned Goal can
-be created from any combination; the content itself is marked as "[Teste]".
+be created from any combination; the content itself is generic placeholder text.
 """
 
 from collections.abc import Mapping
@@ -390,6 +390,143 @@ _ROADMAP_SKILLS = (
         'System Design',
         'Projetar sistemas distribuídos equilibrando escala, consistência e custo.',
         ('scalability', 'consistency', 'resilience'),
+    ),
+    # Cooking Skills around the vegetable Skill, so the Planner has a second area.
+    _RoadmapSkill(
+        'kitchen_safety',
+        'Higiene e segurança dos alimentos',
+        'Lavagem, armazenamento, temperaturas seguras e contaminação cruzada.',
+    ),
+    _RoadmapSkill(
+        'knife_skills',
+        'Técnicas de corte e uso da faca',
+        'Como segurar a faca, cortes básicos e segurança na tábua.',
+        ('kitchen_safety',),
+    ),
+    _RoadmapSkill(
+        'eggs',
+        'Ovos: técnicas básicas',
+        'Ovo cozido, frito, mexido e omelete no ponto certo.',
+        ('kitchen_safety',),
+    ),
+    _RoadmapSkill(
+        'rice_beans',
+        'Arroz e feijão',
+        'Arroz soltinho, feijão no ponto e o refogado que dá sabor aos dois.',
+        ('vegetables',),
+    ),
+    _RoadmapSkill(
+        'stocks_soups',
+        'Caldos e sopas',
+        'Caldos caseiros, sopas com legumes e sopas cremosas.',
+        ('vegetables',),
+    ),
+    _RoadmapSkill(
+        'sauces',
+        'Molhos básicos',
+        'Molho de tomate, bechamel e vinagrete feitos em casa.',
+        ('vegetables',),
+    ),
+    _RoadmapSkill(
+        'pasta',
+        'Massas',
+        'Cozimento de massas secas, ponto al dente e combinação com molhos.',
+        ('sauces',),
+    ),
+    _RoadmapSkill(
+        'meats',
+        'Preparo de carnes',
+        'Cortes, tempero, selagem, pontos de cocção e descanso da carne.',
+        ('knife_skills',),
+    ),
+    _RoadmapSkill(
+        'baking',
+        'Panificação básica',
+        'Fermentação, sova e forno para pães caseiros.',
+        ('kitchen_safety',),
+    ),
+    _RoadmapSkill(
+        'desserts',
+        'Sobremesas simples',
+        'Bolos, pudins e cremes com técnicas básicas de confeitaria.',
+        ('baking',),
+    ),
+    _RoadmapSkill(
+        'meal_planning',
+        'Planejamento de refeições',
+        'Cardápio da semana, lista de compras e aproveitamento de sobras.',
+        ('kitchen_safety',),
+    ),
+    # English Skills around the present simple Skill, so the Planner has a third area.
+    _RoadmapSkill(
+        'english_vocabulary',
+        'Inglês: vocabulário essencial',
+        'Cumprimentos, números, cores e palavras do dia a dia em inglês.',
+    ),
+    _RoadmapSkill(
+        'english_pronunciation',
+        'Inglês: pronúncia',
+        'Sons do inglês, sílaba tônica e entonação das frases.',
+    ),
+    _RoadmapSkill(
+        'english_continuous',
+        'Inglês: presente contínuo',
+        'Ações em andamento e planos próximos com o presente contínuo.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_past',
+        'Inglês: passado simples',
+        'Verbos regulares e irregulares para contar fatos passados em inglês.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_future',
+        'Inglês: futuro com will e going to',
+        'Previsões, decisões e planos em inglês usando will e going to.',
+        ('present_simple',),
+    ),
+    _RoadmapSkill(
+        'english_perfect',
+        'Inglês: presente perfeito',
+        'Experiências e ações em inglês que ligam o passado ao presente.',
+        ('english_past',),
+    ),
+    _RoadmapSkill(
+        'english_reading',
+        'Inglês: leitura e interpretação',
+        'Ler e interpretar textos curtos, notícias e e-mails em inglês.',
+        ('english_vocabulary',),
+    ),
+    _RoadmapSkill(
+        'english_listening',
+        'Inglês: compreensão auditiva',
+        'Entender diálogos, áudios e vídeos curtos em inglês.',
+        ('english_pronunciation',),
+    ),
+    _RoadmapSkill(
+        'english_writing',
+        'Inglês: escrita',
+        'Escrever mensagens, e-mails e textos curtos em inglês.',
+        ('english_reading',),
+    ),
+    _RoadmapSkill(
+        'english_conversation',
+        'Inglês: conversação do dia a dia',
+        'Pedir informações, fazer compras e conversar em inglês em situações comuns.',
+        ('english_vocabulary', 'present_simple'),
+    ),
+    _RoadmapSkill(
+        'english_business',
+        'Inglês para o trabalho',
+        'Reuniões, e-mails profissionais e apresentações em inglês.',
+        ('english_conversation', 'english_writing'),
+    ),
+    _RoadmapSkill(
+        'english_tech',
+        'Inglês técnico para TI',
+        'Ler documentação, mensagens de erro e discussões técnicas em inglês.',
+        ('english_reading',),
     ),
 )
 

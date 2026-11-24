@@ -19,6 +19,10 @@ class MentorEmbeddingsDatabaseRepository:
         with self._database.transaction() as repositories:
             repositories.mentor_embeddings.activate_version(version)
 
+    def find_active_version(self) -> str | None:
+        with self._database.transaction() as repositories:
+            return repositories.mentor_embeddings.find_active_version()
+
     def find_nearest(
         self,
         corpus: str,

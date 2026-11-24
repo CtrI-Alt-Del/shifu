@@ -117,8 +117,11 @@ from shifu.learning.core.domain.entities import (
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     ChoiceEvaluationResult,
+    CompetencyCompletionSummary,
+    ConceptCompletionSummary,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+    SkillCompletionSummary,
 )
 from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
@@ -129,6 +132,7 @@ from shifu.fakers.learning.entities import (
 )
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
+    ActivityDifficulty as LearningActivityDifficulty,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
     SkillExperienceStatus,
@@ -206,6 +210,10 @@ SEED_ENGLISH_PROGRESS_ID = '01SHFEN0000000000000000203'
 SEED_COOKING_GOAL_ID = '01SHFCK0000000000000000201'
 SEED_COOKING_EXPERIENCE_ID = '01SHFCK0000000000000000202'
 SEED_COOKING_PROGRESS_ID = '01SHFCK0000000000000000203'
+SEED_COMPLETED_GOAL_ID = '01SHFDN0000000000000000001'
+SEED_COMPLETED_EVOLUTION_EXPERIENCE_ID = '01SHFDN0000000000000000002'
+SEED_COMPLETED_DIAGNOSTIC_EXPERIENCE_ID = '01SHFDN0000000000000000003'
+SEED_COMPLETED_PARTIAL_EXPERIENCE_ID = '01SHFDN0000000000000000004'
 SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000072'
 SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID = '01SHF000000000000000000073'
 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID = '01SHF000000000000000000074'
@@ -1770,6 +1778,150 @@ def _build_long_mentor_conversation_seed(
     return session, tuple(messages)
 
 
+def _is_choice_activity(activity: Activity) -> bool:
+    return all(
+        isinstance(question, (SingleChoiceQuestion, MultipleSelectionQuestion))
+        for question in activity.questions
+    )
+
+
+def _choice_activity_record(
+    *,
+    attempt_id: str,
+    evaluation_id: str,
+    skill_experience_id: str,
+    activity: Activity,
+    kind: ActivityAttemptKind,
+    submitted_at: datetime,
+    diagnostic_run_id: str | None = None,
+    incorrect_question_keys: frozenset[str] = frozenset(),
+) -> tuple[ActivityAttempt, ActivityEvaluation]:
+    """Create one submitted choice attempt and its completed evaluation."""
+    weights = {
+        part.question_key: Decimal(part.weight_percentage)
+        for part in activity.evaluation_rule.parts
+    }
+    answers: list[ActivityAnswer] = []
+    snapshot_questions: list[CurriculumChoiceQuestionSnapshot] = []
+    result_parts: list[ChoiceEvaluationResult] = []
+    score = Decimal('0')
+    for question in activity.questions:
+        if not isinstance(question, (SingleChoiceQuestion, MultipleSelectionQuestion)):
+            raise TypeError('Seeded choice records require choice activities.')
+
+        is_correct = question.key not in incorrect_question_keys
+        selected_keys = tuple(
+            option.key for option in question.options if option.is_correct is is_correct
+        )
+        if isinstance(question, SingleChoiceQuestion):
+            answers.append(
+                SingleChoiceAnswer(
+                    question_key=question.key,
+                    selected_option_key=selected_keys[0],
+                )
+            )
+            kind_name = 'single_choice'
+        else:
+            answers.append(
+                MultipleSelectionAnswer(
+                    question_key=question.key,
+                    selected_option_keys=selected_keys,
+                )
+            )
+            kind_name = 'multiple_selection'
+
+        if is_correct:
+            score += weights.get(question.key, Decimal('0'))
+        result_parts.append(
+            ChoiceEvaluationResult(
+                question_key=question.key,
+                score=Decimal('100') if is_correct else Decimal('0'),
+                is_correct=is_correct,
+                explanation=(
+                    question.correct_explanation or 'Resposta correta.'
+                    if is_correct
+                    else question.incorrect_explanation
+                    or 'Revise o conceito e tente novamente.'
+                ),
+            )
+        )
+        snapshot_questions.append(
+            CurriculumChoiceQuestionSnapshot(
+                key=question.key,
+                kind=kind_name,
+                prompt=question.prompt,
+                options=tuple(
+                    CurriculumChoiceOptionSnapshot(
+                        key=option.key,
+                        text=option.text,
+                        is_correct=option.is_correct,
+                    )
+                    for option in question.options
+                ),
+                correct_explanation=question.correct_explanation or 'Resposta correta.',
+                incorrect_explanation=question.incorrect_explanation
+                or 'Revise o conceito e tente novamente.',
+                concept_criteria=tuple(
+                    CurriculumChoiceConceptCriterionSnapshot(
+                        concept_id=criterion.concept_id,
+                        criterion=criterion.criterion,
+                        examples=criterion.examples,
+                        limits=criterion.limits,
+                        correct_score=(
+                            Decimal(criterion.correct_score)
+                            if criterion.correct_score is not None
+                            else None
+                        ),
+                        incorrect_score=(
+                            Decimal(criterion.incorrect_score)
+                            if criterion.incorrect_score is not None
+                            else None
+                        ),
+                    )
+                    for criterion in question.concept_criteria
+                ),
+            )
+        )
+
+    attempt = ActivityAttempt(
+        id=attempt_id,
+        skill_experience_id=skill_experience_id,
+        competency_id=activity.competency_id,
+        activity_id=activity.id,
+        kind=kind,
+        answers=tuple(answers),
+        submitted_at=submitted_at,
+        grading_snapshot=CurriculumChoiceActivitySnapshot(
+            id=activity.id,
+            competency_id=activity.competency_id,
+            difficulty=activity.difficulty.value,
+            title=activity.title,
+            questions=tuple(snapshot_questions),
+            parts=tuple(
+                CurriculumChoicePartSnapshot(
+                    question_key=part.question_key,
+                    weight_percentage=Decimal(part.weight_percentage),
+                )
+                for part in activity.evaluation_rule.parts
+            ),
+            required_concept_ids=activity.required_concept_ids,
+            activity_type=activity.activity_type.value,
+        ),
+        diagnostic_run_id=diagnostic_run_id,
+    )
+    evaluation = ActivityEvaluation(
+        id=evaluation_id,
+        attempt_id=attempt_id,
+        status=ActivityEvaluationStatus.COMPLETED,
+        parts=tuple(result_parts),
+        started_at=submitted_at - timedelta(minutes=2),
+        score=score,
+        completed_at=submitted_at,
+        effect_applied_at=submitted_at,
+    )
+    return attempt, evaluation
+
+
 def _build_logic_learning_records(
     curriculum: LogicProgrammingSeed,
 ) -> tuple[tuple[ActivityAttempt, ...], tuple[ActivityEvaluation, ...]]:
@@ -1783,145 +1935,440 @@ def _build_logic_learning_records(
         activity
         for activity in activities
         if activity.activity_type is ActivityType.LEARNING
-        and all(
-            isinstance(question, (SingleChoiceQuestion, MultipleSelectionQuestion))
-            for question in activity.questions
-        )
+        and _is_choice_activity(activity)
     )[:2]
     completed_activities = (*diagnostic_activities, *learning_activities)
 
     attempts: list[ActivityAttempt] = []
     evaluations: list[ActivityEvaluation] = []
     for index, activity in enumerate(completed_activities):
-        submitted_at = SEED_CREATED_AT + timedelta(days=1, minutes=index * 5)
-        answers: list[ActivityAnswer] = []
-        snapshot_questions: list[CurriculumChoiceQuestionSnapshot] = []
-        result_parts: list[ChoiceEvaluationResult] = []
-        for question in activity.questions:
-            if isinstance(question, SingleChoiceQuestion):
-                correct_keys = tuple(
-                    option.key for option in question.options if option.is_correct
-                )
-                answers.append(
-                    SingleChoiceAnswer(
-                        question_key=question.key,
-                        selected_option_key=correct_keys[0],
-                    )
-                )
-                kind = 'single_choice'
-            elif isinstance(question, MultipleSelectionQuestion):
-                correct_keys = tuple(
-                    option.key for option in question.options if option.is_correct
-                )
-                answers.append(
-                    MultipleSelectionAnswer(
-                        question_key=question.key,
-                        selected_option_keys=correct_keys,
-                    )
-                )
-                kind = 'multiple_selection'
-            else:
-                raise TypeError('Seeded logic records require choice activities.')
-
-            result_parts.append(
-                ChoiceEvaluationResult(
-                    question_key=question.key,
-                    score=Decimal('100'),
-                    is_correct=True,
-                    explanation=question.correct_explanation or 'Resposta correta.',
-                )
-            )
-            snapshot_questions.append(
-                CurriculumChoiceQuestionSnapshot(
-                    key=question.key,
-                    kind=kind,
-                    prompt=question.prompt,
-                    options=tuple(
-                        CurriculumChoiceOptionSnapshot(
-                            key=option.key,
-                            text=option.text,
-                            is_correct=option.is_correct,
-                        )
-                        for option in question.options
-                    ),
-                    correct_explanation=question.correct_explanation
-                    or 'Resposta correta.',
-                    incorrect_explanation=question.incorrect_explanation
-                    or 'Revise o conceito e tente novamente.',
-                    concept_criteria=tuple(
-                        CurriculumChoiceConceptCriterionSnapshot(
-                            concept_id=criterion.concept_id,
-                            criterion=criterion.criterion,
-                            examples=criterion.examples,
-                            limits=criterion.limits,
-                            correct_score=(
-                                Decimal(criterion.correct_score)
-                                if criterion.correct_score is not None
-                                else None
-                            ),
-                            incorrect_score=(
-                                Decimal(criterion.incorrect_score)
-                                if criterion.incorrect_score is not None
-                                else None
-                            ),
-                        )
-                        for criterion in question.concept_criteria
-                    ),
-                )
-            )
-
-        attempt_id = f'01SHF000000000000000000{600 + index:03d}'
-        attempt_kind = (
-            ActivityAttemptKind.DIAGNOSTIC
-            if activity.id in diagnostic_ids
-            else ActivityAttemptKind.LEARNING
+        is_diagnostic = activity.id in diagnostic_ids
+        attempt, evaluation = _choice_activity_record(
+            attempt_id=f'01SHF000000000000000000{600 + index:03d}',
+            evaluation_id=f'01SHF000000000000000000{700 + index:03d}',
+            skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+            activity=activity,
+            kind=(
+                ActivityAttemptKind.DIAGNOSTIC
+                if is_diagnostic
+                else ActivityAttemptKind.LEARNING
+            ),
+            submitted_at=SEED_CREATED_AT + timedelta(days=1, minutes=index * 5),
+            diagnostic_run_id=(
+                'seed-logic-initial-diagnostic' if is_diagnostic else None
+            ),
         )
-        attempts.append(
-            ActivityAttempt(
-                id=attempt_id,
-                skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
-                competency_id=activity.competency_id,
-                activity_id=activity.id,
-                kind=attempt_kind,
-                answers=tuple(answers),
-                submitted_at=submitted_at,
-                grading_snapshot=CurriculumChoiceActivitySnapshot(
-                    id=activity.id,
-                    competency_id=activity.competency_id,
-                    difficulty=activity.difficulty.value,
-                    title=activity.title,
-                    questions=tuple(snapshot_questions),
-                    parts=tuple(
-                        CurriculumChoicePartSnapshot(
-                            question_key=part.question_key,
-                            weight_percentage=Decimal(part.weight_percentage),
-                        )
-                        for part in activity.evaluation_rule.parts
-                    ),
-                    required_concept_ids=activity.required_concept_ids,
-                    activity_type=activity.activity_type.value,
-                ),
-                diagnostic_run_id=(
-                    'seed-logic-initial-diagnostic'
-                    if attempt_kind is ActivityAttemptKind.DIAGNOSTIC
-                    else None
-                ),
-            )
-        )
-        evaluations.append(
-            ActivityEvaluation(
-                id=f'01SHF000000000000000000{700 + index:03d}',
-                attempt_id=attempt_id,
-                status=ActivityEvaluationStatus.COMPLETED,
-                parts=tuple(result_parts),
-                started_at=submitted_at - timedelta(minutes=2),
-                score=Decimal('100'),
-                completed_at=submitted_at,
-                effect_applied_at=submitted_at,
-            )
-        )
+        attempts.append(attempt)
+        evaluations.append(evaluation)
 
     return tuple(attempts), tuple(evaluations)
+
+
+_ALL_LEARNING_DIFFICULTIES = tuple(LearningActivityDifficulty)
+
+
+@structure
+class _CompletedCompetencyPlan:
+    competency_id: str
+    initial_progress: Decimal | None
+    final_progress: Decimal
+    mastered_at: datetime
+    initial_difficulties: tuple[LearningActivityDifficulty, ...] = (
+        _ALL_LEARNING_DIFFICULTIES
+    )
+
+
+@structure
+class _CompletedSkillsSeed:
+    goal: Goal
+    skill_experiences: tuple[SkillExperience, ...]
+    competency_progresses: tuple[CompetencyProgress, ...]
+    activity_attempts: tuple[ActivityAttempt, ...]
+    activity_evaluations: tuple[ActivityEvaluation, ...]
+
+
+class _CompletedRecords:
+    """Collect reproducible attempts and evaluations for the completed Skills."""
+
+    def __init__(self) -> None:
+        self.attempts: list[ActivityAttempt] = []
+        self.evaluations: list[ActivityEvaluation] = []
+
+    def add(
+        self,
+        *,
+        skill_experience_id: str,
+        activity: Activity,
+        kind: ActivityAttemptKind,
+        submitted_at: datetime,
+        diagnostic_run_id: str | None = None,
+        incorrect_question_keys: frozenset[str] = frozenset(),
+    ) -> None:
+        number = len(self.attempts)
+        attempt, evaluation = _choice_activity_record(
+            attempt_id=f'01SHFDN{2000 + number:019d}',
+            evaluation_id=f'01SHFDN{3000 + number:019d}',
+            skill_experience_id=skill_experience_id,
+            activity=activity,
+            kind=kind,
+            submitted_at=submitted_at,
+            diagnostic_run_id=diagnostic_run_id,
+            incorrect_question_keys=incorrect_question_keys,
+        )
+        self.attempts.append(attempt)
+        self.evaluations.append(evaluation)
+
+    def add_learning_path(
+        self,
+        *,
+        skill_experience_id: str,
+        activities: tuple[Activity, ...],
+        plans: tuple[_CompletedCompetencyPlan, ...],
+        started_at: datetime,
+    ) -> None:
+        """Practice three Learning Activities per Competency until its mastery.
+
+        The first Activity is retried after a partial answer, so each Competency
+        counts three Activities and four learning attempts.
+        """
+        previous_mastery = started_at
+        for plan in plans:
+            practiced = tuple(
+                activity
+                for activity in activities
+                if activity.competency_id == plan.competency_id
+                and activity.activity_type is ActivityType.LEARNING
+                and _is_choice_activity(activity)
+            )[:3]
+            step = (plan.mastered_at - previous_mastery) / (len(practiced) + 2)
+            for index, activity in enumerate((practiced[0], *practiced), start=1):
+                self.add(
+                    skill_experience_id=skill_experience_id,
+                    activity=activity,
+                    kind=ActivityAttemptKind.LEARNING,
+                    submitted_at=previous_mastery + step * index,
+                    incorrect_question_keys=(
+                        frozenset({activity.questions[0].key})
+                        if index == 1
+                        else frozenset()
+                    ),
+                )
+            previous_mastery = plan.mastered_at
+
+
+def _completion_summary(
+    *,
+    plans: tuple[_CompletedCompetencyPlan, ...],
+    concepts: tuple[Concept, ...],
+    started_at: datetime,
+    completed_at: datetime,
+) -> SkillCompletionSummary:
+    competencies = tuple(
+        CompetencyCompletionSummary(
+            competency_id=plan.competency_id,
+            initial_progress=plan.initial_progress,
+            final_progress=plan.final_progress,
+            initial_coverage_complete=(
+                plan.initial_progress is not None
+                and plan.initial_difficulties == _ALL_LEARNING_DIFFICULTIES
+            ),
+            concepts=tuple(
+                ConceptCompletionSummary(
+                    concept_id=concept.id,
+                    initial_progress=plan.initial_progress,
+                    final_progress=plan.final_progress,
+                    initial_observed_difficulties=(
+                        plan.initial_difficulties
+                        if plan.initial_progress is not None
+                        else ()
+                    ),
+                    final_observed_difficulties=_ALL_LEARNING_DIFFICULTIES,
+                )
+                for concept in concepts
+                if concept.competency_id == plan.competency_id
+            ),
+        )
+        for plan in plans
+    )
+    known_starts = tuple(
+        plan.initial_progress for plan in plans if plan.initial_progress is not None
+    )
+    return SkillCompletionSummary(
+        competencies=competencies,
+        initial_progress=(
+            sum(known_starts, start=Decimal('0')) / len(known_starts)
+            if known_starts
+            else None
+        ),
+        final_progress=sum((plan.final_progress for plan in plans), start=Decimal('0'))
+        / len(plans),
+        started_at=started_at,
+        completed_at=completed_at,
+        initial_coverage_complete=all(
+            item.initial_coverage_complete for item in competencies
+        ),
+    )
+
+
+def _completed_progresses(
+    *,
+    skill_experience_id: str,
+    plans: tuple[_CompletedCompetencyPlan, ...],
+    first_id: int,
+    started_at: datetime,
+) -> tuple[CompetencyProgress, ...]:
+    return tuple(
+        CompetencyProgress(
+            id=f'01SHFDN{first_id + index:019d}',
+            skill_experience_id=skill_experience_id,
+            competency_id=plan.competency_id,
+            content_released=True,
+            created_at=started_at,
+            updated_at=plan.mastered_at,
+            initial_progress=plan.initial_progress,
+            current_progress=plan.final_progress,
+            status=CompetencyProgressStatus.MASTERED,
+            mastered_at=plan.mastered_at,
+            hard_activity_score=plan.final_progress,
+            coverage_complete=True,
+        )
+        for index, plan in enumerate(plans)
+    )
+
+
+def _build_completed_skills_seed(
+    *,
+    concepts: tuple[Concept, ...],
+    activities: tuple[Activity, ...],
+    logic_diagnostic_activity_ids: tuple[str, ...],
+) -> _CompletedSkillsSeed:
+    """Create three completed Skills, one per state of the completed Skill page.
+
+    Each one lives in the same Goal: a full evolution with review practice, a Skill
+    completed directly by its diagnostic, and a partial or unknown starting point.
+    """
+    activities_by_id = {activity.id: activity for activity in activities}
+    records = _CompletedRecords()
+
+    # Evolution: five Competencies mastered over five weeks, then reviewed twice.
+    evolution_started_at = datetime(2026, 2, 2, 12, tzinfo=UTC)
+    evolution_completed_at = datetime(2026, 3, 10, 21, tzinfo=UTC)
+    evolution_plans = tuple(
+        _CompletedCompetencyPlan(
+            competency_id=competency_id,
+            initial_progress=Decimal(initial),
+            final_progress=Decimal(final),
+            mastered_at=mastered_at,
+        )
+        for competency_id, initial, final, mastered_at in (
+            (
+                '01SHF000000000000000000310',
+                60,
+                100,
+                datetime(2026, 2, 9, 22, tzinfo=UTC),
+            ),
+            (
+                '01SHF000000000000000000311',
+                45,
+                96,
+                datetime(2026, 2, 17, 22, tzinfo=UTC),
+            ),
+            (
+                '01SHF000000000000000000312',
+                30,
+                92,
+                datetime(2026, 2, 26, 22, tzinfo=UTC),
+            ),
+            (
+                '01SHF000000000000000000313',
+                20,
+                90,
+                datetime(2026, 3, 4, 22, tzinfo=UTC),
+            ),
+            ('01SHF000000000000000000314', 10, 88, evolution_completed_at),
+        )
+    )
+    for index, activity_id in enumerate(logic_diagnostic_activity_ids):
+        records.add(
+            skill_experience_id=SEED_COMPLETED_EVOLUTION_EXPERIENCE_ID,
+            activity=activities_by_id[activity_id],
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            submitted_at=evolution_started_at + timedelta(minutes=2 + index * 2),
+            diagnostic_run_id='seed-completed-evolution-diagnostic',
+        )
+    records.add_learning_path(
+        skill_experience_id=SEED_COMPLETED_EVOLUTION_EXPERIENCE_ID,
+        activities=activities,
+        plans=evolution_plans,
+        started_at=evolution_started_at + timedelta(hours=1),
+    )
+    review_activity = next(
+        activity
+        for activity in activities
+        if activity.competency_id == '01SHF000000000000000000312'
+        and activity.activity_type is ActivityType.LEARNING
+        and _is_choice_activity(activity)
+        and len(activity.questions) > 1
+    )
+    for submitted_at, incorrect_question_keys in (
+        (datetime(2026, 3, 14, 13, tzinfo=UTC), frozenset[str]()),
+        (
+            datetime(2026, 3, 18, 13, tzinfo=UTC),
+            frozenset({review_activity.questions[0].key}),
+        ),
+    ):
+        records.add(
+            skill_experience_id=SEED_COMPLETED_EVOLUTION_EXPERIENCE_ID,
+            activity=review_activity,
+            kind=ActivityAttemptKind.REVIEW,
+            submitted_at=submitted_at,
+            incorrect_question_keys=incorrect_question_keys,
+        )
+
+    # Completed by the diagnostic: the start equals the end and no learning happened.
+    diagnostic_started_at = datetime(2026, 3, 2, 13, tzinfo=UTC)
+    diagnostic_completed_at = diagnostic_started_at + timedelta(minutes=25)
+    diagnostic_plans = (
+        _CompletedCompetencyPlan(
+            competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+            initial_progress=Decimal('94'),
+            final_progress=Decimal('94'),
+            mastered_at=diagnostic_completed_at,
+        ),
+    )
+    for index, activity_id in enumerate(SEED_ADAPTIVE_ACTIVITY_IDS[:3]):
+        records.add(
+            skill_experience_id=SEED_COMPLETED_DIAGNOSTIC_EXPERIENCE_ID,
+            activity=activities_by_id[activity_id],
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            submitted_at=diagnostic_started_at + timedelta(minutes=5 + index * 8),
+            diagnostic_run_id='seed-completed-by-diagnostic',
+        )
+
+    # Partial starting point: one Competency was only partly diagnosed and the
+    # other one had no starting estimate at all.
+    partial_started_at = datetime(2026, 2, 16, 12, tzinfo=UTC)
+    partial_completed_at = datetime(2026, 3, 6, 20, tzinfo=UTC)
+    partial_plans = (
+        _CompletedCompetencyPlan(
+            competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+            initial_progress=Decimal('40'),
+            final_progress=Decimal('95'),
+            mastered_at=datetime(2026, 2, 27, 21, tzinfo=UTC),
+            initial_difficulties=(
+                LearningActivityDifficulty.EASY,
+                LearningActivityDifficulty.MEDIUM,
+            ),
+        ),
+        _CompletedCompetencyPlan(
+            competency_id=SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
+            initial_progress=None,
+            final_progress=Decimal('90'),
+            mastered_at=partial_completed_at,
+            initial_difficulties=(),
+        ),
+    )
+    for index, activity_id in enumerate(SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[:2]):
+        records.add(
+            skill_experience_id=SEED_COMPLETED_PARTIAL_EXPERIENCE_ID,
+            activity=activities_by_id[activity_id],
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            submitted_at=partial_started_at + timedelta(minutes=3 + index * 4),
+            diagnostic_run_id='seed-completed-partial-diagnostic',
+        )
+    records.add_learning_path(
+        skill_experience_id=SEED_COMPLETED_PARTIAL_EXPERIENCE_ID,
+        activities=activities,
+        plans=partial_plans,
+        started_at=partial_started_at + timedelta(hours=1),
+    )
+
+    scenarios = (
+        (
+            SEED_COMPLETED_EVOLUTION_EXPERIENCE_ID,
+            LOGIC_SKILL_ID,
+            'Comparar o ponto de partida com a evolução e praticar revisões.',
+            evolution_plans,
+            evolution_started_at,
+            evolution_completed_at,
+            'seed-completed-evolution-diagnostic',
+            100,
+        ),
+        (
+            SEED_COMPLETED_DIAGNOSTIC_EXPERIENCE_ID,
+            SEED_ADAPTIVE_SKILL_ID,
+            'Ver uma Habilidade concluída diretamente pelo diagnóstico.',
+            diagnostic_plans,
+            diagnostic_started_at,
+            diagnostic_completed_at,
+            'seed-completed-by-diagnostic',
+            110,
+        ),
+        (
+            SEED_COMPLETED_PARTIAL_EXPERIENCE_ID,
+            SEED_ADAPTIVE_LAB_SKILL_ID,
+            'Ver um resumo com ponto de partida parcial e desconhecido.',
+            partial_plans,
+            partial_started_at,
+            partial_completed_at,
+            'seed-completed-partial-diagnostic',
+            120,
+        ),
+    )
+    return _CompletedSkillsSeed(
+        goal=Goal(
+            id=SEED_COMPLETED_GOAL_ID,
+            account_id=SEED_ACCOUNT_ID,
+            title='Habilidades concluídas',
+            description=(
+                'Confira o resumo final de Habilidades concluídas em três situações.'
+            ),
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+        ),
+        skill_experiences=tuple(
+            SkillExperience(
+                id=experience_id,
+                goal_id=SEED_COMPLETED_GOAL_ID,
+                skill_id=skill_id,
+                inclusion_reason=reason,
+                status=SkillExperienceStatus.COMPLETED,
+                created_at=started_at,
+                updated_at=completed_at,
+                started_at=started_at,
+                completed_at=completed_at,
+                completion_summary=_completion_summary(
+                    plans=plans,
+                    concepts=concepts,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                ),
+                diagnostic_run_id=diagnostic_run_id,
+            )
+            for (
+                experience_id,
+                skill_id,
+                reason,
+                plans,
+                started_at,
+                completed_at,
+                diagnostic_run_id,
+                _,
+            ) in scenarios
+        ),
+        competency_progresses=tuple(
+            progress
+            for (experience_id, _, _, plans, started_at, _, _, first_id) in scenarios
+            for progress in _completed_progresses(
+                skill_experience_id=experience_id,
+                plans=plans,
+                first_id=first_id,
+                started_at=started_at,
+            )
+        ),
+        activity_attempts=tuple(records.attempts),
+        activity_evaluations=tuple(records.evaluations),
+    )
 
 
 # Days before the seed's local "today" on which the student practiced. Runs
@@ -2910,12 +3357,15 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
-    # Backend roadmap Skills with placeholder content, to exercise the Planner.
+    # Backend, cooking and English roadmap Skills with placeholder content, to
+    # exercise the Planner.
     roadmap = build_roadmap_skills_seed(
         {
             'logic': SEED_SKILL_LOGIC_ID,
             'javascript': SEED_GRAPH_JAVASCRIPT_SKILL_ID,
             'apis': SEED_GRAPH_APIS_SKILL_ID,
+            'vegetables': COOKING_SKILL_ID,
+            'present_simple': ENGLISH_SKILL_ID,
         }
     )
 
@@ -2988,6 +3438,15 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         status=CompetencyProgressStatus.LEARNING,
     )
 
+    # Three completed Skills in their own Goal, one per completed-page state.
+    completed = _build_completed_skills_seed(
+        concepts=(*concepts, *logic_curriculum.concepts),
+        activities=(*activities, *logic_curriculum.activities),
+        logic_diagnostic_activity_ids=(
+            logic_curriculum.skill.initial_diagnostic_activity_ids
+        ),
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
         account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
@@ -3055,6 +3514,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             *(goal for goal in goals if goal.id in retained_goal_ids),
             english_goal,
             cooking_goal,
+            completed.goal,
         ),
         skill_experiences=(
             *(
@@ -3064,6 +3524,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             ),
             english_experience,
             cooking_experience,
+            *completed.skill_experiences,
         ),
         competency_progresses=tuple(
             progress
@@ -3085,19 +3546,22 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             )
             for index, competency in enumerate(logic_curriculum.competencies)
         )
-        + (english_progress, cooking_progress),
+        + (english_progress, cooking_progress)
+        + completed.competency_progresses,
         activity_attempts=tuple(
             attempt
             for attempt in activity_attempts
             if attempt.id in retained_attempt_ids
         )
-        + logic_attempts,
+        + logic_attempts
+        + completed.activity_attempts,
         activity_evaluations=tuple(
             evaluation
             for evaluation in activity_evaluations
             if evaluation.attempt_id in retained_attempt_ids
         )
-        + logic_evaluations,
+        + logic_evaluations
+        + completed.activity_evaluations,
         communications=communications,
         delivery_attempts=delivery_attempts,
         gamification_profiles=(gamification_seed.profile,),

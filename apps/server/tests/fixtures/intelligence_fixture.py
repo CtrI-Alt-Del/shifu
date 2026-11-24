@@ -289,12 +289,19 @@ class IntelligenceFixture:
         attempt_id: str,
         message_id: str,
         progress: tuple[MentorWorkflowStep | None, ...] = (),
+        *,
+        claimed: bool = False,
     ) -> None:
-        """Process the attempt, publish one approved block and finalize it."""
+        """Process the attempt, publish one approved block and finalize it.
+
+        ``claimed`` skips the claim of an attempt that ``start_processing`` already
+        moved to processing, so a test can report its usage before it finishes.
+        """
         intelligence = self.database
         now = datetime.now(UTC)
         with intelligence.transaction() as repositories:
-            self._claim(repositories, attempt_id, now)
+            if not claimed:
+                self._claim(repositories, attempt_id, now)
             for step in progress:
                 repositories.mentor_response_events.append(
                     self._status_event(repositories, session_id, attempt_id, now, step)

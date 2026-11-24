@@ -14,6 +14,14 @@ const HINT = z
     competencyId: ID.nullable(),
     materialId: ID.nullable(),
     activityId: ID.nullable(),
+    page: z
+      .string()
+      .regex(/^[A-Za-z]{1,40}$/)
+      .nullish(),
+    question: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,64}$/)
+      .nullish(),
   })
   .strict()
 const INPUT = z

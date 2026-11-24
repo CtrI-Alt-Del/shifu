@@ -500,7 +500,10 @@ class GetChoiceActivityUseCase:
             (
                 bool(snapshot.questions)
                 if diagnostic
-                else len(snapshot.questions) == 1
+                else (
+                    # A practical question stands alone or joins a mix of three to five.
+                    len(snapshot.questions) == 1 or 3 <= len(snapshot.questions) <= 5
+                )
                 if is_practical
                 else 3 <= len(snapshot.questions) <= 5
             )

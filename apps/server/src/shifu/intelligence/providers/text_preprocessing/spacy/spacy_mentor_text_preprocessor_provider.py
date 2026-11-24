@@ -166,8 +166,9 @@ class SpacyMentorTextPreprocessorProvider:
         )
 
     def tokenize(self, text: str) -> tuple[str, ...]:
+        # Accent-stripped, so "competencia" still matches "Competência".
         return tuple(
-            (token.lemma_ or token.text).casefold()
+            _normalize(token.lemma_ or token.text)
             for token in self._parse(text)
             if not token.is_space
             and not token.is_punct

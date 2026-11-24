@@ -73,6 +73,9 @@ vi.mock('@/ui/intelligence/hooks/use-mentor-sessions-query', () => ({
 vi.mock('@/ui/intelligence/hooks/use-mentor-session-query', () => ({
   useMentorSessionQuery: () => ({ readMentorSession: ports.detail }),
 }))
+vi.mock('@/ui/intelligence/hooks/use-mentor-session-ai-usage-query', () => ({
+  useMentorSessionAiUsageQuery: () => ({ mentorSessionAiUsage: [] }),
+}))
 vi.mock('@/ui/intelligence/hooks/use-submit-mentor-message-action', () => ({
   useSubmitMentorMessageAction: () => ({
     submitMentorMessage: ports.submit,

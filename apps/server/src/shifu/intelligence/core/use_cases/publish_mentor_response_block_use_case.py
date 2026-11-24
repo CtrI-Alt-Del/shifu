@@ -1,5 +1,8 @@
-from dataclasses import asdict, replace
+from dataclasses import replace
 
+from shifu.intelligence.core.domain.structures.mentor_context_hint import (
+    mentor_context_read_hints,
+)
 from shifu.intelligence.core.domain.entities import (
     MentorActionProposal,
     MentorResponseAttempt,
@@ -149,7 +152,7 @@ class PublishMentorResponseBlockUseCase:
 
     @staticmethod
     def _hints(attempt: MentorResponseAttempt) -> dict[str, str | None]:
-        return asdict(attempt.context_hint) if attempt.context_hint else {}
+        return mentor_context_read_hints(attempt.context_hint)
 
     @staticmethod
     def _existing_block(

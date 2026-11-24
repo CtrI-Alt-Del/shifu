@@ -3,8 +3,10 @@
 The Skill reuses the placeholder content that makes any Skill startable and swaps its
 two easy Learning Activities: the first for step-ordering questions (SHIFU-129) and the
 second for an Activity that mixes single choice with an image-choice question
-(SHIFU-131). It is development content for testing the formats, not official
-Curriculum.
+(SHIFU-131). The first medium Activity mixes ordering, image-choice and practical
+preparation (SHIFU-130) questions, for demonstration only. The support material is
+written out so the Skill can be read end to end. It is development content for
+testing the formats, not official Curriculum.
 """
 
 from dataclasses import dataclass
@@ -30,6 +32,7 @@ from shifu.curriculum.core.domain.structures import (
     SingleChoiceQuestion,
 )
 from shifu.fakers.curriculum.ready_skill_content_faker import ReadySkillContentFaker
+from shifu.fakers.curriculum.structures import PracticalPreparationQuestionFaker
 
 COOKING_SEED_ID_PREFIX = '01SHFCK'
 
@@ -43,6 +46,7 @@ COOKING_SKILL_ID = cooking_seed_id(1)
 COOKING_COMPETENCY_ID = cooking_seed_id(101)
 COOKING_ORDERING_ACTIVITY_ID = cooking_seed_id(110)
 COOKING_IMAGE_CHOICE_ACTIVITY_ID = cooking_seed_id(111)
+COOKING_MIXED_FORMATS_ACTIVITY_ID = cooking_seed_id(112)
 
 # Static files served by the web app from apps/web/public/curriculum/images/.
 # Order: raw, translucent, caramelized, burnt.
@@ -91,6 +95,50 @@ def _ordering_question(
     )
 
 
+def _ordering_questions(
+    concept_id: str,
+) -> tuple[OrderingQuestion, OrderingQuestion, OrderingQuestion]:
+    return (
+        _ordering_question(
+            'ordering-1',
+            concept_id,
+            'Organize o preparo dos legumes.',
+            (
+                ('wash', 'Lavar os legumes'),
+                ('peel', 'Descascar os legumes'),
+                ('cut', 'Cortar em cubos'),
+                ('boil', 'Cozinhar em água fervente'),
+                ('season', 'Temperar e servir'),
+            ),
+            (('wash', 'peel', 'cut', 'boil', 'season'),),
+        ),
+        # Two accepted orders: the pan can heat while the onion is chopped.
+        _ordering_question(
+            'ordering-2',
+            concept_id,
+            'Organize o preparo de uma cebola refogada.',
+            (
+                ('chop', 'Picar a cebola'),
+                ('heat', 'Aquecer o azeite na panela'),
+                ('saute', 'Refogar a cebola até dourar'),
+            ),
+            (('chop', 'heat', 'saute'), ('heat', 'chop', 'saute')),
+        ),
+        _ordering_question(
+            'ordering-3',
+            concept_id,
+            'Organize o preparo de uma salada.',
+            (
+                ('wash', 'Lavar as folhas'),
+                ('dry', 'Secar as folhas'),
+                ('tear', 'Rasgar as folhas em pedaços'),
+                ('dress', 'Temperar na hora de servir'),
+            ),
+            (('wash', 'dry', 'tear', 'dress'),),
+        ),
+    )
+
+
 def _ordering_activity(competency_id: str, concept_id: str) -> Activity:
     return Activity.create(
         id=COOKING_ORDERING_ACTIVITY_ID,
@@ -99,45 +147,7 @@ def _ordering_activity(competency_id: str, concept_id: str) -> Activity:
         difficulty=ActivityDifficulty.EASY,
         title='Preparo de legumes: ordene as etapas',
         objective='Organizar as etapas de preparos simples na ordem correta.',
-        questions=(
-            _ordering_question(
-                'ordering-1',
-                concept_id,
-                'Organize o preparo dos legumes.',
-                (
-                    ('wash', 'Lavar os legumes'),
-                    ('peel', 'Descascar os legumes'),
-                    ('cut', 'Cortar em cubos'),
-                    ('boil', 'Cozinhar em água fervente'),
-                    ('season', 'Temperar e servir'),
-                ),
-                (('wash', 'peel', 'cut', 'boil', 'season'),),
-            ),
-            # Two accepted orders: the pan can heat while the onion is chopped.
-            _ordering_question(
-                'ordering-2',
-                concept_id,
-                'Organize o preparo de uma cebola refogada.',
-                (
-                    ('chop', 'Picar a cebola'),
-                    ('heat', 'Aquecer o azeite na panela'),
-                    ('saute', 'Refogar a cebola até dourar'),
-                ),
-                (('chop', 'heat', 'saute'), ('heat', 'chop', 'saute')),
-            ),
-            _ordering_question(
-                'ordering-3',
-                concept_id,
-                'Organize o preparo de uma salada.',
-                (
-                    ('wash', 'Lavar as folhas'),
-                    ('dry', 'Secar as folhas'),
-                    ('tear', 'Rasgar as folhas em pedaços'),
-                    ('dress', 'Temperar na hora de servir'),
-                ),
-                (('wash', 'dry', 'tear', 'dress'),),
-            ),
-        ),
+        questions=_ordering_questions(concept_id),
         evaluation_rule=EvaluationRule(
             parts=(
                 CorrectnessEvaluationPart(
@@ -316,6 +326,107 @@ def _image_choice_activity(competency_id: str, concept_id: str) -> Activity:
     )
 
 
+def _mixed_formats_activity(competency_id: str, concept_id: str) -> Activity:
+    _, onion, _ = _ordering_questions(concept_id)
+    practical = PracticalPreparationQuestionFaker.fake(
+        key='practical-1',
+        concept_criteria=(
+            PracticalPreparationQuestionFaker.concept_criterion(concept_id),
+        ),
+    )
+    questions = (onion, _onion_image_choice_question(concept_id), practical)
+    weights = (30, 30, 40)
+    return Activity.create(
+        id=COOKING_MIXED_FORMATS_ACTIVITY_ID,
+        competency_id=competency_id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.MEDIUM,
+        title='Cebola e legumes: ordene, reconheça e prepare',
+        objective=(
+            'Ordenar etapas, reconhecer o ponto da cebola e preparar legumes salteados.'
+        ),
+        questions=questions,
+        evaluation_rule=EvaluationRule(
+            parts=tuple(
+                CorrectnessEvaluationPart(
+                    question_key=question.key, weight_percentage=weight
+                )
+                for question, weight in zip(questions, weights, strict=True)
+            )
+        ),
+    )
+
+
+_MATERIAL_CONTENT = """\
+Preparar legumes bem começa antes do fogo. Este material mostra como lavar,
+cortar, refogar e saltear legumes, e como reconhecer o ponto certo de cada
+preparo.
+
+Organize tudo antes de começar. Na cozinha, a ordem das etapas evita erros e
+acidentes. Antes de acender o fogo, deixe os legumes lavados, descascados e
+cortados, os temperos separados e os utensílios à mão. Assim você não precisa
+cortar nada com a panela já quente.
+
+A sequência básica de qualquer preparo com legumes é lavar, descascar, cortar,
+cozinhar e, por fim, temperar e servir. Lave sempre antes de descascar e
+cortar: se você cortar primeiro, a sujeira da casca passa para a parte de
+dentro do legume.
+
+Folhas pedem um cuidado extra. Lave, seque bem e rasgue em pedaços. Só tempere
+na hora de servir, porque o sal e o vinagre murcham as folhas em poucos
+minutos.
+
+Faça cortes regulares. Pedaços do mesmo tamanho cozinham no mesmo tempo. Se
+uns forem grandes e outros pequenos, os pequenos queimam enquanto os grandes
+ainda estão crus.
+
+Os cortes mais usados são as rodelas, boas para cenoura e abobrinha; a
+meia-lua, que é a rodela cortada ao meio; as tiras, finas e compridas como no
+pimentão; os cubos, com os lados iguais; e o picado, em pedaços bem pequenos,
+usado na cebola e no alho.
+
+Para cortar com segurança, apoie o legume numa tábua firme, dobre a ponta dos
+dedos da mão que segura e use uma faca bem afiada. Uma faca cega escorrega e
+machuca mais.
+
+Refogar é cozinhar em pouca gordura, mexendo de vez em quando, até o alimento
+amaciar e ganhar sabor. Para refogar uma cebola, primeiro pique a cebola,
+depois aqueça o azeite na panela e só então coloque a cebola, mexendo até ela
+ficar transparente ou dourada.
+
+Com o calor, a cebola muda de aspecto em etapas. Crua, ela é branca, firme e
+sem brilho. Transparente, fica macia, quase translúcida e brilhante, ótima como
+base de arroz, molhos e sopas. Dourada, ganha bordas douradas e um sabor mais
+doce. Caramelizada, fica macia, com cor de mel escuro e brilho de calda.
+Queimada, fica quase preta, seca e amarga, e deve ser descartada.
+
+A caramelização acontece quando o açúcar natural da cebola doura devagar. Ela
+pede fogo baixo e paciência, de 30 a 40 minutos, mexendo de tempos em tempos.
+Com fogo alto, a cebola queima por fora antes de amaciar por dentro.
+
+Saltear é cozinhar rápido em fogo alto, com pouca gordura, mexendo sempre. Os
+legumes ficam dourados por fora e ainda firmes por dentro.
+
+Para um bom salteado, aqueça bem a frigideira antes de colocar os legumes. Não
+coloque legumes demais de uma vez: amontoados, eles soltam água e cozinham no
+vapor, sem dourar. Se precisar, salteie em partes. Comece pelos legumes mais
+firmes, porque a cenoura demora mais que a abobrinha e o pimentão. Mexa com
+frequência para dourar por igual e tempere só no final, já que o sal no início
+faz os legumes soltarem água.
+
+O ponto certo do salteado é quando os legumes estão brilhantes, com as bordas
+douradas e ainda um pouco crocantes ao morder.
+
+Por fim, capriche na apresentação. Sirva em um prato limpo, organize os
+legumes no centro, sem espalhar pela borda, e finalize com ervas frescas, como
+salsinha. Limpe os respingos da borda com um pano antes de servir.
+
+Para lembrar: organize tudo antes de acender o fogo, corte os legumes do mesmo
+tamanho, use fogo baixo para caramelizar a cebola e fogo alto para saltear,
+não encha demais a frigideira e tempere no final.
+"""
+
+
 def build_cooking_question_formats_seed() -> CookingQuestionFormatsSeed:
     skill = Skill(
         id=COOKING_SKILL_ID,
@@ -325,22 +436,34 @@ def build_cooking_question_formats_seed() -> CookingQuestionFormatsSeed:
     content = ReadySkillContentFaker.fake(
         skill=skill, id_for=lambda item: cooking_seed_id(100 + item)
     )
-    first_easy, second_easy = content.activities[:2]
+    first_easy, second_easy, first_medium = content.activities[:3]
     if (
         first_easy.id != COOKING_ORDERING_ACTIVITY_ID
         or second_easy.id != COOKING_IMAGE_CHOICE_ACTIVITY_ID
+        or first_medium.id != COOKING_MIXED_FORMATS_ACTIVITY_ID
+        or first_medium.difficulty is not ActivityDifficulty.MEDIUM
     ):
-        raise ValueError('The placeholder content must start with the easy Activities.')
+        raise ValueError(
+            'The placeholder content must start with two easy and one medium Activity.'
+        )
 
     return CookingQuestionFormatsSeed(
         skill=skill,
         competency=content.competency,
         concept=content.concept,
-        material=content.material,
+        material=Material(
+            id=content.material.id,
+            skill_id=content.material.skill_id,
+            title=content.material.title,
+            content=_MATERIAL_CONTENT,
+            material_type=content.material.material_type,
+            concept_ids=content.material.concept_ids,
+        ),
         activities=(
             _ordering_activity(content.competency.id, content.concept.id),
             _image_choice_activity(content.competency.id, content.concept.id),
-            *content.activities[2:],
+            _mixed_formats_activity(content.competency.id, content.concept.id),
+            *content.activities[3:],
         ),
         curriculum_sequence=content.curriculum_sequence,
     )

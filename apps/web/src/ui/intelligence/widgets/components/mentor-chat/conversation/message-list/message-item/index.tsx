@@ -25,6 +25,8 @@ export const MessageItem = ({
   const {
     blocks,
     attachments,
+    aiUsageAccessibleLabel,
+    aiUsageLabel,
     handleOpenAttachment,
     copyAccessibleLabel,
     copyContent,
@@ -148,7 +150,15 @@ export const MessageItem = ({
         </ul>
       ) : null}
       <div className='mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground'>
-        {timeLabel ? <time dateTime={message.createdAt}>{timeLabel}</time> : <span />}
+        <div className='flex min-w-0 items-center gap-2'>
+          {timeLabel ? <time dateTime={message.createdAt}>{timeLabel}</time> : null}
+          {aiUsageLabel ? (
+            <span title={aiUsageAccessibleLabel ?? undefined}>
+              <span aria-hidden='true'>{aiUsageLabel}</span>
+              <span className='sr-only'>{aiUsageAccessibleLabel}</span>
+            </span>
+          ) : null}
+        </div>
         <Button
           aria-label={copyAccessibleLabel}
           className='shrink-0 gap-1.5 px-2 text-foreground'

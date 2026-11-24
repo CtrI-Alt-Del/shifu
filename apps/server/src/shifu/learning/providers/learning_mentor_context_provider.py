@@ -8,6 +8,13 @@ from shifu.learning.core.domain.structures.available_competency_detail import (
 )
 from shifu.learning.core.domain.errors import CompetencyDetailNotFoundError
 from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases.get_choice_activity_use_case import (
+    GetChoiceActivityUseCase,
+)
+from shifu.learning.providers.mentor_activity_question_facts import (
+    activity_question_facts,
+)
+from shifu.shared.core.domain.errors import ConflictError, NotFoundError
 from shifu.learning.core.use_cases.get_competency_detail_use_case import (
     GetCompetencyDetailUseCase,
 )
@@ -32,6 +39,10 @@ def _count_label(count: int, singular: str, plural: str) -> str:
     return f'{count} {singular if count == 1 else plural}'
 
 
+# Enough for the whole local catalog; a larger one would need a search instead.
+_ADDABLE_SKILLS_LIMIT = 120
+
+
 class LearningMentorContextProvider:
     """Expose current owned facts and Learning's released content, never answer keys."""
 
@@ -40,10 +51,12 @@ class LearningMentorContextProvider:
         database: LearningDatabase,
         catalog: MentorCatalogProvider,
         competency_detail: GetCompetencyDetailUseCase,
+        activity_detail: GetChoiceActivityUseCase | None = None,
     ) -> None:
         self._database = database
         self._catalog = catalog
         self._competency_detail = competency_detail
+        self._activity_detail = activity_detail
 
     def read(
         self,
@@ -127,7 +140,9 @@ class LearningMentorContextProvider:
             if experience is None:
                 return self._unresolved(
                     projection,
-                    facts + self._goal_skill_facts(goal, experiences[goal.id], names),
+                    facts
+                    + self._goal_skill_facts(goal, experiences[goal.id], names)
+                    + self.addable_skill_facts(experiences[goal.id], names),
                     goal.id,
                 )
             selected = tuple(
@@ -163,6 +178,15 @@ class LearningMentorContextProvider:
         self._validate_released_hint(
             allowed, status, competency_id, material_id, activity_id
         )
+        facts += self.current_activity_question_facts(
+            account_id,
+            goal.id,
+            experience.skill_id,
+            status,
+            competency_id,
+            activity_id,
+            allowed,
+        )
         resolved = tuple(
             dict.fromkeys((goal.id, *(ref for ref in reference_ids if ref in allowed)))
         )
@@ -179,6 +203,35 @@ class LearningMentorContextProvider:
             resolved_references=resolved,
             unavailable_sources=('gamification',),
         )
+
+    def current_activity_question_facts(
+        self,
+        account_id: str,
+        goal_id: str,
+        skill_id: str,
+        status: SkillExperienceStatus,
+        competency_id: str | None,
+        activity_id: str | None,
+        allowed: tuple[str, ...],
+    ) -> tuple[tuple[str, str], ...]:
+        """The questions of the released learning activity on screen, never a diagnostic."""
+        if (
+            self._activity_detail is None
+            or status is SkillExperienceStatus.DIAGNOSING
+            or competency_id is None
+            or activity_id is None
+            or activity_id not in allowed
+        ):
+            return ()
+        try:
+            detail = self._activity_detail.execute(
+                account_id, goal_id, skill_id, competency_id, activity_id
+            )
+        except (NotFoundError, ConflictError):
+            return ()
+        if detail.is_diagnostic:
+            return ()
+        return activity_question_facts(detail)
 
     @staticmethod
     def _bounded(values: list[str]) -> list[str]:
@@ -242,6 +295,19 @@ class LearningMentorContextProvider:
             ('goal_progress_title', goal.title),
             *(('goal_skill_status', value) for value in self._bounded(lines)),
         )
+
+    @staticmethod
+    def addable_skill_facts(
+        experiences: list[SkillExperience], names: dict[str, str]
+    ) -> tuple[tuple[str, str], ...]:
+        """Catalog Skills the open Objective does not hold yet, by name only."""
+        held = {item.skill_id for item in experiences}
+        addable = sorted(
+            title for skill_id, title in names.items() if skill_id not in held
+        )
+        return tuple(
+            ('addable_skills', title) for title in addable[:_ADDABLE_SKILLS_LIMIT]
+        ) or (('addable_skills', 'Nenhuma: o Objetivo já tem todas as Habilidades.'),)
 
     @staticmethod
     def _override_hint(

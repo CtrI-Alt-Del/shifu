@@ -37,6 +37,15 @@ class PlanningProposalAgent(MentorAgent):
                 representam o objetivo; não inclua todas as candidatas por padrão. As
                 relações de fundamento podem orientar a escolha, mas não obrigam a
                 inclusão nem definem ordem.
+                Um Objetivo cobre uma única área de conhecimento. Se a intenção juntar
+                áreas sem relação entre si, use a área que o aprendiz escolheu nas
+                respostas e selecione Habilidades só dessa área. O título, a descrição
+                e as justificativas devem falar apenas do que as Habilidades escolhidas
+                ensinam; não mencione a outra área nem prometa aplicações que elas não
+                cobrem.
+                Não escolha uma linguagem ou ferramenta específica sem que a intenção
+                ou as respostas a indiquem. Sem essa indicação, prefira Habilidades
+                que não dependem de uma linguagem.
                 Se nenhuma combinação das candidatas representar adequadamente a
                 intenção, responda supported=false com title e description vazios e
                 skills=[]. Não invente Habilidades.

@@ -1,9 +1,10 @@
 """A fictional English Skill whose Learning Activities exercise the language formats.
 
 The Skill reuses the placeholder content that makes any Skill startable and swaps
-three of its Learning Activities: word-bank fill-blanks (SHIFU-123), translation
-(SHIFU-122) and word-translation matching (SHIFU-124). It is development content
-for testing those formats, not official Curriculum.
+four of its Learning Activities: word-bank fill-blanks (SHIFU-123), translation
+(SHIFU-122), word-translation matching (SHIFU-124) and one Activity with one
+question of each format. It is development content for testing those formats, not
+official Curriculum.
 """
 
 from dataclasses import dataclass
@@ -57,6 +58,7 @@ ENGLISH_COMPETENCY_ID = english_seed_id(101)
 ENGLISH_FILL_BLANKS_ACTIVITY_ID = english_seed_id(110)
 ENGLISH_TRANSLATION_ACTIVITY_ID = english_seed_id(111)
 ENGLISH_PAIR_MATCHING_ACTIVITY_ID = english_seed_id(112)
+ENGLISH_MIXED_FORMATS_ACTIVITY_ID = english_seed_id(113)
 
 _CORRECT = 'Correto! Na terceira pessoa do singular, o verbo recebe -s ou -es.'
 _PARTIAL = 'Quase lá. Revise a forma do verbo que acompanha o sujeito.'
@@ -190,14 +192,16 @@ def _choice_question(concept_id: str) -> SingleChoiceQuestion:
     )
 
 
-def _translation_part(question_key: str) -> TranslationRubricEvaluationPart:
+def _translation_part(
+    question_key: str, weight_percentage: int = 40
+) -> TranslationRubricEvaluationPart:
     criteria = (
         ('semantic_preservation', 'Preservação do sentido', 70),
         ('grammatical_adequacy', 'Adequação gramatical', 30),
     )
     return TranslationRubricEvaluationPart(
         question_key=question_key,
-        weight_percentage=40,
+        weight_percentage=weight_percentage,
         criteria=tuple(
             TranslationRubricCriterion(
                 key=key,
@@ -403,6 +407,49 @@ def _fill_blanks_activity(competency_id: str, concept_id: str) -> Activity:
     )
 
 
+def _mixed_formats_activity(competency_id: str, concept_id: str) -> Activity:
+    fill_blanks = _fill_blanks_questions(concept_id)[0]
+    translation = _translation_question(
+        'translation-1',
+        concept_id,
+        'Ele trabalha em um hospital.',
+        ('He works at a hospital.', 'He works in a hospital.'),
+    )
+    questions = (
+        fill_blanks,
+        _pair_matching_question(
+            'pairs-1',
+            concept_id,
+            (('goes', 'vai'), ('plays', 'joga'), ('watches', 'assiste')),
+            (2, 0, 1),
+        ),
+        translation,
+    )
+    # One question per format; the weights must add up to 100.
+    weights = (34, 33, 33)
+    return Activity.create(
+        id=ENGLISH_MIXED_FORMATS_ACTIVITY_ID,
+        competency_id=competency_id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.MEDIUM,
+        title='Presente simples: complete, traduza e associe',
+        objective=(
+            'Completar frases, traduzir e associar verbos em uma mesma Atividade.'
+        ),
+        questions=questions,
+        evaluation_rule=EvaluationRule(
+            parts=tuple(
+                _translation_part(question.key, weight_percentage=weight)
+                if question is translation
+                else CorrectnessEvaluationPart(
+                    question_key=question.key, weight_percentage=weight
+                )
+                for question, weight in zip(questions, weights, strict=True)
+            )
+        ),
+    )
+
+
 def build_english_question_formats_seed() -> EnglishQuestionFormatsSeed:
     skill = Skill(
         id=ENGLISH_SKILL_ID,
@@ -420,6 +467,7 @@ def build_english_question_formats_seed() -> EnglishQuestionFormatsSeed:
             _fill_blanks_activity(competency_id, concept_id),
             _translation_activity(competency_id, concept_id),
             _pair_matching_activity(competency_id, concept_id),
+            _mixed_formats_activity(competency_id, concept_id),
         )
     }
     placeholders = {activity.id: activity for activity in content.activities}

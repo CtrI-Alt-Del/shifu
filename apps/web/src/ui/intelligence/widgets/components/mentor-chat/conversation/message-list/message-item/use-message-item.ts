@@ -12,6 +12,9 @@ const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   minute: '2-digit',
   timeZone: 'America/Sao_Paulo',
 })
+const AI_USAGE_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  maximumFractionDigits: 2,
+})
 
 export function useMessageItem(
   message: MentorMessage,
@@ -100,6 +103,15 @@ export function useMessageItem(
   const isLearnerMessage = message.role === 'learner'
   const isMentorMessage = message.role === 'mentor'
   const speakerLabel = isMentorMessage ? 'Mentor' : null
+  const aiUsagePercentage = isMentorMessage
+    ? (mentor.aiUsagePercentageByMessageId[message.id] ?? null)
+    : null
+  const formattedAiUsage =
+    aiUsagePercentage === null ? null : AI_USAGE_FORMATTER.format(aiUsagePercentage)
+  const aiUsageLabel = formattedAiUsage ? `IA · ${formattedAiUsage}%` : null
+  const aiUsageAccessibleLabel = formattedAiUsage
+    ? `Esta resposta usou ${formattedAiUsage}% da sua cota mensal de IA`
+    : null
   const copyLabel = isCopied ? 'Copiada' : 'Copiar'
   const copyAccessibleLabel = isCopied ? 'Mensagem copiada' : 'Copiar mensagem'
   const copyIconName: IconName = isCopied ? 'circle-check' : 'copy'
@@ -203,6 +215,8 @@ export function useMessageItem(
   return {
     blocks,
     attachments,
+    aiUsageAccessibleLabel,
+    aiUsageLabel,
     handleOpenAttachment,
     copyAccessibleLabel,
     copyContent,

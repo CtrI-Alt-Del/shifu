@@ -105,6 +105,9 @@ from shifu.learning.ai.learning_workflows_registry import (
     LearningWorkflowsRegistry,
 )
 from shifu.learning.core.use_cases import PurgePracticePhotosUseCase
+from shifu.learning.core.use_cases.get_choice_activity_use_case import (
+    GetChoiceActivityUseCase,
+)
 from shifu.learning.core.use_cases.get_competency_detail_use_case import (
     GetCompetencyDetailUseCase,
 )
@@ -388,6 +391,9 @@ class FastAPIApp:
                     learning_database,
                     mentor_catalog_provider,
                     GetCompetencyDetailUseCase(
+                        learning_database, curriculum_content_provider
+                    ),
+                    GetChoiceActivityUseCase(
                         learning_database, curriculum_content_provider
                     ),
                 ),

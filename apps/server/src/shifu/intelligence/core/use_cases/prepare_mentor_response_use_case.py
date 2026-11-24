@@ -2,9 +2,12 @@ import hashlib
 import re
 import unicodedata
 from contextlib import suppress
-from dataclasses import asdict, replace
+from dataclasses import replace
 from typing import ClassVar
 
+from shifu.intelligence.core.domain.structures.mentor_context_hint import (
+    mentor_context_read_hints,
+)
 from shifu.intelligence.core.domain.entities import (
     LearnerMemory,
     MentorMessage,
@@ -34,6 +37,7 @@ from shifu.intelligence.core.interfaces import (
     MentorGenerationLimitProvider,
     MentorRouteProvider,
 )
+from shifu.intelligence.core.domain.structures.mentor_page import mentor_page_label
 from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case import (
     GetMentorAttachmentContextUseCase,
 )
@@ -174,7 +178,14 @@ class PrepareMentorResponseUseCase:
         if learner is None:
             raise ServiceUnavailableError
 
-        hints = asdict(attempt.context_hint) if attempt.context_hint else {}
+        hints = mentor_context_read_hints(attempt.context_hint)
+        # The page is shown to the writer; it never selects authorized context.
+        current_page = mentor_page_label(
+            attempt.context_hint.page if attempt.context_hint else None
+        )
+        current_question = (
+            attempt.context_hint.question if attempt.context_hint else None
+        )
         explicit = tuple(
             dict.fromkeys(
                 re.findall(r'\b[0-7][0-9A-HJKMNP-TV-Z]{25}\b', learner.content)
@@ -251,6 +262,8 @@ class PrepareMentorResponseUseCase:
                 attachment_context=attachment_context,
                 summary=summary,
                 memories=self._relevant_memories(attempt.account_id, learner),
+                current_page=current_page,
+                current_question=current_question,
             )
         self._assert_claim_current(attempt, execution_owner)
         fallback = None
@@ -275,6 +288,8 @@ class PrepareMentorResponseUseCase:
                 curriculum_topics=curriculum_topics,
                 summary=summary,
                 memories=self._relevant_memories(attempt.account_id, learner),
+                current_page=current_page,
+                current_question=current_question,
             )
             fallback = next(
                 block

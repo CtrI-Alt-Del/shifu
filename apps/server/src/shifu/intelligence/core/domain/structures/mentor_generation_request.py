@@ -37,3 +37,5 @@ class MentorGenerationRequest:
     curriculum_topics: tuple[
         str, ...
     ] = ()  # catalog Skill titles named in the message, read by the writer and reviewer
+    current_page: str | None = None  # label of the page the learner is looking at
+    current_question: str | None = None  # key of the activity question on screen

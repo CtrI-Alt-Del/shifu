@@ -1,3 +1,6 @@
+from .get_mentor_session_ai_usage_use_case import (
+    GetMentorSessionAiUsageUseCase as GetMentorSessionAiUsageUseCase,
+)
 from .get_ai_quota_usage_use_case import (
     GetAiQuotaUsageUseCase as GetAiQuotaUsageUseCase,
 )

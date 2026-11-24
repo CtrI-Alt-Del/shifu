@@ -1,17 +1,8 @@
 import { Link } from '@tanstack/react-router'
 
 import type { AvailableCompetencyDetail } from '@/core/learning/competency-detail'
+import { recommendationReasonLabel } from '@/core/learning/skill-experience'
 import { Icon } from '@/ui/shared/widgets/components/icon'
-
-const REASON_LABELS: Record<string, string> = {
-  verification: 'Precisamos confirmar uma evidência inconclusiva.',
-  coverage: 'Ainda faltam evidências para cobrir este Conceito.',
-  practice: 'Uma nova prática pode fortalecer este Conceito.',
-  hard_confirmation: 'Falta confirmar o aprendizado em uma Atividade difícil.',
-  consolidation: 'Uma Atividade pode consolidar o domínio alcançado.',
-  regression: 'O desempenho recente pede uma nova verificação.',
-  prerequisite: 'Fortaleça primeiro um Conceito necessário para avançar.',
-}
 
 const DIFFICULTY_LABELS = {
   easy: 'Fácil',
@@ -46,8 +37,7 @@ export const AdaptiveRecommendation = ({ detail }: AdaptiveRecommendationProps) 
         {targetLabel}
       </h2>
       <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-        {REASON_LABELS[recommendation.reason] ??
-          'Há uma nova oportunidade de avançar nesta Competência.'}
+        {recommendationReasonLabel(recommendation.reason)}
       </p>
       {detail.coverageComplete === false ? (
         <p className='mt-3 text-sm text-foreground'>
