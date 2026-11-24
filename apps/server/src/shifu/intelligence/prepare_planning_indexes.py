@@ -29,6 +29,9 @@ def prepare_indexes(
     if not skills:
         raise ValueError('The Planner index needs at least one authorized Skill')
     resources.bind_catalog(skills)
+    # The version covers the resources and the catalog, so an active one is current.
+    if repository.find_active_version() == resources.version:
+        return resources.version
     # The semantic text keeps stop words and inflections; only whitespace is normalized.
     passages = tuple(
         preprocessor.normalize(f'{skill.name}. {skill.description}') for skill in skills

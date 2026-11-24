@@ -126,7 +126,8 @@ Requisitos: Node.js 24.20.0, pnpm, Python 3.13.5, uv e Docker com Docker Compose
    uv run poe db:seed
    ```
 
-   O `db:seed` apaga os dados da aplicação e só roda em modo local.
+   O `db:seed` apaga os dados da aplicação e só roda em modo local. Em seguida,
+   ele reconstrói os índices do Mentor e do planejador. Reinicie a API depois.
 
 5. Inicie o servidor em `apps/server`. Ele responde em `http://localhost:7777`:
 

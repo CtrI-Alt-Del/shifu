@@ -165,6 +165,20 @@ class TestPlanningIndexPreparation:
         )
         assert index.corpus.repository.find_active_version() == index.version
 
+        # Preparing an unchanged catalog again keeps the active version untouched;
+        # embeddings that would fail prove nothing is recomputed.
+        assert (
+            prepare_indexes(
+                BoundaryShortEmbeddings(),
+                index.corpus.repository,
+                index.corpus.catalog,
+                PlannerResources(),
+                preprocessor,
+            )
+            == index.version
+        )
+        assert index.corpus.repository.find_active_version() == index.version
+
     def test_should_prepare_and_activate_the_index_through_the_offline_entry_point(
         self, corpus: BoundaryCorpus, postgres_database: PostgresDatabase
     ) -> None:
@@ -412,8 +426,9 @@ class TestPreparedPlanningIndexLifecycle:
         self.repository.activate_version('v2')
 
         assert self.repository.find_active_version() == 'v2'
+        # Preparation skips an active version, so the guard is checked at the repository.
         with pytest.raises(ValueError, match='Active immutable index'):
-            prepare_corpus(self.repository, 'v2', _corpus('skill-a'))
+            self.repository.prepare_version('v2', _corpus('skill-a'))
         with pytest.raises(ServiceUnavailableError):
             self.repository.find_nearest('v1', boundary_axis(0), ('skill-a',), 10)
 

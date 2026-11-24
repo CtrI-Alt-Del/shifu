@@ -21,6 +21,9 @@ def prepare_indexes(
 ) -> str:
     projection = catalog.read_projection()
     resources.bind_catalog_version(projection)
+    # The version covers the resources and the catalog, so an active one is current.
+    if repository.find_active_version() == resources.version:
+        return resources.version
     records: list[tuple[str, str, str, str]] = []
     for label, examples in resources.intents.items():
         records.extend(

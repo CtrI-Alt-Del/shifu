@@ -60,6 +60,9 @@ class InMemoryMentorEmbeddingsRepository:
             raise ValueError(message)
         self._active = version
 
+    def find_active_version(self) -> str | None:
+        return self._active
+
     def find_nearest(
         self,
         corpus: str,
@@ -211,7 +214,7 @@ class ClassifyMentorIntentEval(Eval):
             for intent in MentorIntent
         )
         hard_negatives = sum(1 for item in samples if item.group == 'hard_negative')
-        out_of_domain = sum(1 for item in self.out_of_domain(samples))
+        out_of_domain = sum(1 for _ in self.out_of_domain(samples))
         return (
             *intent_cases,
             Eval.LocalCase(

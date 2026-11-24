@@ -211,7 +211,10 @@ uv run poe db:seed
 ```
 
 The seed command executes `shifu.shared.database.seed` and is the only supported
-entrypoint for local seed composition. Its two operational composition modules are
+entrypoint for local seed composition. It then runs `db:index:mentor` and
+`db:index:planning`, because both indexes are bound to the seeded catalog: a stale
+Mentor index stops it from recognizing add and remove requests. Restart the API
+afterwards, since it keeps the catalog version it loaded first. Its two operational composition modules are
 the explicit Tach exclusions in `check:architecture`; do not widen that exclusion.
 
 Browser push for the streak reminder needs `SHIFU_WEB_PUSH_VAPID_PRIVATE_KEY`,
