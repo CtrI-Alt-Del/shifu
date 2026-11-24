@@ -118,3 +118,33 @@ class TestLocalMentorRouteProviderScreenQuestion:
         assert [block.content for block in result.local_blocks] == [
             'Atividades disponíveis: Cebola e legumes'
         ]
+
+
+class TestLocalMentorRouteProviderProductName:
+    @pytest.mark.parametrize(
+        ('content', 'expected'),
+        [
+            (
+                'O que seria uma competência na plataforma?',
+                'O que seria uma competência no Shifu?',
+            ),
+            (
+                'Como funciona o currículo desta plataforma?',
+                'Como funciona o currículo do Shifu?',
+            ),
+            ('Gosto da plataformada', 'Gosto da plataformada'),
+        ],
+    )
+    def test_should_read_the_platform_as_shifu(
+        self, content: str, expected: str
+    ) -> None:
+        assert LocalMentorRouteProvider.with_product_name(content) == expected
+
+
+class TestSpacyMentorTextPreprocessorAccents:
+    def test_should_match_words_with_or_without_accents(self) -> None:
+        preprocessor = SpacyMentorTextPreprocessorProvider()
+
+        assert preprocessor.tokenize('competencia') == preprocessor.tokenize(
+            'Competência'
+        )

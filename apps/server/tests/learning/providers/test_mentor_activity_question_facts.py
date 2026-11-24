@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest.mock import create_autospec
 
+from shifu.learning.core.domain.entities import SkillExperience
 from shifu.learning.core.domain.enums import ActivityDifficulty, SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
@@ -134,3 +135,26 @@ class TestLearningMentorContextProviderActivityQuestions:
         assert self._facts(provider) == ()
         activity.execute.side_effect = NotFoundError  # pyright: ignore[reportAttributeAccessIssue] - autospec mock.
         assert self._facts(provider) == ()
+
+
+class TestAddableSkillFacts:
+    def test_should_list_catalog_skills_the_goal_does_not_hold(self) -> None:
+        held = create_autospec(SkillExperience, instance=True)
+        held.skill_id = 'cooking'
+        names = {'cooking': 'Culinária', 'react': 'React', 'html': 'HTML e CSS'}
+
+        facts = LearningMentorContextProvider.addable_skill_facts([held], names)
+
+        assert facts == (('addable_skills', 'HTML e CSS'), ('addable_skills', 'React'))
+
+    def test_should_say_when_nothing_is_left_to_add(self) -> None:
+        held = create_autospec(SkillExperience, instance=True)
+        held.skill_id = 'cooking'
+
+        facts = LearningMentorContextProvider.addable_skill_facts(
+            [held], {'cooking': 'Culinária'}
+        )
+
+        assert facts == (
+            ('addable_skills', 'Nenhuma: o Objetivo já tem todas as Habilidades.'),
+        )

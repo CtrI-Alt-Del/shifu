@@ -79,6 +79,12 @@ class MentorWriterAgent(MentorAgent):
                 que o aprendiz está vendo ao enviar a mensagem. Use-o para responder
                 em que página ele está e para orientá-lo nela; sem esse campo, diga
                 que não foi possível verificar a página atual.
+                Os fatos addable_skills listam as Habilidades do Currículo que ainda
+                não estão no Objetivo aberto. Use-os para dizer quais podem ser
+                adicionadas, escolhendo as ligadas ao tema pedido; se nenhuma combinar
+                com o tema, diga isso e cite as mais próximas. Para adicionar uma,
+                o aprendiz pode pedir ao Mentor, por exemplo "adicione X ao meu
+                Objetivo".
                 Os fatos activity_questions descrevem as questões da Atividade aberta,
                 como o aprendiz as vê, sem gabarito. request.current_question, quando
                 existir, é a chave da questão na tela; sem ele, uma referência a

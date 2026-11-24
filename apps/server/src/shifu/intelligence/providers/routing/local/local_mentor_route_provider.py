@@ -59,6 +59,14 @@ class LocalMentorRouteProvider:
     _ACTION_INTENTS: ClassVar[frozenset[MentorIntent]] = frozenset(
         {MentorIntent.ADD_SKILL, MentorIntent.REMOVE_SKILL}
     )
+    _PLATFORM_NAMES: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = tuple(
+        (re.compile(pattern, re.IGNORECASE), replacement)
+        for pattern, replacement in (
+            (r'\b(?:na|nesta|nessa)\s+plataforma\b', 'no Shifu'),
+            (r'\b(?:da|desta|dessa)\s+plataforma\b', 'do Shifu'),
+            (r'\b(?:a|esta|essa)\s+plataforma\b', 'o Shifu'),
+        )
+    )
     # Lists that only distract from a hint or from the question on screen.
     _LISTS_OFF_TOPIC_FOR_A_QUESTION: ClassVar[frozenset[MentorIntent]] = frozenset(
         {MentorIntent.FIND_MATERIALS_ACTIVITIES, MentorIntent.EXPLAIN_ASSESSMENT}
@@ -332,7 +340,8 @@ class LocalMentorRouteProvider:
 
     @staticmethod
     def _semantic_query(content: str) -> str:
-        query = content
+        query = LocalMentorRouteProvider.with_product_name(content)
+        content = query
         while True:
             normalized = LocalMentorRouteProvider._NEUTRAL_PREFIX.sub(
                 '', query, count=1
@@ -341,6 +350,13 @@ class LocalMentorRouteProvider:
                 # Removing an introduction exposes a new sentence boundary.
                 return query[0].upper() + query[1:] if query != content else query
             query = normalized
+
+    @staticmethod
+    def with_product_name(content: str) -> str:
+        """Read "a plataforma" as Shifu, the name the FAQ examples use."""
+        for pattern, replacement in LocalMentorRouteProvider._PLATFORM_NAMES:
+            content = pattern.sub(replacement, content)
+        return content
 
     @staticmethod
     def _asked(content: str, parts: tuple[str, ...]) -> tuple[bool, ...]:

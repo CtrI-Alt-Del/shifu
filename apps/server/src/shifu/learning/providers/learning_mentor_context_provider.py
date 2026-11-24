@@ -39,6 +39,10 @@ def _count_label(count: int, singular: str, plural: str) -> str:
     return f'{count} {singular if count == 1 else plural}'
 
 
+# Enough for the whole local catalog; a larger one would need a search instead.
+_ADDABLE_SKILLS_LIMIT = 120
+
+
 class LearningMentorContextProvider:
     """Expose current owned facts and Learning's released content, never answer keys."""
 
@@ -136,7 +140,9 @@ class LearningMentorContextProvider:
             if experience is None:
                 return self._unresolved(
                     projection,
-                    facts + self._goal_skill_facts(goal, experiences[goal.id], names),
+                    facts
+                    + self._goal_skill_facts(goal, experiences[goal.id], names)
+                    + self.addable_skill_facts(experiences[goal.id], names),
                     goal.id,
                 )
             selected = tuple(
@@ -289,6 +295,19 @@ class LearningMentorContextProvider:
             ('goal_progress_title', goal.title),
             *(('goal_skill_status', value) for value in self._bounded(lines)),
         )
+
+    @staticmethod
+    def addable_skill_facts(
+        experiences: list[SkillExperience], names: dict[str, str]
+    ) -> tuple[tuple[str, str], ...]:
+        """Catalog Skills the open Objective does not hold yet, by name only."""
+        held = {item.skill_id for item in experiences}
+        addable = sorted(
+            title for skill_id, title in names.items() if skill_id not in held
+        )
+        return tuple(
+            ('addable_skills', title) for title in addable[:_ADDABLE_SKILLS_LIMIT]
+        ) or (('addable_skills', 'Nenhuma: o Objetivo já tem todas as Habilidades.'),)
 
     @staticmethod
     def _override_hint(
