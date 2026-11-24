@@ -8,6 +8,7 @@ import type { ReactQuestionProps } from '../react-question/use-react-question'
 import { validateReactAdditionalFile } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactQuestionDraftKey } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactFastifyQuestion as ReactQuestionModel } from '@/core/learning/choice-activity'
+import { useAccountActivityDraftRevocation } from '@/ui/learning/hooks/use-account-activity-draft-revocation'
 
 export type ReactFastifyQuestionProps = Omit<
   ReactQuestionProps,
@@ -187,6 +188,8 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
   filesRef.current = files
   const [selectedPath, setSelectedPath] = useState(question.initialFiles[0]?.path ?? '')
   const [draftLoaded, setDraftLoaded] = useState(false)
+  const [connectivityRevision, setConnectivityRevision] = useState(0)
+  const connectivityRevisionRef = useRef(0)
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaveError, setHasSaveError] = useState(false)
   const [isAssessing, setIsAssessing] = useState(false)
@@ -212,6 +215,19 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
   const initializedScopeRef = useRef<string | null>(null)
   const saveTimeoutRef = useRef<number | null>(null)
   const isDraftInvalidatedRef = useRef(false)
+  const isAccountRevokedRef = useRef(false)
+  const handleAccountActivityDraftRevocation = useAccountActivityDraftRevocation({
+    filesRef,
+    initialFiles,
+    isAccountRevokedRef,
+    isDraftInvalidatedRef,
+    onAnswerValidityChangeRef,
+    onFilesChangeRef,
+    setDraftLoaded,
+    setFiles,
+    setIsDraftInvalidated,
+    setSelectedPath,
+  })
   const isActivityLocked = props.canSubmit === false
   const isFrozen = Boolean(
     props.readOnly || props.disabled || isAssessing || isActivityLocked,
@@ -247,6 +263,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
 
   useEffect(() => {
     let cancelled = false
+    const restorationConnectivityRevision = connectivityRevision
     if (initializedScopeRef.current !== scopeKey) {
       initializedScopeRef.current = scopeKey
       restoredScopeRef.current = null
@@ -258,6 +275,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
       draftGenerationRef.current = 0
       editVersionRef.current = 0
       isDraftInvalidatedRef.current = false
+      isAccountRevokedRef.current = false
       setIsDraftInvalidated(false)
       setHasSaveError(false)
     }
@@ -269,10 +287,32 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     }
     if (!props.isOnlineAuthority || !navigator.onLine || isActivityLocked) return
     const scopeVersion = ++scopeVersionRef.current
+    let restorationAllowed = false
     void draftStore
-      .read(draftKey)
+      .validateAccountCapability(draftKey.accountId)
+      .then(async (capabilityState) => {
+        if (
+          cancelled ||
+          restorationConnectivityRevision !== connectivityRevisionRef.current
+        )
+          return null
+        if (capabilityState === 'revoked') {
+          handleAccountActivityDraftRevocation({
+            selectedPath: question.initialFiles[0]?.path ?? '',
+          })
+          return null
+        }
+        restorationAllowed = true
+        return draftStore.read(draftKey)
+      })
       .then(async (draft) => {
-        if (cancelled) return
+        if (
+          cancelled ||
+          restorationConnectivityRevision !== connectivityRevisionRef.current ||
+          !restorationAllowed ||
+          isAccountRevokedRef.current
+        )
+          return
         if (draft?.tombstone) {
           isDraftInvalidatedRef.current = true
           setIsDraftInvalidated(true)
@@ -306,9 +346,18 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
       })
       .catch(() => setHasSaveError(true))
       .finally(() => {
-        if (!cancelled && scopeVersion === scopeVersionRef.current) {
-          restoredScopeRef.current = scopeKey
-          setDraftLoaded(true)
+        if (
+          !cancelled &&
+          restorationConnectivityRevision === connectivityRevisionRef.current &&
+          scopeVersion === scopeVersionRef.current
+        ) {
+          if (restorationAllowed && !isAccountRevokedRef.current) {
+            restoredScopeRef.current = scopeKey
+            setDraftLoaded(true)
+          } else {
+            restoredScopeRef.current = null
+            setDraftLoaded(isAccountRevokedRef.current)
+          }
         }
       })
     return () => {
@@ -316,7 +365,9 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     }
   }, [
     draftKey,
+    connectivityRevision,
     draftStore,
+    handleAccountActivityDraftRevocation,
     initialFiles,
     isActivityLocked,
     props.isOnlineAuthority,
@@ -442,6 +493,10 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     if (!draftKey) return
     let cancelled = false
     const unsubscribe = draftStore.subscribe(draftKey, (event) => {
+      if (event.accountRevoked) {
+        handleAccountActivityDraftRevocation({ updateFilesRef: true })
+        return
+      }
       void draftStore
         .read(draftKey)
         .then((draft) => {
@@ -485,7 +540,7 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
       cancelled = true
       unsubscribe()
     }
-  }, [draftKey, draftStore, initialFiles, question])
+  }, [draftKey, draftStore, handleAccountActivityDraftRevocation, initialFiles, question])
 
   useEffect(() => {
     if (isActivityLocked) {
@@ -581,13 +636,17 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
   useEffect(() => {
     if (!draftKey) return
     function handleOffline() {
+      restoredScopeRef.current = null
       setPreviewUrl(null)
       setFrontendStatus('unavailable')
       setApiStatus('unavailable')
+      connectivityRevisionRef.current += 1
+      setConnectivityRevision(connectivityRevisionRef.current)
       onAnswerValidityChangeRef.current?.(false)
     }
     function handleOnline() {
-      onAnswerValidityChangeRef.current?.(false)
+      connectivityRevisionRef.current += 1
+      setConnectivityRevision(connectivityRevisionRef.current)
     }
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
@@ -680,6 +739,12 @@ export function useReactFastifyQuestion(props: ReactFastifyQuestionProps) {
     const snapshot = copyFiles(files)
     try {
       if (draftKey) {
+        const capabilityState = await draftStore.validateAccountCapability(
+          draftKey.accountId,
+          true,
+        )
+        if (capabilityState !== 'active')
+          throw new AppError('Os dados desta conta foram invalidados.')
         if (saveTimeoutRef.current !== null) {
           window.clearTimeout(saveTimeoutRef.current)
           saveTimeoutRef.current = null

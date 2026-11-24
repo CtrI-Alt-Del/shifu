@@ -9,6 +9,7 @@ from shifu.learning.providers.practice_photo_inspector.pillow import (
     PillowPracticePhotoInspectorProvider,
 )
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     CodeRubricAssessorProvider,
     CurriculumCatalogProvider,
@@ -20,6 +21,12 @@ from shifu.shared.core.interfaces import (
 
 
 class LearningPipe:
+    @staticmethod
+    def get_account_activity_provider(
+        request: Request,
+    ) -> AccountActivityProvider:
+        return request.app.state.account_activity_provider
+
     @staticmethod
     def create_database(engine: Engine | None = None) -> LearningDatabase:
         from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase

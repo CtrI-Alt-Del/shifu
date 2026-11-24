@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 import httpx2 as httpx
 import pytest
 from sqlalchemy import event, select
+from sqlalchemy.engine import Engine
 
 from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
@@ -96,6 +97,14 @@ def _run_race_operation(
             json={'email': fixture.account.email},
         )
     return response.status_code, response.json()
+
+
+def _is_account_race_boundary(current: str, first: str, statement: str) -> bool:
+    if current != first:
+        return False
+    if current == 'change':
+        return statement.lstrip().upper().startswith('UPDATE IDENTITY_ACCOUNTS')
+    return 'identity_accounts' in statement and 'FOR UPDATE' in statement
 
 
 class TestChangePasswordController:
@@ -266,13 +275,15 @@ class TestChangePasswordController:
             context: object,
             executemany: bool,
         ) -> None:
+            normalized_statement = statement.lstrip().upper()
             if (
-                phase == 'write' and statement.startswith('UPDATE identity_accounts')
+                phase == 'write'
+                and normalized_statement.startswith('UPDATE IDENTITY_ACCOUNTS')
             ) or (phase == 'event' and statement.startswith('INSERT INTO events')):
                 raise RuntimeError('private secret')
 
         if phase != 'hash':
-            event.listen(fixture.engine, 'before_cursor_execute', fail_write)
+            event.listen(Engine, 'before_cursor_execute', fail_write)
         try:
             response = fixture.client.post(
                 '/identity/accounts/me/password',
@@ -284,7 +295,7 @@ class TestChangePasswordController:
             )
         finally:
             if phase != 'hash':
-                event.remove(fixture.engine, 'before_cursor_execute', fail_write)
+                event.remove(Engine, 'before_cursor_execute', fail_write)
         assert response.status_code == 503, response.text
         assert response.json()['code'] == 'service_unavailable'
         assert 'private secret' not in response.text
@@ -388,8 +399,8 @@ class TestChangePasswordController:
             selected.set(session)
             return _change(fixture)
 
-        event.listen(fixture.engine, 'before_cursor_execute', before)
-        event.listen(fixture.engine, 'after_cursor_execute', after)
+        event.listen(Engine, 'before_cursor_execute', before)
+        event.listen(Engine, 'after_cursor_execute', after)
         try:
             with ThreadPoolExecutor(max_workers=2) as executor:
                 first_future = executor.submit(change, first)
@@ -403,8 +414,8 @@ class TestChangePasswordController:
                 assert second_future.result(timeout=20) == 401
         finally:
             release.set()
-            event.remove(fixture.engine, 'before_cursor_execute', before)
-            event.remove(fixture.engine, 'after_cursor_execute', after)
+            event.remove(Engine, 'before_cursor_execute', before)
+            event.remove(Engine, 'after_cursor_execute', after)
         with fixture.database.transaction() as repositories:
             account = repositories.accounts.find_by_id(fixture.account.id)
             assert account is not None
@@ -425,7 +436,6 @@ class TestChangePasswordController:
         second = other if change_first else 'change'
         operation = ContextVar('account-test-operation', default='')
         acquired, release, second_started = Event(), Event(), Event()
-        counts: dict[str, int] = {}
 
         def before(
             connection: object,
@@ -450,24 +460,14 @@ class TestChangePasswordController:
             context: object,
             executemany: bool,
         ) -> None:
-            current = operation.get()
-            if (
-                current != first
-                or 'identity_accounts' not in statement
-                or 'FOR UPDATE' not in statement
-            ):
-                return
-            counts[current] = counts.get(current, 0) + 1
-            # A change authenticates in its first transaction and mutates in its
-            # second. Recovery locks the account in its sole first transaction.
-            if counts[current] != (2 if current == 'change' else 1):
+            if not _is_account_race_boundary(operation.get(), first, statement):
                 return
             acquired.set()
             if not release.wait(timeout=15):
                 raise TimeoutError('Competing HTTP operation did not start')
 
-        event.listen(fixture.engine, 'before_cursor_execute', before)
-        event.listen(fixture.engine, 'after_cursor_execute', after)
+        event.listen(Engine, 'before_cursor_execute', before)
+        event.listen(Engine, 'after_cursor_execute', after)
         try:
             with ThreadPoolExecutor(max_workers=2) as executor:
                 first_future = executor.submit(
@@ -491,8 +491,8 @@ class TestChangePasswordController:
                 }
         finally:
             release.set()
-            event.remove(fixture.engine, 'before_cursor_execute', before)
-            event.remove(fixture.engine, 'after_cursor_execute', after)
+            event.remove(Engine, 'before_cursor_execute', before)
+            event.remove(Engine, 'after_cursor_execute', after)
         if other == 'reset':
             assert results['change'][0] == (200 if change_first else 401), results
             assert results['reset'][1]['result'] == (

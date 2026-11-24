@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import UUID, uuid4
 
 from shifu.learning.core.domain.entities import OrderingPassage
 from shifu.learning.core.domain.enums import SkillExperienceStatus
@@ -57,6 +58,7 @@ from shifu.shared.core.domain.structures import (
     TranslationRubricAssessmentInput,
 )
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
     IdentifierProvider,
@@ -101,6 +103,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         curriculum_content_provider: CurriculumContentProvider,
         code_rubric_assessor_provider: CodeRubricAssessorProvider,
         translation_rubric_assessor_provider: TranslationRubricAssessorProvider,
+        account_activity_provider: AccountActivityProvider,
         max_code_assessment_input_bytes: int = 262144,
         identifier_provider: IdentifierProvider | None = None,
     ) -> None:
@@ -110,6 +113,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         self._translation_rubric_assessor_provider = (
             translation_rubric_assessor_provider
         )
+        self._account_activity_provider = account_activity_provider
         self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
         self._identifier_provider = identifier_provider
 
@@ -124,6 +128,33 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_revision: str,
         answer: PreviewAnswer,
         passage_key: str | None = None,
+    ) -> PreliminaryQuestionResult:
+        with self._account_activity_provider.activity(account_id):
+            return self._execute_under_account_gate(
+                account_id,
+                goal_id,
+                skill_id,
+                competency_id,
+                activity_id,
+                question_key,
+                activity_revision,
+                answer,
+                passage_key,
+                uuid4(),
+            )
+
+    def _execute_under_account_gate(
+        self,
+        account_id: str,
+        goal_id: str,
+        skill_id: str,
+        competency_id: str,
+        activity_id: str,
+        question_key: str,
+        activity_revision: str,
+        answer: PreviewAnswer,
+        passage_key: str | None,
+        effect_id: UUID,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
@@ -174,10 +205,14 @@ class PreviewActivityQuestionFeedbackUseCase:
                 CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
-            return self._execute_code(question, answer, snapshot.parts)
+            return self._execute_code(
+                account_id, effect_id, question, answer, snapshot.parts
+            )
 
         if isinstance(question, CurriculumTranslationQuestionSnapshot):
-            return self._execute_translation(question, answer, snapshot.parts)
+            return self._execute_translation(
+                account_id, effect_id, question, answer, snapshot.parts
+            )
 
         return self._choice_result(question, answer)
 
@@ -297,6 +332,8 @@ class PreviewActivityQuestionFeedbackUseCase:
 
     def _execute_code(
         self,
+        account_id: str,
+        effect_id: UUID,
         question: CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
@@ -319,7 +356,12 @@ class PreviewActivityQuestionFeedbackUseCase:
         request = self.build_code_assessment_input(
             question, part, answer, self._max_code_assessment_input_bytes
         )
-        decisions = self._code_rubric_assessor_provider.assess(request)
+        with self._account_activity_provider.external_effect(
+            account_id, effect_id, 'learning.code-rubric.assess'
+        ) as should_assess:
+            if not should_assess:
+                raise ServiceUnavailableError
+            decisions = self._code_rubric_assessor_provider.assess(request)
         return self.code_result(
             question,
             part,
@@ -330,6 +372,8 @@ class PreviewActivityQuestionFeedbackUseCase:
 
     def _execute_translation(
         self,
+        account_id: str,
+        effect_id: UUID,
         question: CurriculumTranslationQuestionSnapshot,
         answer: PreviewAnswer,
         parts: tuple[
@@ -356,7 +400,12 @@ class PreviewActivityQuestionFeedbackUseCase:
             rubric_criteria=part.criteria,
             concept_criteria=question.concept_criteria,
         )
-        decisions = self._translation_rubric_assessor_provider.assess(request)
+        with self._account_activity_provider.external_effect(
+            account_id, effect_id, 'learning.translation-rubric.assess'
+        ) as should_assess:
+            if not should_assess:
+                raise ServiceUnavailableError
+            decisions = self._translation_rubric_assessor_provider.assess(request)
         return self.translation_result(question, part, answer, decisions)
 
     @staticmethod

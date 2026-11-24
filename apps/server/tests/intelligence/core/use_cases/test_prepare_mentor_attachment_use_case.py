@@ -1,8 +1,9 @@
 from itertools import chain, cycle
+from contextlib import nullcontext
 import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import create_autospec
+from unittest.mock import call, create_autospec
 
 import pytest
 from shifu.intelligence.core.domain.entities import (
@@ -26,6 +27,7 @@ from shifu.intelligence.core.interfaces import (
 from shifu.intelligence.core.use_cases import PrepareMentorAttachmentUseCase
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     FileStorageProvider,
     MentorAccessProvider,
@@ -88,13 +90,16 @@ def harness() -> _Harness:
     access.authorize.return_value = grant
     storage = create_autospec(FileStorageProvider, instance=True)
     storage.read.return_value = _CONTENT
-    subject = PrepareMentorAttachmentUseCase(database, clock, access, storage)
+    activity = create_autospec(AccountActivityProvider, instance=True)
+    activity.activity.return_value = nullcontext()
+    subject = PrepareMentorAttachmentUseCase(database, clock, access, storage, activity)
     return subject, {
         'attachment': attachment,
         'batch': batch,
         'repositories': repositories,
         'access': access,
         'storage': storage,
+        'activity': activity,
     }
 
 
@@ -113,12 +118,27 @@ def test_prepare_claims_authorized_generation_and_returns_private_source(
     assert prepared.content == _CONTENT
     assert dependencies['attachment'].status is MentorAttachmentStatus.PROCESSING
     assert dependencies['attachment'].claim_expires_at == _NOW + timedelta(minutes=5)
+    dependencies['activity'].activity.assert_has_calls(
+        [call(_ACCOUNT_ID), call(_ACCOUNT_ID)]
+    )
     dependencies['access'].authorize.assert_called_once_with(
         _ACCOUNT_ID, _ATTACHMENT_ID
     )
     dependencies['storage'].read.assert_called_once_with(
         f'mentor-attachments/{_ATTACHMENT_ID}/1/original'
     )
+
+
+def test_prepare_does_not_read_storage_when_account_activity_is_revoked(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    dependencies['activity'].activity.side_effect = RuntimeError('revoked')
+
+    with pytest.raises(RuntimeError, match='revoked'):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    dependencies['storage'].read.assert_not_called()
 
 
 def test_prepare_rehydrates_an_active_claim_owned_by_the_same_event(
@@ -302,6 +322,7 @@ def test_should_discard_private_bytes_when_attachment_changes_after_read(
     dependencies['repositories'].mentor_attachments.find_by_id.side_effect = (
         dependencies['attachment'],
         dependencies['attachment'],
+        dependencies['attachment'],
         None,
     )
 
@@ -317,6 +338,7 @@ def test_should_discard_private_bytes_when_bound_session_disappears_after_read(
     subject, dependencies = harness
     dependencies['batch'].session_id = _SESSION_ID
     dependencies['repositories'].mentor_sessions.find_by_id_for_update.side_effect = (
+        object(),
         object(),
         None,
     )
@@ -371,8 +393,8 @@ def _batch(session_id: str | None) -> MentorAttachmentBatch:
 @pytest.mark.parametrize(
     ('session_id', 'expected'),
     [
-        (_SESSION_ID, ['session', 'batch', 'attachment'] * 2),
-        (None, ['batch', 'attachment'] * 2),
+        (_SESSION_ID, ['session', 'batch', 'attachment'] * 3),
+        (None, ['batch', 'attachment'] * 3),
     ],
 )
 def test_should_lock_session_then_batch_then_attachment_in_prepare(
@@ -405,6 +427,9 @@ def test_should_restart_in_prepare_with_session_lock_first_when_batch_gets_bound
 
     assert recorder.order == [
         'batch',
+        'session',
+        'batch',
+        'attachment',
         'session',
         'batch',
         'attachment',

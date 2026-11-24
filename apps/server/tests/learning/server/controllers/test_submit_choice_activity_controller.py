@@ -48,6 +48,9 @@ from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
 )
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.learning.pipes import LearningPipe
@@ -99,6 +102,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='test-account-activity-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -143,6 +149,12 @@ def application(
         repositories.competency_progresses.add_many(list(seed.competency_progresses))
         repositories.activity_attempts.add_many(list(seed.activity_attempts))
         repositories.activity_evaluations.add_many(list(seed.activity_evaluations))
+
+    with SqlalchemyIdentityDatabase(
+        engine=postgres_database.engine
+    ).transaction() as repositories:
+        for account in seed.accounts:
+            repositories.accounts.add(account)
 
     application = FastAPIApp.register(postgres_database.engine)
     application.state.authentication_provider = _TestAuthenticationProvider()

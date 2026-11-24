@@ -237,6 +237,13 @@ class InngestFixture:
             if isinstance(message, dict)
         ]
 
+    def mailpit_message_text(self, message_id: str) -> str:
+        quoted_message_id = quote(message_id, safe='')
+        with urlopen(  # noqa: S310 - local Mailpit fixture URL
+            f'{self.mailpit_url}/view/{quoted_message_id}.txt', timeout=10
+        ) as response:
+            return response.read().decode()
+
     def wait_for_mail(self, timeout: float = 90.0) -> list[dict[str, object]]:
         return self.wait_for_mail_count(1, timeout=timeout)
 

@@ -61,6 +61,8 @@ export const test = base.extend<IdentityModuleFixtures>({
 
       if (
         !serverFunction.includes('middlewares/require-auth-middleware.ts') &&
+        !serverFunction.includes('routes/account/route.tsx') &&
+        !serverFunction.includes('requireAccountAccessOrDeletionStatus') &&
         !serverFunction.includes('middlewares/enter-main-page-middleware.ts')
       ) {
         await route.continue()
@@ -70,22 +72,20 @@ export const test = base.extend<IdentityModuleFixtures>({
       const isMainPageEntry = serverFunction.includes(
         'middlewares/enter-main-page-middleware.ts',
       )
+      const account = {
+        displayName: 'Playwright Learner',
+        email: 'playwright@shifu.local',
+        accountDeletionStatus: null,
+        appearance: 'dark',
+      }
       await route.fulfill({
         body: JSON.stringify({
           result: isMainPageEntry
             ? {
                 mode: 'authenticated',
-                account: {
-                  displayName: 'Playwright Learner',
-                  email: 'playwright@shifu.local',
-                  appearance: 'dark',
-                },
+                account,
               }
-            : {
-                displayName: 'Playwright Learner',
-                email: 'playwright@shifu.local',
-                appearance: 'dark',
-              },
+            : account,
         }),
         contentType: 'application/json',
         status: 200,

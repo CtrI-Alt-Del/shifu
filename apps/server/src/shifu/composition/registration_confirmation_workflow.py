@@ -33,7 +33,11 @@ if TYPE_CHECKING:
     )
     from shifu.identity.core.interfaces import ConfirmationDeliveryRequest
     from shifu.shared.constants import EnvironmentSettings
-    from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+    from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
+        ClockProvider,
+        IdentifierProvider,
+    )
     from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 
@@ -46,6 +50,7 @@ class RegistrationConfirmationWorkflow:
         id_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         secret_envelope_provider: SecretEnvelopeProvider,
+        account_activity_provider: AccountActivityProvider,
         action_origin: str,
     ) -> None:
         self._queue = QueueCommunicationUseCase(
@@ -53,6 +58,7 @@ class RegistrationConfirmationWorkflow:
             id_provider=id_provider,
             clock_provider=clock_provider,
             secret_envelope_provider=secret_envelope_provider,
+            account_activity_provider=account_activity_provider,
         )
         self._action_origin = action_origin.rstrip('/')
 
@@ -63,6 +69,7 @@ class RegistrationConfirmationWorkflow:
         engine: Engine,
         id_provider: IdentifierProvider,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
         settings: EnvironmentSettings,
     ) -> RegistrationConfirmationWorkflow:
         return cls(
@@ -75,6 +82,7 @@ class RegistrationConfirmationWorkflow:
             secret_envelope_provider=FernetSecretEnvelopeProvider(
                 settings.communication_encryption_keys
             ),
+            account_activity_provider=account_activity_provider,
             action_origin=settings.confirmation_action_origin,
         )
 

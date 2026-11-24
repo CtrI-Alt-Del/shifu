@@ -1,14 +1,10 @@
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import AuthenticationProvider
-
-
-_BEARER_SCHEME = HTTPBearer(auto_error=False)
+from shifu.shared.pipes.shared_pipe import SharedPipe
 
 
 class AuthenticationPipe:
@@ -18,21 +14,12 @@ class AuthenticationPipe:
 
     @staticmethod
     def get_authenticated_user(
-        credentials: Annotated[
-            HTTPAuthorizationCredentials | None,
-            Depends(_BEARER_SCHEME),
-        ],
-        provider: Annotated[
-            AuthenticationProvider,
-            Depends(get_authentication_provider),
+        user: Annotated[
+            AuthenticatedUser,
+            Depends(SharedPipe.get_authenticated_user),
         ],
     ) -> AuthenticatedUser:
-        if credentials is None or credentials.scheme.lower() != 'bearer':
-            raise AuthenticationPipe._unauthorized()
-        try:
-            return provider.authenticate(credentials.credentials)
-        except AuthorizationError as error:
-            raise AuthenticationPipe._unauthorized() from error
+        return user
 
     @staticmethod
     def _unauthorized() -> HTTPException:

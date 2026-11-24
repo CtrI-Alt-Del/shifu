@@ -13,6 +13,7 @@ from shifu.communication.core.domain.errors import (
 from shifu.identity.core.domain.errors import (
     InvalidAppearanceError,
     InvalidCredentialsError,
+    InvalidCurrentPasswordError,
     InvalidDisplayNameError,
     InvalidTimeZoneError,
     InvalidPasswordError,
@@ -246,6 +247,20 @@ class AppErrorHandler:
         )
 
     @staticmethod
+    async def handle_invalid_current_password(
+        request: Request, error: Exception
+    ) -> JSONResponse:
+        if request.url.path == '/identity/account-deletions' and isinstance(
+            error, InvalidCurrentPasswordError
+        ):
+            return AppErrorHandler._build_response(
+                status_code=status.HTTP_403_FORBIDDEN,
+                code='invalid_current_password',
+                message=error.message,
+            )
+        return await AppErrorHandler.handle_authorization_error(request, error)
+
+    @staticmethod
     async def handle_service_unavailable(
         _request: Request, _error: Exception
     ) -> JSONResponse:
@@ -413,6 +428,10 @@ class AppErrorHandler:
         app.add_exception_handler(
             ValidationError,
             AppErrorHandler.handle_validation_error,
+        )
+        app.add_exception_handler(
+            InvalidCurrentPasswordError,
+            AppErrorHandler.handle_invalid_current_password,
         )
         app.add_exception_handler(
             AuthorizationError,

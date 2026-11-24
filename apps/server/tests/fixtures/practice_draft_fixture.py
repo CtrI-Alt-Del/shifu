@@ -18,6 +18,10 @@ from shifu.curriculum.core.domain.structures import (
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.fakers.curriculum.structures import PracticalPreparationQuestionFaker
+from shifu.fakers.identity.entities.account_faker import AccountFaker
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import (
@@ -63,6 +67,9 @@ class _AuthenticationProvider:
             account_id=accounts[access_token],
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id=f'practice-draft-{access_token}',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -141,6 +148,12 @@ def practice_application(
 ) -> Iterator[tuple[FastAPI, PracticePhotoStorageStub]]:
     del redis_fixture
     seed = build_development_seed()
+    with SqlalchemyIdentityDatabase(postgres_database.engine).transaction() as repos:
+        for account in seed.accounts:
+            if repos.accounts.find_by_id(account.id) is None:
+                repos.accounts.add(account)
+        if repos.accounts.find_by_id(OTHER_ACCOUNT_ID) is None:
+            repos.accounts.add(AccountFaker.fake(id=OTHER_ACCOUNT_ID, access_version=1))
     with SqlalchemyCurriculumDatabase(postgres_database.engine).transaction() as repos:
         repos.skills.add_many(list(seed.skills))
         repos.skill_foundations.add_many(list(seed.skill_foundations))

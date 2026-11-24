@@ -1,4 +1,7 @@
 from .communication_request import CommunicationRequest as CommunicationRequest
+from .account_erasure_operational_alert_values import (
+    AccountErasureOperationalAlertValues as AccountErasureOperationalAlertValues,
+)
 from .delivery_outcome import DeliveryOutcome as DeliveryOutcome
 from .email_delivery import EmailDelivery as EmailDelivery
 from .email_message import EmailMessage as EmailMessage

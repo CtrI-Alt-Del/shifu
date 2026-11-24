@@ -1,8 +1,10 @@
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager, nullcontext
 from itertools import chain, cycle
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from unittest.mock import call, create_autospec
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 from sqlalchemy.exc import OperationalError
@@ -31,9 +33,14 @@ from shifu.intelligence.core.interfaces import (
     MentorSessionsRepository,
 )
 from shifu.intelligence.core.use_cases import UploadMentorAttachmentUseCase
-from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
+from shifu.shared.core.domain.errors import (
+    AuthorizationError,
+    ConflictError,
+    ServiceUnavailableError,
+)
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     EventsRepository,
     FileStorageProvider,
@@ -108,8 +115,33 @@ def harness() -> _Harness:
     )
     storage = create_autospec(FileStorageProvider, instance=True)
     extractor = create_autospec(MentorAttachmentExtractorProvider, instance=True)
+    activity = create_autospec(AccountActivityProvider, instance=True)
+    activity.activity.return_value = nullcontext()
+    effects: dict[tuple[str, object, str], str] = {}
+
+    @contextmanager
+    def external_effect(
+        account_id: str, effect_id: UUID, operation: str
+    ) -> Generator[bool]:
+        key = (account_id, effect_id, operation)
+        state = effects.get(key)
+        if state == 'settled':
+            yield False
+            return
+        if state is not None:
+            raise ConflictError('Effect is unresolved.')
+        effects[key] = 'in_flight'
+        try:
+            yield True
+        except BaseException:
+            effects[key] = 'unknown'
+            raise
+        else:
+            effects[key] = 'settled'
+
+    activity.external_effect.side_effect = external_effect
     subject = UploadMentorAttachmentUseCase(
-        database, identifiers, clock, access, storage, extractor
+        database, identifiers, clock, access, storage, extractor, activity
     )
     return subject, {
         'batch': batch,
@@ -118,6 +150,7 @@ def harness() -> _Harness:
         'access': access,
         'storage': storage,
         'extractor': extractor,
+        'activity': activity,
         'attachments': attachments,
         'by_upload_key': by_upload_key,
     }
@@ -169,6 +202,18 @@ def test_upload_reserves_private_bytes_and_queues_preparation(
         'mentor-attachments/01JATTACHMENT00000000000001/1/original',
         b'conteudo educacional',
         'text/plain',
+    )
+    dependencies['activity'].activity.assert_has_calls(
+        [call(_ACCOUNT_ID), call(_ACCOUNT_ID)]
+    )
+    dependencies['activity'].external_effect.assert_called_once_with(
+        _ACCOUNT_ID,
+        uuid5(
+            NAMESPACE_URL,
+            'shifu:intelligence:mentor-attachment-upload:'
+            f'{attachment.id}:{attachment.generation}',
+        ),
+        'intelligence.mentor-attachment.upload',
     )
     event_calls = dependencies['repositories'].events.add.call_args_list
     assert isinstance(
@@ -227,12 +272,11 @@ def test_retry_finishes_upload_after_completion_transaction_failure(
     assert attachment.upload_completed_at is None
     dependencies['repositories'].events.add.side_effect = None
 
-    replay = subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+    result = subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
 
-    assert replay.created is False
-    assert replay.attachment.attachment_id == attachment.id
     assert attachment.upload_completed_at == dependencies['clock'].now.return_value
-    assert dependencies['storage'].put.call_count == 2
+    assert result.attachment.status is MentorAttachmentStatus.UPLOADING
+    assert dependencies['storage'].put.call_count == 1
     dependencies['storage'].remove.assert_not_called()
     preparation_events = [
         call.args[0]
@@ -266,12 +310,11 @@ def test_retry_finishes_upload_after_raw_database_error(
     assert attachment.upload_completed_at is None
     dependencies['repositories'].events.add.side_effect = None
 
-    replay = subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+    result = subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
 
-    assert replay.created is False
-    assert replay.attachment.attachment_id == attachment.id
     assert attachment.upload_completed_at == dependencies['clock'].now.return_value
-    assert dependencies['storage'].put.call_count == 2
+    assert result.attachment.status is MentorAttachmentStatus.UPLOADING
+    assert dependencies['storage'].put.call_count == 1
     dependencies['storage'].remove.assert_not_called()
 
 
@@ -331,6 +374,48 @@ def test_storage_failure_preserves_failed_row_and_queues_cleanup(
     assert events[-1].payload.account_id == _ACCOUNT_ID
     assert events[-1].payload.batch_id == _BATCH_ID
     assert events[-1].payload.deletion_generation == attachment.generation
+
+
+def test_closed_account_gate_blocks_object_storage_upload(harness: _Harness) -> None:
+    subject, dependencies = harness
+    dependencies['activity'].external_effect.side_effect = AuthorizationError
+
+    with pytest.raises(AuthorizationError):
+        subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+
+    dependencies['storage'].put.assert_not_called()
+
+
+def test_failed_completion_compensates_with_a_separate_receipt(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+
+    def fail_preparation_event(
+        event: object, *, available_at: datetime | None = None
+    ) -> None:
+        del available_at
+        if isinstance(event, MentorAttachmentPreparationRequestedEvent):
+            raise OSError('write failed')
+
+    dependencies['repositories'].events.add.side_effect = fail_preparation_event
+
+    with pytest.raises(OSError, match='write failed'):
+        subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+
+    attachment = next(iter(dependencies['attachments'].values()))
+    assert dependencies['storage'].remove.call_count == 1
+    assert [
+        call.args[2] for call in dependencies['activity'].external_effect.call_args_list
+    ] == [
+        'intelligence.mentor-attachment.upload',
+        'intelligence.mentor-attachment.remove',
+    ]
+    assert dependencies['activity'].external_effect.call_args_list[1].args[1] == uuid5(
+        NAMESPACE_URL,
+        'shifu:intelligence:mentor-attachment-remove:'
+        f'{attachment.id}:{attachment.generation}',
+    )
 
 
 def test_upload_respects_five_active_attachment_limit(harness: _Harness) -> None:
@@ -695,6 +780,7 @@ def test_access_revocation_after_upload_fails_closed_and_cleans_object(
 ) -> None:
     subject, dependencies = harness
     dependencies['access'].assert_current.side_effect = [
+        None,
         None,
         None,
         AuthorizationError(),

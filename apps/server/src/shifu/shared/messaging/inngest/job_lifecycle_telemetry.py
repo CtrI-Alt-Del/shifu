@@ -35,6 +35,15 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'gamification-recognize-competency-mastered': 'gamification.recognize_competency_mastered',
     'gamification-purge-profile-on-account-deleted': 'gamification.purge_profile_on_account_deleted',
     'gamification-create-profile-on-account-activated': 'gamification.create_profile_on_account_activated',
+    'communication-purge-data-on-account-erasure': (
+        'communication.purge_data_on_account_erasure'
+    ),
+    'communication-queue-account-erasure-alert': (
+        'communication.queue_account_erasure_operational_alert'
+    ),
+    'gamification-purge-profile-on-account-erasure': (
+        'gamification.purge_profile_on_account_erasure'
+    ),
     'gamification-fan-out-due-streak-reminders': (
         'gamification.fan_out_due_streak_reminders'
     ),
@@ -46,6 +55,12 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'communication-cancel': 'communication.cancel_communication',
     'communication-deliver': 'communication.deliver_communication',
     'learning-evaluate-choice-activity': 'learning.evaluate_choice_activity',
+    'learning-purge-data-on-account-erasure': (
+        'learning.purge_data_on_account_erasure'
+    ),
+    'intelligence-purge-account-data-on-account-erasure': (
+        'intelligence.purge_account_data_on_account_erasure'
+    ),
     'learning-purge-practice-photo': 'learning.purge_practice_photo',
     'learning-purge-practice-data-on-account-deleted': (
         'learning.purge_practice_data_on_account_deleted'
@@ -76,6 +91,10 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
         'identity.fan_out_unconfirmed_account_expiry'
     ),
     'identity-expire-unconfirmed-account': 'identity.expire_unconfirmed_account',
+    'identity-sweep-account-erasures': 'identity.sweep_account_erasures',
+    'identity-close-bff-on-account-erasure': (
+        'identity.close_bff_identity_on_account_erasure'
+    ),
 }
 
 

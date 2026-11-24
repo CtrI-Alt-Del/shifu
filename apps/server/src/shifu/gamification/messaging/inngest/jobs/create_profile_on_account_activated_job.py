@@ -9,11 +9,12 @@ from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.gamification.core.use_cases import CreateGamificationProfileUseCase
+from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.shared.core.interfaces import AccountActivityProvider, ClockProvider
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
 )
-from shifu.shared.core.interfaces import ClockProvider
 
 
 class _Payload(BaseModel):
@@ -72,6 +73,7 @@ class CreateProfileOnAccountActivatedJob:
         inngest: Inngest,
         use_case: CreateGamificationProfileUseCase,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
         *,
         telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
@@ -87,7 +89,8 @@ class CreateProfileOnAccountActivatedJob:
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
-            account_id = await context.step.run(
+            account_id = _validate_payload(data).account_id
+            await context.step.run(
                 'normalize_payload',
                 CreateProfileOnAccountActivatedJob._normalize_payload,
                 data,
@@ -97,24 +100,29 @@ class CreateProfileOnAccountActivatedJob:
                 CreateProfileOnAccountActivatedJob._create_profile,
                 use_case,
                 clock_provider,
+                account_activity_provider,
                 account_id,
             )
 
         return _
 
     @staticmethod
-    async def _normalize_payload(data: dict[str, object]) -> str:
-        payload = _validate_payload(data)
-        return payload.account_id
+    async def _normalize_payload(data: dict[str, object]) -> None:
+        _validate_payload(data)
 
     @staticmethod
     async def _create_profile(
         use_case: CreateGamificationProfileUseCase,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
         account_id: str,
     ) -> None:
-        await asyncio.to_thread(
-            use_case.execute,
-            account_id,
-            now=clock_provider.now(),
-        )
+        try:
+            async with account_activity_provider.async_activity(account_id):
+                await asyncio.to_thread(
+                    use_case.execute,
+                    account_id,
+                    now=clock_provider.now(),
+                )
+        except AuthorizationError:
+            return

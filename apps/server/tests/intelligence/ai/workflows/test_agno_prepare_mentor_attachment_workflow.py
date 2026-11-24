@@ -5,9 +5,10 @@ extractor and a mocked vision agent."""
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
 
@@ -18,6 +19,7 @@ from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.core.domain.errors import MentorAttachmentInvalidError
 from shifu.intelligence.core.domain.structures import (
     MentorAttachmentExtraction,
+    MentorAttachmentVisionResult,
     MentorInferenceUsage,
 )
 from shifu.intelligence.core.interfaces import MentorAttachmentExtractorProvider
@@ -25,15 +27,18 @@ from shifu.intelligence.core.use_cases import (
     CompleteMentorAttachmentUseCase,
     FailMentorAttachmentUseCase,
     PrepareMentorAttachmentUseCase,
+    RecordMentorAttachmentVisionResultUseCase,
     ReleaseMentorAttachmentClaimUseCase,
     RenewMentorAttachmentClaimUseCase,
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
-from shifu.shared.core.interfaces import MentorAccessProvider
+from shifu.shared.core.interfaces import AccountActivityProvider, MentorAccessProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from tests.fixtures.intelligence_fixture import (
         IntelligenceFixture,
         MentorAttachmentStorageStub,
@@ -106,15 +111,65 @@ class Harness:
         self.vision_agent.analyze.side_effect = vision(legible=True)
         # The workflow runs on a per-call clone and copies its agent; keep the mock.
         self.vision_agent.deep_copy.return_value = self.vision_agent
+        self.account_activity = Mock(spec=AccountActivityProvider)
+        self.account_activity.activity.return_value = nullcontext()
+        self.receipt_states: dict[UUID, str] = {}
+        self.persisted_before_receipt_settled: list[bool] = []
+        self.current_attachment_id: str | None = None
+
+        @contextmanager
+        def external_effect(
+            _account_id: str,
+            effect_id: UUID,
+            _operation: str,
+            *,
+            allow_durable_result_recovery: bool = False,
+        ) -> Generator[bool]:
+            state = self.receipt_states.get(effect_id)
+            if state == 'settled':
+                yield False
+                return
+            if state in ('in_flight', 'unknown'):
+                if not allow_durable_result_recovery:
+                    raise RuntimeError('receipt is unresolved')
+                yield False
+                self.receipt_states[effect_id] = 'settled'
+                return
+
+            self.receipt_states[effect_id] = 'in_flight'
+            try:
+                yield True
+            except BaseException:
+                self.receipt_states[effect_id] = 'unknown'
+                raise
+            else:
+                assert self.current_attachment_id is not None
+                self.persisted_before_receipt_settled.append(
+                    bool(self.attachment(self.current_attachment_id).vision_results)
+                )
+                self.receipt_states[effect_id] = 'settled'
+
+        self.account_activity.external_effect.side_effect = external_effect
+        self.complete_use_case = CompleteMentorAttachmentUseCase(
+            database, clock, access
+        )
+        self.record_vision_result_use_case = RecordMentorAttachmentVisionResultUseCase(
+            database, clock
+        )
         self.workflow = AgnoPrepareMentorAttachmentWorkflow(
-            PrepareMentorAttachmentUseCase(database, clock, access, storage),
-            CompleteMentorAttachmentUseCase(database, clock, access),
+            PrepareMentorAttachmentUseCase(
+                database, clock, access, storage, self.account_activity
+            ),
+            self.complete_use_case,
             FailMentorAttachmentUseCase(database, clock, access),
             RenewMentorAttachmentClaimUseCase(database, clock, access),
             ReleaseMentorAttachmentClaimUseCase(database),
+            self.record_vision_result_use_case,
             self.extractor,
             self.vision_agent,
             SystemIdentifierProvider(),
+            self.account_activity,
+            self._account_id,
             max_pdf_pages=3,
             usage_recorder=self.usage.append,
         )
@@ -135,9 +190,13 @@ class Harness:
         return str(upload.json()['attachment_id'])
 
     def run(self, attachment_id: str) -> object:
+        self.current_attachment_id = attachment_id
         return self.workflow.run(
             input=json.dumps({'attachment_id': attachment_id, 'generation': 1})
         ).content
+
+    def _account_id(self, attachment_id: str) -> str | None:
+        return self.attachment(attachment_id).account_id
 
     def attachment(self, attachment_id: str) -> MentorAttachment:
         with self.fixture.database.transaction() as repositories:
@@ -177,10 +236,125 @@ class TestAgnoPrepareMentorAttachmentWorkflow:
         assert attachment.status is MentorAttachmentStatus.READY
         assert attachment.analyzed_pages == (1,)
         assert attachment.execution_owner is None
+        assert attachment.vision_results == ()
         assert harness.chunks(attachment_id) == (('page:1/vision', DESCRIPTION),)
         assert [usage.call_key for usage in harness.usage] == [
             f'vision:{attachment_id}:1'
         ]
+        harness.account_activity.external_effect.assert_called_once_with(
+            attachment.account_id,
+            uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:mentor-attachment-vision:{attachment_id}:1:1',
+            ),
+            'intelligence.mentor-attachment.vision',
+            allow_durable_result_recovery=False,
+        )
+
+    def test_recovers_persisted_vision_result_after_completion_failure(
+        self, harness: Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        attachment_id = harness.upload_image()
+        saved_result = MentorAttachmentVisionResult(
+            page_number=1,
+            legible=True,
+            description=DESCRIPTION,
+        )
+
+        original_complete = harness.complete_use_case.execute
+        attempts = 0
+
+        def fail_once(
+            requested_attachment_id: str,
+            generation: int,
+            execution_owner: str,
+            extraction: MentorAttachmentExtraction,
+        ) -> MentorAttachmentStatus:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError('simulated failure after the Vision receipt settled')
+            return original_complete(
+                requested_attachment_id,
+                generation,
+                execution_owner,
+                extraction,
+            )
+
+        monkeypatch.setattr(harness.complete_use_case, 'execute', fail_once)
+        first_output = harness.run(attachment_id)
+        assert 'simulated failure after the Vision receipt settled' in str(first_output)
+
+        interrupted_attachment = harness.attachment(attachment_id)
+        assert interrupted_attachment.status is MentorAttachmentStatus.PROCESSING
+        assert interrupted_attachment.execution_owner is None
+        assert interrupted_attachment.vision_results == (saved_result,)
+        assert harness.persisted_before_receipt_settled == [True]
+
+        output = harness.run(attachment_id)
+
+        assert output == json.dumps(
+            {'attachment_id': attachment_id, 'status': 'ready'}, separators=(',', ':')
+        )
+        assert harness.vision_agent.analyze.call_count == 1
+        assert harness.account_activity.external_effect.call_count == 2
+        attachment = harness.attachment(attachment_id)
+        assert attachment.status is MentorAttachmentStatus.READY
+        assert attachment.vision_results == ()
+        assert harness.chunks(attachment_id) == (('page:1/vision', DESCRIPTION),)
+
+    def test_recovers_persisted_vision_result_after_process_interruption_before_settle(
+        self, harness: Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        attachment_id = harness.upload_image()
+        record_result = harness.record_vision_result_use_case.execute
+
+        def persist_then_interrupt(
+            requested_attachment_id: str,
+            generation: int,
+            execution_owner: str,
+            result: MentorAttachmentVisionResult,
+        ) -> None:
+            record_result(requested_attachment_id, generation, execution_owner, result)
+            raise SystemExit('simulated process interruption')
+
+        monkeypatch.setattr(
+            harness.record_vision_result_use_case, 'execute', persist_then_interrupt
+        )
+        with pytest.raises(SystemExit, match='simulated process interruption'):
+            harness.run(attachment_id)
+
+        interrupted = harness.attachment(attachment_id)
+        assert interrupted.status is MentorAttachmentStatus.PROCESSING
+        assert len(interrupted.vision_results) == 1
+        assert tuple(harness.receipt_states.values()) == ('unknown',)
+        harness.vision_agent.analyze.assert_called_once()
+
+        monkeypatch.setattr(
+            harness.record_vision_result_use_case, 'execute', record_result
+        )
+        output = harness.run(attachment_id)
+
+        assert output == json.dumps(
+            {'attachment_id': attachment_id, 'status': 'ready'}, separators=(',', ':')
+        )
+        assert tuple(harness.receipt_states.values()) == ('settled',)
+        assert harness.vision_agent.analyze.call_count == 1
+        assert harness.account_activity.external_effect.call_count == 2
+
+    def test_revoked_attachment_gate_blocks_vision_and_releases_claim(
+        self, harness: Harness
+    ) -> None:
+        attachment_id = harness.upload_image()
+        harness.account_activity.external_effect.side_effect = RuntimeError('revoked')
+
+        output = harness.run(attachment_id)
+        assert 'revoked' in str(output)
+
+        assert harness.vision_agent.analyze.call_count == 0
+        attachment = harness.attachment(attachment_id)
+        assert attachment.status is MentorAttachmentStatus.PROCESSING
+        assert attachment.execution_owner is None
 
     def test_fails_an_illegible_image_as_unreadable(self, harness: Harness) -> None:
         harness.vision_agent.analyze.side_effect = vision(legible=False)

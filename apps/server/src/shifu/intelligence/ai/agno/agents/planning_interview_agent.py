@@ -55,10 +55,14 @@ class PlanningInterviewAgent(MentorAgent):
                 projeto pessoal ou hobby; quais temas ou partes da área mais
                 interessam, com alternativas tiradas das candidatas; e a linguagem ou
                 ferramenta, quando houver mais de uma possível.
-                No primeiro lote, faça de 2 a 4 perguntas sobre os pontos ainda em
-                aberto, a menos que a intenção já seja tão específica que só reste
-                uma dúvida. Use os lotes seguintes para aprofundar o que as respostas
-                deixaram em aberto.
+                Um ponto que a intenção já responde está claro: se o aprendiz diz que
+                já sabe algo, não pergunte o nível dele nisso. Quando a intenção já
+                indica o assunto, a linguagem ou ferramenta e o que o aprendiz já
+                sabe, a escolha das Habilidades está definida: responda
+                needs_clarification=false, mesmo sem saber a finalidade.
+                Se ainda houver pontos em aberto, faça de 2 a 4 perguntas sobre eles
+                no primeiro lote, a menos que só reste uma dúvida. Use os lotes
+                seguintes para aprofundar o que as respostas deixaram em aberto.
                 Pergunte somente o que ajuda a entender o objetivo e selecionar
                 Habilidades. Nunca pergunte sobre agenda, prazo, ritmo, rotina de
                 estudos ou preferência de atividade. Não repita perguntas já

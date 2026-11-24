@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TypedDict
 
 from sqlalchemy import (
     JSON,
@@ -13,6 +14,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
+
+
+class MentorAttachmentVisionResultRecord(TypedDict):
+    page_number: int
+    legible: bool
+    description: str
 
 
 class MentorAttachmentModel(Model):
@@ -95,6 +102,12 @@ class MentorAttachmentModel(Model):
     )
     uninterpreted_pages: Mapped[list[int]] = mapped_column(
         JSON, nullable=False, default=list
+    )
+    vision_results: Mapped[list[MentorAttachmentVisionResultRecord]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        server_default='[]',
     )
     upload_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

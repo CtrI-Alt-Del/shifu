@@ -66,7 +66,10 @@ class MentorWriterAgent(MentorAgent):
                 avulsa, sem ligação com os estudos do aprendiz, também é um pedido
                 sem relação com aprendizagem: não responda o fato nem a solução
                 solicitada, nem parcialmente; redirecione somente para o apoio de
-                aprendizagem oferecido pelo Mentor. Um tema listado em
+                aprendizagem oferecido pelo Mentor. Já uma pergunta sobre como fazer
+                algo ou como funciona algo em uma área de estudo, como uma linguagem
+                de programação, um idioma ou a culinária, é um pedido de
+                aprendizagem: explique-a diretamente. Um tema listado em
                 request.curriculum_topics é uma Habilidade do Currículo do Shifu,
                 portanto um assunto de aprendizagem: explique-o diretamente, mesmo
                 fora dos Objetivos do aprendiz. Diferencie o que vem do contexto

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, Any, cast
+
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,9 @@ from shifu.identity.core.domain.enums import (
 )
 from shifu.identity.database.sqlalchemy.mappers import AccountActionTokenMapper
 from shifu.identity.database.sqlalchemy.models import AccountActionTokenModel
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 
 class SqlalchemyAccountActionTokensRepository:
@@ -97,6 +102,14 @@ class SqlalchemyAccountActionTokensRepository:
         ).all()
         return [AccountActionTokenMapper.to_domain(model) for model in models]
 
+    def find_communication_ids_by_account_id(self, account_id: str) -> set[str]:
+        values = self._session.scalars(
+            select(AccountActionTokenModel.communication_id)
+            .where(AccountActionTokenModel.account_id == account_id)
+            .distinct()
+        ).all()
+        return {value for value in values if value}
+
     def find_many_pending_by_account_id_and_type(
         self,
         account_id: str,
@@ -129,3 +142,14 @@ class SqlalchemyAccountActionTokensRepository:
 
     def remove_all(self) -> None:
         self._session.execute(delete(AccountActionTokenModel))
+
+    def remove_by_account_id(self, account_id: str) -> int:
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                delete(AccountActionTokenModel).where(
+                    AccountActionTokenModel.account_id == account_id
+                )
+            ),
+        )
+        return result.rowcount or 0

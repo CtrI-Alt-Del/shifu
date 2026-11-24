@@ -5,6 +5,9 @@ from .communication_database import (
 from .communications_repository import (
     CommunicationsRepository as CommunicationsRepository,
 )
+from .communication_activity_provider import (
+    CommunicationActivityProvider as CommunicationActivityProvider,
+)
 from .delivery_attempts_repository import (
     DeliveryAttemptsRepository as DeliveryAttemptsRepository,
 )

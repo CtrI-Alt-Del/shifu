@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.shared.core.domain.errors import AuthorizationError
@@ -43,6 +44,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='diagnostic-batch-test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -60,6 +64,12 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    with SqlalchemyIdentityDatabase(
+        postgres_database.engine
+    ).transaction() as repositories:
+        for account in seed.accounts:
+            if repositories.accounts.find_by_id(account.id) is None:
+                repositories.accounts.add(account)
     with SqlalchemyCurriculumDatabase(
         postgres_database.engine
     ).transaction() as repositories:

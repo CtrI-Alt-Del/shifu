@@ -13,6 +13,9 @@ from shifu.learning.core.domain.events import (
     DiagnosticCompletedPayload,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from tests.messaging.inngest.jobs.gamification.account_activity_test_support import (
+    seed_active_account,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -65,6 +68,7 @@ def _event_data(payload: DiagnosticCompletedPayload) -> dict[str, object]:
 
 
 def _seed_profile(inngest_fixture: 'InngestFixture', account_id: str) -> None:
+    seed_active_account(inngest_fixture, account_id)
     engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
     try:
         database = SqlalchemyGamificationDatabase(engine)

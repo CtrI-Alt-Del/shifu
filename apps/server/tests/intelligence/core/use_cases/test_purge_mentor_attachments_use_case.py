@@ -258,6 +258,10 @@ def test_should_purge_files_chunks_attachments_and_batches_for_deleted_account()
     repositories.mentor_attachment_chunks.remove_by_attachment_id.assert_called_once_with(
         attachment.id
     )
+    repositories.events.remove_by_account_id_and_names.assert_called_once_with(
+        _ACCOUNT_ID,
+        {'intelligence/mentor-attachment.cleanup.requested'},
+    )
     repositories.mentor_attachments.remove.assert_called_once_with(attachment.id)
     repositories.mentor_attachment_batches.remove.assert_called_once_with(batch.id)
 

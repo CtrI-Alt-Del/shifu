@@ -9,6 +9,18 @@ class CommunicationsRepository(Protocol):
         """Load the row in the caller transaction; mutation paths may lock it."""
         ...
 
+    def find_account_id_by_id(self, communication_id: str) -> str | None:
+        """Read the owner without locking before acquiring its activity barrier."""
+        ...
+
+    def find_ids_by_account_id(self, account_id: str) -> set[str]:
+        """Find Communication rows owned by an account."""
+        ...
+
+    def remove_many_by_ids(self, communication_ids: set[str]) -> int:
+        """Remove selected Communication rows."""
+        ...
+
     def find_by_idempotency_key(
         self,
         idempotency_key: str,

@@ -20,6 +20,10 @@ locals {
 
   public_origin = local.is_https_enabled ? "https://${var.hostname}" : "http://${aws_lb.staging.dns_name}"
 
+  # The BFF secret is sent to the API in an authentication header. Staging has
+  # no end-to-end TLS path to the API yet, so keep the configured URL unusable.
+  identity_api_url = "https://invalid.invalid"
+
   app_listener_arn = local.is_https_enabled ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
 
   server_discovery_name = "server.${aws_service_discovery_private_dns_namespace.staging.name}"

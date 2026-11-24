@@ -13,6 +13,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.learning.core.domain.errors import EvaluationUnavailableError
 from shifu.learning.core.domain.structures import (
+    ActivityRubricAssessmentDecision,
     SingleChoiceAnswer,
     TranslationAnswer,
 )
@@ -34,6 +35,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricCriterionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
     TranslationRubricAssessmentInput,
+    CodeCriterionDecision,
+    CodeRubricDecisions,
 )
 
 _ATTEMPT_ID = '01J000000000000000000000001'
@@ -183,8 +186,11 @@ def _evaluation(
     *,
     run_id: str = _RUN_ID,
     status: ActivityEvaluationStatus = ActivityEvaluationStatus.PENDING,
+    rubric_decisions: tuple[ActivityRubricAssessmentDecision, ...] = (),
 ) -> SimpleNamespace:
-    return SimpleNamespace(run_id=run_id, status=status)
+    return SimpleNamespace(
+        run_id=run_id, status=status, rubric_decisions=rubric_decisions
+    )
 
 
 def _subject(
@@ -220,6 +226,33 @@ def test_should_prepare_only_translation_questions_for_the_current_pending_run()
         _ATTEMPT_ID
     )
     cast('Mock', repositories.events.add).assert_not_called()
+
+
+def test_should_return_saved_translation_rubric_decisions_only() -> None:
+    decision = ActivityRubricAssessmentDecision(
+        question_key='q1',
+        rubric_kind='translation',
+        decisions=CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+            ),
+            concept_levels=(),
+        ),
+    )
+    unrelated_decision = ActivityRubricAssessmentDecision(
+        question_key='q1',
+        rubric_kind='code',
+        decisions=CodeRubricDecisions(criterion_levels=(), concept_levels=()),
+    )
+    subject, _ = _subject(
+        _attempt(),
+        _evaluation(rubric_decisions=(decision, unrelated_decision)),
+    )
+
+    result = subject.execute(_ATTEMPT_ID, _RUN_ID)
+
+    assert result is not None
+    assert result.rubric_decisions == (decision,)
 
 
 def test_the_assessment_input_declares_only_privacy_minimized_fields() -> None:

@@ -13,6 +13,7 @@ from shifu.intelligence.core.use_cases import ReadMentorAttachmentFileUseCase
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     FileStorageProvider,
     IdentifierProvider,
     MentorAccessProvider,
@@ -51,10 +52,18 @@ class ReadMentorAttachmentFileController:
                 FileStorageProvider,
                 Depends(FileStoragePipe.get_file_storage_provider),
             ],
+            account_activity_provider: Annotated[
+                AccountActivityProvider,
+                Depends(SharedPipe.get_account_activity_provider),
+            ],
             preview: bool = False,
         ) -> FastApiResponse:
             result = ReadMentorAttachmentFileUseCase(
-                database, identifier_provider, access, storage
+                database,
+                identifier_provider,
+                access,
+                storage,
+                account_activity_provider,
             ).execute(user.account_id, session_id, attachment_id, preview=preview)
             disposition = 'inline' if preview else 'attachment'
             filename = quote(result.filename, safe='')

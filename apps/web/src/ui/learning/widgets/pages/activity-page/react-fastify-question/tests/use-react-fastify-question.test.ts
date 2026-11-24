@@ -30,12 +30,14 @@ const QUESTION: ReactQuestionModel = {
   additionalFilePolicy: null,
   criteria: [{ key: 'complete', name: 'Completude', weightPercentage: 100 }],
 }
-function createDraftStore() {
+function createDraftStore(overrides: Partial<ReactQuestionDraftStore> = {}) {
   function keyOf(key: ReactQuestionDraftKey) {
     return JSON.stringify(Object.entries(key).sort())
   }
   const records = new Map<string, ReactQuestionDraft>()
-  const listeners = new Set<(event: { generation: number; tombstone: boolean }) => void>()
+  const listeners = new Set<
+    (event: { generation: number; tombstone: boolean; accountRevoked?: boolean }) => void
+  >()
   const store: ReactQuestionDraftStore = {
     read: vi.fn(async (key) => records.get(keyOf(key)) ?? null),
     write: vi.fn(
@@ -63,12 +65,15 @@ function createDraftStore() {
     clearTombstone: vi.fn(async () => 2),
     tombstoneActivity: vi.fn(async () => undefined),
     tombstoneStaleActivity: vi.fn(async () => undefined),
+    validateAccountCapability: vi.fn(async () => 'active' as const),
+    revokeAccount: vi.fn(async () => undefined),
     subscribe: vi.fn((_key, listener) => {
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
       }
     }),
+    ...overrides,
   }
   function publish(
     key: ReactQuestionDraftKey,
@@ -150,6 +155,89 @@ describe('useReactFastifyQuestion', () => {
     cleanup()
     vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('clears account source and blocks assessment after a revocation event', async () => {
+    let listener:
+      | ((event: {
+          generation: number
+          tombstone: boolean
+          accountRevoked?: boolean
+        }) => void)
+      | undefined
+    const onAssess = vi.fn()
+    const onAnswerValidityChange = vi.fn()
+    const draftStore = createDraftStore().store
+    vi.mocked(draftStore.read).mockResolvedValue({
+      ...keyFrom(createProps(draftStore)),
+      schemaVersion: 1,
+      files: [{ path: 'src/App.tsx', content: 'private answer' }],
+      generation: 2,
+      savedAt: 1,
+      tombstone: false,
+    })
+    vi.mocked(draftStore.subscribe).mockImplementation((_key, nextListener) => {
+      listener = nextListener
+      return () => undefined
+    })
+    const props = createProps(draftStore, { onAssess, onAnswerValidityChange })
+    const { result } = renderHook(() => useReactFastifyQuestion(props))
+    await waitFor(() => expect(result.current.files[0]?.content).toBe('private answer'))
+
+    act(() => listener?.({ generation: 0, tombstone: true, accountRevoked: true }))
+
+    expect(result.current.files[0]?.content).toBe(QUESTION.initialFiles[0]?.content)
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.isDraftInvalidated).toBe(true)
+    expect(onAnswerValidityChange).toHaveBeenLastCalledWith(false)
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
+    expect(draftStore.clearTombstone).not.toHaveBeenCalled()
+  })
+
+  it('clears a revoked project with no initial files and keeps an empty selection', async () => {
+    let listener:
+      | ((event: {
+          generation: number
+          tombstone: boolean
+          accountRevoked?: boolean
+        }) => void)
+      | undefined
+    const draftStore = createDraftStore().store
+    vi.mocked(draftStore.subscribe).mockImplementation((_key, nextListener) => {
+      listener = nextListener
+      return () => undefined
+    })
+    const props = createProps(draftStore, {
+      question: { ...QUESTION, initialFiles: [] },
+    })
+    const { result } = renderHook(() => useReactFastifyQuestion(props))
+    await waitFor(() => expect(result.current.draftLoaded).toBe(true))
+
+    act(() => listener?.({ generation: 0, tombstone: true, accountRevoked: true }))
+
+    expect(result.current.files).toEqual([])
+    expect(result.current.selectedPath).toBe('')
+    expect(result.current.isDraftInvalidated).toBe(true)
+  })
+
+  it('clears account source when capability validation reports revocation', async () => {
+    const { store } = createDraftStore({
+      validateAccountCapability: vi.fn(async () => 'revoked' as const),
+    })
+    const onAssess = vi.fn()
+    const props = createProps(store, { onAssess })
+    const { result } = renderHook(() => useReactFastifyQuestion(props))
+
+    await waitFor(() => expect(result.current.isDraftInvalidated).toBe(true))
+
+    expect(result.current.draftLoaded).toBe(true)
+    expect(result.current.files).toEqual([
+      { path: 'src/App.tsx', content: QUESTION.initialFiles[0]?.content ?? '' },
+    ])
+    expect(store.read).not.toHaveBeenCalled()
+    await act(async () => result.current.handleAssess())
+    expect(onAssess).not.toHaveBeenCalled()
   })
   it('flushes the current draft before preliminary assessment', async () => {
     const { store } = createDraftStore()

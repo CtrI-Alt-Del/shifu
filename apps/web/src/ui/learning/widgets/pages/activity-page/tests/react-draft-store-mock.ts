@@ -8,6 +8,8 @@ export function createReactDraftStoreMock(): ReactQuestionDraftStore {
     tombstone: vi.fn().mockResolvedValue(2),
     tombstoneActivity: vi.fn().mockResolvedValue(undefined),
     tombstoneStaleActivity: vi.fn().mockResolvedValue(undefined),
+    validateAccountCapability: vi.fn().mockResolvedValue('active'),
+    revokeAccount: vi.fn().mockResolvedValue(undefined),
     subscribe: vi.fn(() => () => undefined),
     clearTombstone: vi.fn().mockResolvedValue(3),
   }

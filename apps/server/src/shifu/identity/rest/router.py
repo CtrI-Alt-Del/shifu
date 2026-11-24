@@ -12,6 +12,28 @@ from shifu.identity.rest.controllers.change_password_controller import (
 
 from fastapi import APIRouter
 
+from shifu.identity.rest.controllers.account_activity_admission_controller import (
+    AccountActivityAdmissionController,
+)
+from shifu.identity.rest.controllers.acknowledge_account_erasure_controller import (
+    AcknowledgeAccountErasureController,
+)
+from shifu.identity.rest.controllers.delete_account_controller import (
+    DeleteAccountController,
+)
+from shifu.identity.rest.controllers.get_account_erasure_status_controller import (
+    GetAccountErasureStatusController,
+)
+from shifu.identity.rest.controllers.get_account_erasure_target_controller import (
+    GetAccountErasureTargetController,
+)
+from shifu.identity.rest.controllers.issue_browser_data_capability_controller import (
+    IssueBrowserDataCapabilityController,
+)
+from shifu.identity.rest.controllers.validate_browser_data_capability_controller import (
+    ValidateBrowserDataCapabilityController,
+)
+
 from shifu.identity.rest.controllers.get_current_session_controller import (
     GetCurrentSessionController,
 )
@@ -71,4 +93,11 @@ class IdentityRouter:
         RetryPasswordRecoveryController.handle(router)
         ResolvePasswordResetLinkController.handle(router)
         ResetPasswordController.handle(router)
+        DeleteAccountController.handle(router)
+        GetAccountErasureStatusController.handle(router)
+        GetAccountErasureTargetController.handle(router)
+        AcknowledgeAccountErasureController.handle(router)
+        AccountActivityAdmissionController.handle(router)
+        IssueBrowserDataCapabilityController.handle(router)
+        ValidateBrowserDataCapabilityController.handle(router)
         return router

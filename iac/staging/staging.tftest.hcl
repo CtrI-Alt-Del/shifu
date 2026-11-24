@@ -119,17 +119,14 @@ run "foundation_contract" {
   }
 }
 
-run "enabled_services" {
+run "reject_services_without_tls" {
   command = plan
 
   variables {
     services_enabled = true
   }
 
-  assert {
-    condition     = aws_ecs_service.web.desired_count == 1 && aws_ecs_service.server.desired_count == 1
-    error_message = "Enablement must run exactly one task for each service."
-  }
+  expect_failures = [aws_ecs_service.server]
 }
 
 run "ci_identities" {

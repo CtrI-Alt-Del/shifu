@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -46,3 +46,10 @@ class SqlalchemyMentorActionReceiptsRepository:
                 raise
             return False
         return True
+
+    def remove_by_account_id(self, account_id: str) -> None:
+        self._session.execute(
+            delete(MentorActionReceiptModel).where(
+                MentorActionReceiptModel.account_id == account_id
+            )
+        )

@@ -1,5 +1,7 @@
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from unittest.mock import create_autospec
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 
@@ -16,10 +18,12 @@ from shifu.communication.core.domain.events import (
 )
 from shifu.communication.core.domain.structures import (
     EmailMessage,
+    DeliveryOutcome,
     MessageContent,
     SecretEnvelope,
 )
 from shifu.communication.core.interfaces import (
+    CommunicationActivityProvider,
     CommunicationDatabase,
     CommunicationDatabaseRepositories,
     EmailDeliveryProvider,
@@ -27,7 +31,12 @@ from shifu.communication.core.interfaces import (
     SecretEnvelopeProvider,
 )
 from shifu.communication.core.use_cases import DeliverCommunicationUseCase
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    ClockProvider,
+    IdentifierProvider,
+)
+from shifu.shared.core.domain.errors import AuthorizationError
 
 
 class TestDeliverCommunicationUseCase:
@@ -70,6 +79,18 @@ class TestDeliverCommunicationUseCase:
             EmailDeliveryProvider,
             instance=True,
         )
+        self.communication_activity_provider = create_autospec(
+            CommunicationActivityProvider,
+            instance=True,
+        )
+        self.communication_activity_provider.activity.return_value = nullcontext()
+        self.account_activity_provider = create_autospec(
+            AccountActivityProvider,
+            instance=True,
+        )
+        self.account_activity_provider.external_effect.return_value = nullcontext(
+            enter_result=True
+        )
         self.communication = Communication.create(
             id='01JCOMMUNICATION000000000000001',
             account_id='01JACCOUNT000000000000000001',
@@ -100,6 +121,9 @@ class TestDeliverCommunicationUseCase:
             self.communication,
             self.communication,
         ]
+        self.repositories.communications.find_account_id_by_id.return_value = (
+            self.communication.account_id
+        )
         self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.return_value = self.attempt
         self.subject = DeliverCommunicationUseCase(
             self.communication_database,
@@ -108,11 +132,22 @@ class TestDeliverCommunicationUseCase:
             self.envelope_provider,
             self.renderer_provider,
             self.email_delivery_provider,
+            self.communication_activity_provider,
+            self.account_activity_provider,
         )
 
     def test_should_terminally_record_an_orphaned_processing_attempt_without_resending(
         self,
     ) -> None:
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+            self.communication,
+        ]
+        self.account_activity_provider.external_effect.return_value = nullcontext(
+            enter_result=False
+        )
         result = self.subject.execute(self.communication.id)
 
         assert result is self.communication
@@ -121,7 +156,7 @@ class TestDeliverCommunicationUseCase:
         assert self.attempt.status is DeliveryAttemptStatus.FAILED
         assert self.attempt.failure_code == 'delivery_outcome_unknown'
         self.email_delivery_provider.send.assert_not_called()
-        self.renderer_provider.render.assert_not_called()
+        self.renderer_provider.render.assert_called_once()
         event = self.repositories.events.add.call_args.args[0]
 
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
@@ -135,6 +170,13 @@ class TestDeliverCommunicationUseCase:
             self.now,
             self.communication.expires_at,
             self.communication.expires_at,
+        ]
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+            self.communication,
+            self.communication,
         ]
         self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.side_effect = [
             None,
@@ -152,3 +194,131 @@ class TestDeliverCommunicationUseCase:
 
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.EXPIRED
+
+    def test_should_not_settle_or_send_when_account_activity_is_denied(self) -> None:
+        self.communication_activity_provider.activity.side_effect = AuthorizationError
+
+        result = self.subject.execute(self.communication.id)
+
+        assert result is None
+        self.repositories.communications.find_by_id.assert_called_once_with(
+            self.communication.id
+        )
+        self.repositories.delivery_attempts.add.assert_not_called()
+        self.repositories.delivery_attempts.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        self.email_delivery_provider.send.assert_not_called()
+        self.renderer_provider.render.assert_not_called()
+
+    def test_should_hold_receipt_barrier_only_after_prepare_transaction_closes(
+        self,
+    ) -> None:
+        self.communication.status = CommunicationStatus.PENDING
+        self.communication.attempt_count = 0
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+            self.communication,
+        ]
+        self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.side_effect = [
+            None,
+            self.attempt,
+        ]
+        self.email_delivery_provider.send.return_value = DeliveryOutcome.accepted(
+            'provider-message'
+        )
+
+        def send_without_open_database_transaction(
+            message: EmailMessage,
+        ) -> DeliveryOutcome:
+            assert (
+                self.communication_database.transaction.return_value.__enter__.call_count
+                == self.communication_database.transaction.return_value.__exit__.call_count
+            )
+            return DeliveryOutcome.accepted('provider-message')
+
+        self.email_delivery_provider.send.side_effect = (
+            send_without_open_database_transaction
+        )
+
+        result = self.subject.execute(self.communication.id)
+
+        assert result is self.communication
+        assert self.communication.status is CommunicationStatus.SENT
+        effect_id = uuid5(
+            NAMESPACE_URL,
+            f'shifu.communication.email.send:{self.communication.id}:1',
+        )
+        self.account_activity_provider.external_effect.assert_called_once_with(
+            self.communication.account_id,
+            effect_id,
+            'communication.email.send',
+            allow_pending_confirmation=True,
+        )
+        self.communication_activity_provider.activity.assert_called_once_with(
+            self.communication.account_id
+        )
+        self.email_delivery_provider.send.assert_called_once()
+
+    def test_should_not_send_when_external_effect_activity_is_denied(self) -> None:
+        self.communication.status = CommunicationStatus.PENDING
+        self.communication.attempt_count = 0
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+        ]
+        self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.return_value = None
+        self.account_activity_provider.external_effect.side_effect = AuthorizationError
+
+        result = self.subject.execute(self.communication.id)
+
+        assert result is None
+        assert self.repositories.communications.find_by_id.call_count == 3
+        self.repositories.delivery_attempts.add.assert_called_once()
+        self.email_delivery_provider.send.assert_not_called()
+
+    def test_should_not_resend_when_external_effect_receipt_is_already_settled(
+        self,
+    ) -> None:
+        self.communication.status = CommunicationStatus.PENDING
+        self.communication.attempt_count = 0
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+            self.communication,
+        ]
+        self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.side_effect = [
+            None,
+            self.attempt,
+        ]
+        self.account_activity_provider.external_effect.return_value = nullcontext(
+            enter_result=False
+        )
+
+        result = self.subject.execute(self.communication.id)
+
+        assert result is self.communication
+        assert self.communication.failure_code == 'delivery_outcome_unknown'
+        self.email_delivery_provider.send.assert_not_called()
+
+    def test_should_not_open_receipt_when_local_attempt_preparation_fails(self) -> None:
+        self.communication.status = CommunicationStatus.PENDING
+        self.communication.attempt_count = 0
+        self.repositories.communications.find_by_id.side_effect = [
+            self.communication,
+            self.communication,
+            self.communication,
+        ]
+        self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.return_value = None
+        self.repositories.delivery_attempts.add.side_effect = RuntimeError(
+            'local preparation failed'
+        )
+
+        with pytest.raises(RuntimeError, match='local preparation failed'):
+            self.subject.execute(self.communication.id)
+
+        self.account_activity_provider.external_effect.assert_not_called()
+        self.email_delivery_provider.send.assert_not_called()

@@ -96,4 +96,9 @@ class PrepareCodeActivityEvaluationUseCase:
             attempt_id=attempt_id,
             run_id=run_id,
             questions=tuple(prepared),
+            rubric_decisions=tuple(
+                decision
+                for decision in evaluation.rubric_decisions
+                if decision.rubric_kind == 'code'
+            ),
         )

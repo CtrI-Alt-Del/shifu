@@ -2,7 +2,6 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 from sqlalchemy import Engine
-from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.learning.core.interfaces import LearningDatabaseRepositories
 from shifu.learning.database.sqlalchemy.repositories import (
@@ -38,12 +37,8 @@ class SqlalchemyLearningDatabase:
 
     @contextmanager
     def transaction(self) -> Generator[LearningDatabaseRepositories]:
-        with SqlalchemySession(
-            bind=self._engine,
-            autoflush=False,
-            expire_on_commit=False,
-        ) as session:
-            repositories = LearningDatabaseRepositories(
+        with Session.database_session(self._engine) as session:
+            yield LearningDatabaseRepositories(
                 goals=SqlalchemyGoalsRepository(session),
                 goal_confirmations=SqlalchemyGoalConfirmationsRepository(session),
                 skill_experiences=SqlalchemySkillExperiencesRepository(session),
@@ -64,9 +59,3 @@ class SqlalchemyLearningDatabase:
                     id_provider=self._id_provider,
                 ),
             )
-            try:
-                yield repositories
-                session.commit()
-            except BaseException:
-                session.rollback()
-                raise

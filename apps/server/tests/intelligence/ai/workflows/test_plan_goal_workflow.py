@@ -5,6 +5,7 @@ real; the intent classifier, the Skill retrieval and the Curriculum catalog are 
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import timedelta
 import json
@@ -16,6 +17,7 @@ from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 import pytest
 from redis import Redis
+from uuid import NAMESPACE_URL, uuid5
 
 from shifu.intelligence.ai.agno.agents import (
     PlanningInterviewAgent,
@@ -76,7 +78,11 @@ from shifu.shared.core.domain.structures import (
     SkillCatalogEntry,
     SkillFoundationEntry,
 )
-from shifu.shared.core.interfaces import CurriculumCatalogProvider, MentorAccessProvider
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    CurriculumCatalogProvider,
+    MentorAccessProvider,
+)
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
@@ -249,6 +255,7 @@ class Harness:
     interview: Mock
     proposal: Mock
     retrieval: Mock
+    account_activity: Mock
 
     def start(self, intent: str) -> PlanningSession:
         return StartPlanningUseCase(
@@ -376,6 +383,9 @@ def harness(
     interview.run.return_value = sufficient()
     proposal = Mock(spec=PlanningProposalAgent)
     proposal.run.return_value = web_proposal()
+    account_activity = Mock(spec=AccountActivityProvider)
+    account_activity.activity.return_value = nullcontext()
+    account_activity.external_effect.return_value = nullcontext(enter_result=True)
     workflow = PlanGoalWorkflow(
         prepare_use_case=PreparePlanningOperationUseCase(sessions, access),
         complete_use_case=CompletePlanningOperationUseCase(
@@ -391,6 +401,7 @@ def harness(
         proposal_agent=proposal,
         identifier_provider=SystemIdentifierProvider(),
         handoffs=AgentOSHandoffStore(),
+        account_activity_provider=account_activity,
     )
     try:
         yield Harness(
@@ -402,12 +413,27 @@ def harness(
             interview=interview,
             proposal=proposal,
             retrieval=retrieval,
+            account_activity=account_activity,
         )
     finally:
         client.close()
 
 
 class TestPlanGoalWorkflow:
+    def test_revoked_account_gate_blocks_classifier_and_agents(
+        self, harness: Harness
+    ) -> None:
+        session = harness.start('Quero aprender a construir sites com HTML e CSS')
+        harness.account_activity.external_effect.side_effect = RuntimeError('revoked')
+        harness.account_activity.activity.side_effect = RuntimeError('revoked')
+
+        harness.run(session)
+
+        harness.account_activity.external_effect.assert_called_once()
+        harness.account_activity.activity.assert_called()
+        harness.classifier.classify.assert_not_called()
+        assert harness.model_calls() == 0
+
     def test_should_compose_a_proposal_directly_for_a_sufficient_intent(
         self, harness: Harness
     ) -> None:
@@ -427,6 +453,36 @@ class TestPlanGoalWorkflow:
             (relation.skill_id, relation.foundation_skill_id)
             for relation in final.proposal.relations
         ] == [(REACT_ID, JAVASCRIPT_ID)]
+        operation = session.operation
+        assert operation is not None
+        assert [
+            call.args[2]
+            for call in harness.account_activity.external_effect.call_args_list
+        ] == [
+            'intelligence.plan-goal.classify',
+            'intelligence.plan-goal.interview',
+            'intelligence.plan-goal.proposal',
+        ]
+        assert [
+            call.args[1]
+            for call in harness.account_activity.external_effect.call_args_list
+        ] == [
+            uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:plan-goal:{session.id}:{operation.id}:'
+                f'{session.generation}:classify:0',
+            ),
+            uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:plan-goal:{session.id}:{operation.id}:'
+                f'{session.generation}:interview:0',
+            ),
+            uuid5(
+                NAMESPACE_URL,
+                f'shifu:intelligence:plan-goal:{session.id}:{operation.id}:'
+                f'{session.generation}:proposal:0',
+            ),
+        ]
         # Only the intent, the answers and the candidate texts reach the model.
         requests = payloads(harness.interview) + payloads(harness.proposal)
         assert len(requests) == 2

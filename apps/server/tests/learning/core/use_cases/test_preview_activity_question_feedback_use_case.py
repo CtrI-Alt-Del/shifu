@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import fields, replace
 from decimal import ROUND_HALF_UP, Decimal
 from itertools import permutations
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import create_autospec
+from uuid import UUID
 
 import httpx
 import pytest
@@ -13,6 +17,9 @@ from shifu.fakers.shared.curriculum_fill_blanks_question_snapshot_faker import (
 )
 from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
     CurriculumFillBlanksActivitySnapshotFaker,
+)
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
 )
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
@@ -39,10 +46,18 @@ from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case i
     PreviewActivityQuestionFeedbackUseCase,
 )
 from shifu.shared.core.domain.errors import (
+    AuthorizationError,
     ConflictError,
     NotFoundError,
     ServiceUnavailableError,
     ValidationError,
+)
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    CodeRubricAssessorProvider,
+    CurriculumContentProvider,
+    IdentifierProvider,
+    TranslationRubricAssessorProvider,
 )
 from shifu.shared.core.domain.structures import (
     CurriculumFillBlanksBlankSnapshot,
@@ -70,6 +85,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumOrderingStepSnapshot,
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
     CurriculumChoiceConceptCriterionSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -77,23 +94,22 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricCriterionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
-from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from shifu.fakers.shared.curriculum_image_choice_question_snapshot_faker import (
     CurriculumImageChoiceQuestionSnapshotFaker,
 )
-from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
-    CurriculumPairMatchingQuestionSnapshotFaker,
-)
-from shifu.shared.core.domain.structures import (
-    CurriculumPairMatchingItemSnapshot,
-    CurriculumPairMatchingPairSnapshot,
-)
-from shifu.shared.core.interfaces import (
-    CodeRubricAssessorProvider,
-    CurriculumContentProvider,
-    IdentifierProvider,
-    TranslationRubricAssessorProvider,
-)
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from shifu.shared.core.domain.structures.code_rubric_decisions import (
+        CodeRubricLevel,
+    )
+
+
+@contextmanager
+def _admit_external_effect(
+    _account_id: str, _effect_id: UUID, _operation: str
+) -> Generator[bool]:
+    yield True
 
 
 def _grade(correct: int, total: int) -> Decimal:
@@ -324,8 +340,23 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         self.translation_assessor = create_autospec(
             TranslationRubricAssessorProvider, instance=True
         )
+        self.account_activity_provider = create_autospec(
+            AccountActivityProvider, instance=True
+        )
+
+        def active_account(_account_id: str) -> AbstractContextManager[None]:
+            return nullcontext()
+
+        self.account_activity_provider.activity.side_effect = active_account
+        self.account_activity_provider.external_effect.side_effect = (
+            _admit_external_effect
+        )
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, self.translation_assessor
+            self.database,
+            self.provider,
+            self.assessor,
+            self.translation_assessor,
+            self.account_activity_provider,
         )
 
     def _execute(
@@ -462,6 +493,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             self.provider,
             self.assessor,
             self.translation_assessor,
+            self.account_activity_provider,
             limit,
         )
         answer = code_answer_at_size(question, limit + extra_byte)
@@ -519,6 +551,13 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             'src/components/Card.tsx',
             'src/main.tsx',
         )
+        assert all(
+            call.args[0] == 'account-1'
+            and isinstance(call.args[1], UUID)
+            and call.args[2] == 'learning.code-rubric.assess'
+            for call in self.account_activity_provider.external_effect.call_args_list
+        )
+        assert self.account_activity_provider.external_effect.call_count == 1
         assert result.score == (Decimal(level) if level != 'inconclusive' else None)
         assert result.status == (
             'conclusive' if level != 'inconclusive' else 'inconclusive'
@@ -537,6 +576,20 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 self.assessor.assess.call_args_list[0].args[0]
                 == self.assessor.assess.call_args_list[1].args[0]
             )
+
+    def test_account_gate_denial_stops_preview_assessment(self) -> None:
+        self.account_activity_provider.activity.side_effect = AuthorizationError
+
+        with pytest.raises(AuthorizationError):
+            self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                )
+            )
+
+        self.assessor.assess.assert_not_called()
+        self.account_activity_provider.external_effect.assert_not_called()
 
     def test_should_assess_react_initial_and_permitted_additional_files(self) -> None:
         self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)
@@ -812,7 +865,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor, self.translation_assessor
+                self.database,
+                self.provider,
+                assessor,
+                self.translation_assessor,
+                self.account_activity_provider,
             )
             result = self._execute(
                 CodeAnswer(
@@ -841,7 +898,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor, self.translation_assessor
+                self.database,
+                self.provider,
+                assessor,
+                self.translation_assessor,
+                self.account_activity_provider,
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -868,7 +929,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor, self.translation_assessor
+                self.database,
+                self.provider,
+                assessor,
+                self.translation_assessor,
+                self.account_activity_provider,
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -919,7 +984,12 @@ class TestPreviewActivityQuestionFeedbackUseCase:
 
     def test_rejects_large_effective_project_before_assessor(self) -> None:
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, self.translation_assessor, 2
+            self.database,
+            self.provider,
+            self.assessor,
+            self.translation_assessor,
+            self.account_activity_provider,
+            2,
         )
         with pytest.raises(ValidationError):
             self._execute(
@@ -1841,6 +1911,14 @@ class TestPreviewOrderingQuestion:
             self.repositories
         )
         self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        self.account_activity_provider = create_autospec(
+            AccountActivityProvider, instance=True
+        )
+
+        def activity_scope(_account_id: str) -> AbstractContextManager[None]:
+            return nullcontext()
+
+        self.account_activity_provider.activity.side_effect = activity_scope
         base = mixed_snapshot()
         self.snapshot = replace(
             base,
@@ -1942,6 +2020,7 @@ class TestPreviewOrderingQuestion:
             translation_rubric_assessor_provider=create_autospec(
                 TranslationRubricAssessorProvider, instance=True
             ),
+            account_activity_provider=self.account_activity_provider,
             identifier_provider=self.identifiers,
         )
 

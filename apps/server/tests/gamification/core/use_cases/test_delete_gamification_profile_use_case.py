@@ -57,15 +57,27 @@ class TestDeleteGamificationProfileUseCase:
         )
         self.repositories.profiles.find_by_account_id.assert_not_called()
 
-    def test_should_no_op_when_profile_is_absent(self) -> None:
+    def test_should_purge_all_gamification_rows_when_profile_is_absent(self) -> None:
         self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self.subject.execute(ACCOUNT_ID)
 
         self.repositories.profiles.remove.assert_not_called()
-        self.repositories.xp_grants.remove_many_by_account_id.assert_not_called()
-        self.repositories.earned_achievements.remove_many_by_account_id.assert_not_called()
-        self.repositories.rewarded_milestones.remove_many_by_account_id.assert_not_called()
-        self.repositories.practice_days.remove_many_by_account_id.assert_not_called()
-        self.repositories.activity_xp_balances.remove_many_by_account_id.assert_not_called()
-        self.repositories.activity_xp_recognitions.remove_many_by_account_id.assert_not_called()
+        self.repositories.xp_grants.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.earned_achievements.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.rewarded_milestones.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.practice_days.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.activity_xp_balances.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.activity_xp_recognitions.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )

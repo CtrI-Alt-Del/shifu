@@ -67,6 +67,38 @@ class SqlalchemyEventsRepository:
         """Clear stale local outbox events during an explicit seed reset."""
         self._session.execute(delete(EventModel))
 
+    def remove_by_account_id_and_names(
+        self, account_id: str, event_names: set[str]
+    ) -> int:
+        if not account_id.strip() or not event_names:
+            return 0
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                delete(EventModel).where(
+                    EventModel.name.in_(event_names),
+                    EventModel.payload['account_id'].as_string() == account_id,
+                )
+            ),
+        )
+        return result.rowcount
+
+    def remove_by_payload_values(
+        self, event_name: str, field_name: str, values: set[str]
+    ) -> int:
+        if not event_name or not field_name or not values:
+            return 0
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                delete(EventModel).where(
+                    EventModel.name == event_name,
+                    EventModel.payload[field_name].as_string().in_(values),
+                )
+            ),
+        )
+        return result.rowcount
+
     def listen(self, on_event: Callable[[str], None]) -> EventsRepositoryListener:
         if self._engine is not None:
             connection = psycopg.connect(

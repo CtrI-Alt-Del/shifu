@@ -57,6 +57,14 @@ export type ConfirmEmailResult = {
   redirectTo: RouteName
 }
 
+export type AccountErasureStatus = {
+  state: 'closed'
+  closedAt: string
+  erasure: 'pending' | 'completed'
+}
+
+export type BrowserDataCapabilityStatus = { state: 'active' | 'revoked' }
+
 export const CookieSessionAuthProvider = () => {
   async function getAccountProfile(): Promise<AccountProfile> {
     return requestAccount('/api/auth/account')
@@ -70,6 +78,72 @@ export const CookieSessionAuthProvider = () => {
     input: ChangeAccountPasswordInput,
   ): Promise<{ changed: true }> {
     return requestAccount('/api/auth/account/password', input, true)
+  }
+
+  async function prepareAccountDeletion(): Promise<void> {
+    await requestJson(
+      '/api/auth/account/deletion/prepare',
+      { method: 'POST', body: {} },
+      (result) =>
+        isRecord(result) &&
+        result.state === 'prepared' &&
+        Object.keys(result).length === 1
+          ? true
+          : null,
+      'Não foi possível preparar o encerramento agora. Tente novamente.',
+      { cache: 'no-store' },
+    )
+  }
+
+  async function deleteAccount(currentPassword: string): Promise<AccountErasureStatus> {
+    return requestAccountDeletion(
+      '/api/auth/account/deletion',
+      'POST',
+      { currentPassword, confirmed: true },
+      'Não foi possível confirmar o encerramento agora. Tente novamente.',
+    )
+  }
+
+  async function getAccountDeletionStatus(): Promise<AccountErasureStatus> {
+    return requestAccountDeletion(
+      '/api/auth/account/deletion',
+      'GET',
+      undefined,
+      'Não foi possível consultar o estado do encerramento agora. Tente novamente.',
+    )
+  }
+
+  async function issueBrowserDataCapability(): Promise<string> {
+    return requestJson(
+      '/api/identity/browser-data-capabilities',
+      { method: 'POST', body: {} },
+      (result) =>
+        isRecord(result) &&
+        typeof result.capability === 'string' &&
+        /^[A-Za-z0-9_-]{32,256}$/.test(result.capability) &&
+        Object.keys(result).length === 1
+          ? result.capability
+          : null,
+      'Não foi possível validar os dados deste navegador agora. Tente novamente.',
+      { cache: 'no-store' },
+    )
+  }
+
+  async function validateBrowserDataCapability(
+    capability: string,
+  ): Promise<BrowserDataCapabilityStatus['state']> {
+    return requestJson(
+      '/api/identity/browser-data-validations',
+      { method: 'POST', body: { capability } },
+      (result) =>
+        isRecord(result) &&
+        (result.state === 'active' || result.state === 'revoked') &&
+        Object.keys(result).length === 1
+          ? result.state
+          : null,
+      'Não foi possível validar os dados deste navegador agora. Tente novamente.',
+      { cache: 'no-store' },
+    )
   }
 
   async function signIn(input: SignInInput): Promise<SignInResult> {
@@ -295,6 +369,11 @@ export const CookieSessionAuthProvider = () => {
     getAccountProfile,
     updateAccountProfile,
     changeAccountPassword,
+    prepareAccountDeletion,
+    deleteAccount,
+    getAccountDeletionStatus,
+    issueBrowserDataCapability,
+    validateBrowserDataCapability,
     confirmEmail,
     exitPendingConfirmation,
     getPendingConfirmationStatus,
@@ -310,12 +389,14 @@ async function requestJson<Result>(
   options: { method: 'GET' | 'POST'; body?: unknown },
   parse: (result: unknown) => Result | null,
   unavailableMessage: string,
+  requestOptions: { cache?: RequestCache } = {},
 ): Promise<Result> {
   let response: Response
   try {
     response = await fetch(path, {
       method: options.method,
       credentials: 'same-origin',
+      cache: requestOptions.cache,
       headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
       body: options.body ? JSON.stringify(options.body) : undefined,
     })
@@ -350,6 +431,100 @@ async function requestJson<Result>(
     })
   }
   return result
+}
+
+async function requestAccountDeletion(
+  path: string,
+  method: 'GET' | 'POST',
+  body: unknown,
+  unavailableMessage: string,
+): Promise<AccountErasureStatus> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch (cause) {
+    throw new AuthError(
+      method === 'POST' ? 'result-uncertain' : 'unavailable',
+      method === 'POST'
+        ? 'Não foi possível confirmar o resultado. Verifique o estado antes de tentar novamente.'
+        : unavailableMessage,
+      { cause, statusCode: 0 },
+    )
+  }
+
+  let result: unknown
+  try {
+    result = await response.json()
+  } catch (cause) {
+    throw new AuthError(
+      response.status >= 500 && method === 'POST'
+        ? 'result-uncertain'
+        : 'invalid-response',
+      method === 'POST'
+        ? 'Não foi possível confirmar o resultado. Verifique o estado antes de tentar novamente.'
+        : 'A resposta de autenticação é inválida.',
+      { cause, statusCode: response.status },
+    )
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new AuthError('authentication-rejected', 'Entre novamente para continuar.', {
+        statusCode: response.status,
+      })
+    }
+    if (
+      response.status === 403 &&
+      isRecord(result) &&
+      result.code === 'invalid_current_password'
+    ) {
+      throw new AuthError('invalid-current-password', 'A senha atual está incorreta.', {
+        statusCode: response.status,
+      })
+    }
+    if (
+      response.status === 403 &&
+      isRecord(result) &&
+      result.code === 'preparation_expired'
+    ) {
+      throw new AuthError(
+        'validation-failed',
+        'A confirmação expirou. Feche e inicie novamente.',
+        { statusCode: response.status },
+      )
+    }
+    throw new AuthError(
+      method === 'POST' && response.status >= 500 ? 'result-uncertain' : 'unavailable',
+      method === 'POST' && response.status >= 500
+        ? 'Não foi possível confirmar o resultado. Verifique o estado antes de tentar novamente.'
+        : unavailableMessage,
+      { statusCode: response.status },
+    )
+  }
+
+  if (
+    !isRecord(result) ||
+    result.state !== 'closed' ||
+    typeof result.closedAt !== 'string' ||
+    Number.isNaN(Date.parse(result.closedAt)) ||
+    (result.erasure !== 'pending' && result.erasure !== 'completed') ||
+    Object.keys(result).length !== 3
+  ) {
+    throw new AuthError('invalid-response', 'A resposta de autenticação é inválida.', {
+      statusCode: response.status,
+    })
+  }
+  return {
+    state: 'closed',
+    closedAt: result.closedAt,
+    erasure: result.erasure,
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

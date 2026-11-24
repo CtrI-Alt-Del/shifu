@@ -50,8 +50,14 @@ from .prepare_practical_preparation_activity_evaluation_use_case import (
 from .prepare_code_activity_evaluation_use_case import (
     PrepareCodeActivityEvaluationUseCase as PrepareCodeActivityEvaluationUseCase,
 )
+from .persist_activity_rubric_decision_use_case import (
+    PersistActivityRubricDecisionUseCase as PersistActivityRubricDecisionUseCase,
+)
 from .prepare_translation_activity_evaluation_use_case import (
     PrepareTranslationActivityEvaluationUseCase as PrepareTranslationActivityEvaluationUseCase,
+)
+from .purge_learning_data_for_account_use_case import (
+    PurgeLearningDataForAccountUseCase as PurgeLearningDataForAccountUseCase,
 )
 from .remove_goal_use_case import RemoveGoalUseCase as RemoveGoalUseCase
 from .remove_skill_experience_from_mentor_use_case import (

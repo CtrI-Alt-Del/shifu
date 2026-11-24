@@ -246,6 +246,43 @@ test.describe('LandingPage', () => {
     }
   })
 
+  test('does not show the landing when Identity returns an invalid pending status', async ({
+    page,
+    pendingAccount,
+  }) => {
+    await seedPendingConfirmationToken(pendingAccount)
+    await page.context().setExtraHTTPHeaders({
+      'x-forwarded-for': pendingAccount.ipAddress,
+    })
+    await page.goto(ROUTES.login)
+    await waitUntilHydrated(page)
+    await page.getByLabel('E-mail').fill(pendingAccount.email)
+    await page.getByRole('textbox', { name: 'Senha' }).fill(signInPassword)
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await expect(page).toHaveURL(/\/pending-confirmation\/?$/)
+
+    const proxyPort = process.env.SHIFU_ACCOUNT_TEST_PROXY_PORT
+    if (!proxyPort) throw new Error('Controlled Identity proxy is not configured')
+    const pendingHandle = await readPendingHandle(page)
+    const controlURL = `http://127.0.0.1:${proxyPort}/__account-control/${pendingHandle}`
+    await page.request.post(controlURL, {
+      data: { scenario: 'pending-status-invalid' },
+    })
+
+    try {
+      const response = await page.goto(ROUTES.root)
+      expect(response?.status()).toBeGreaterThanOrEqual(500)
+      await expect(
+        page.getByRole('heading', {
+          level: 1,
+          name: 'Veja sua evolução no que você quer aprender.',
+        }),
+      ).toHaveCount(0)
+    } finally {
+      await page.request.delete(controlURL)
+    }
+  })
+
   test('fails closed when Identity cannot validate an active session', async ({
     page,
     activeAccount,
@@ -270,13 +307,13 @@ test.describe('LandingPage', () => {
 
       expect(response?.status()).toBe(200)
       await expect(
-        page.getByRole('heading', { name: 'O que você quer aprender?' }),
-      ).toBeVisible()
-      await expect(
         page.getByRole('heading', {
           level: 1,
           name: 'Veja sua evolução no que você quer aprender.',
         }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('heading', { name: 'O que você quer aprender?' }),
       ).toHaveCount(0)
     } finally {
       await page.request.delete(controlURL)

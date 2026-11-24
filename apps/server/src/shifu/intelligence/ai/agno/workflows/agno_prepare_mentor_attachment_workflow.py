@@ -7,6 +7,7 @@ from functools import wraps
 from threading import Event, Thread
 from typing import Self, cast
 from typing import ClassVar
+from uuid import NAMESPACE_URL, uuid5
 
 from agno.run.workflow import WorkflowRunOutput
 from agno.workflow.step import Step
@@ -26,6 +27,7 @@ from shifu.intelligence.core.domain.errors import (
 from shifu.intelligence.core.domain.structures import (
     MentorAttachmentChunk,
     MentorAttachmentExtraction,
+    MentorAttachmentVisionResult,
     MentorInferenceUsage,
     PreparedMentorAttachment,
 )
@@ -34,10 +36,11 @@ from shifu.intelligence.core.use_cases import (
     CompleteMentorAttachmentUseCase,
     FailMentorAttachmentUseCase,
     PrepareMentorAttachmentUseCase,
+    RecordMentorAttachmentVisionResultUseCase,
     ReleaseMentorAttachmentClaimUseCase,
     RenewMentorAttachmentClaimUseCase,
 )
-from shifu.shared.core.interfaces import IdentifierProvider
+from shifu.shared.core.interfaces import AccountActivityProvider, IdentifierProvider
 from shifu.shared.messaging.agentos.workflow_helpers import copy_agent
 
 
@@ -107,9 +110,12 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
         fail_use_case: FailMentorAttachmentUseCase,
         renew_claim_use_case: RenewMentorAttachmentClaimUseCase,
         release_claim_use_case: ReleaseMentorAttachmentClaimUseCase,
+        record_vision_result_use_case: RecordMentorAttachmentVisionResultUseCase,
         extractor_provider: MentorAttachmentExtractorProvider,
         vision_agent: MentorAttachmentVisionAgent,
         identifier_provider: IdentifierProvider,
+        account_activity_provider: AccountActivityProvider,
+        attachment_account_id_resolver: Callable[[str], str | None],
         *,
         max_pdf_pages: int,
         usage_recorder: Callable[[MentorInferenceUsage], None] | None = None,
@@ -132,9 +138,12 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
         self._fail_use_case = fail_use_case
         self._renew_claim_use_case = renew_claim_use_case
         self._release_claim_use_case = release_claim_use_case
+        self._record_vision_result_use_case = record_vision_result_use_case
         self._extractor_provider = extractor_provider
         self._vision_agent = vision_agent
         self._identifier_provider = identifier_provider
+        self._account_activity_provider = account_activity_provider
+        self._attachment_account_id_resolver = attachment_account_id_resolver
         self._max_pdf_pages = max_pdf_pages
         self._usage_recorder = usage_recorder
 
@@ -181,9 +190,12 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
             self._fail_use_case,
             self._renew_claim_use_case,
             self._release_claim_use_case,
+            self._record_vision_result_use_case,
             self._extractor_provider,
             copy_agent(self._vision_agent),
             self._identifier_provider,
+            self._account_activity_provider,
+            self._attachment_account_id_resolver,
             max_pdf_pages=self._max_pdf_pages,
             usage_recorder=self._usage_recorder,
         )
@@ -324,19 +336,14 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
                     else 'image/png'
                 )
                 usage_prefix = f'vision:{prepared.attachment_id}:{page_number}'
-                with (
-                    inference_guard_scope(
-                        lambda: self._assert_claim_current(execution)
-                    ),
-                    inference_usage_scope(usage_prefix, self._usage_recorder),
-                ):
-                    output = self._vision_agent.analyze(
-                        image,
-                        media_type=image_media_type,
-                        attachment_id=prepared.attachment_id,
-                        page_number=page_number,
-                        usage_recorder=self._usage_recorder,
-                    )
+                output = self._analyze_visual_page(
+                    execution,
+                    prepared,
+                    page_number,
+                    image,
+                    image_media_type,
+                    usage_prefix,
+                )
                 uninterpreted.discard(page_number)
                 if output.legible:
                     analyzed.add(page_number)
@@ -396,6 +403,70 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
         finally:
             heartbeat.__exit__()
 
+    def _analyze_visual_page(
+        self,
+        execution: _Execution,
+        prepared: PreparedMentorAttachment,
+        page_number: int,
+        image: bytes,
+        image_media_type: str,
+        usage_prefix: str,
+    ) -> MentorAttachmentVisionResult:
+        cached_result = next(
+            (
+                result
+                for result in prepared.vision_results
+                if result.page_number == page_number
+            ),
+            None,
+        )
+        account_id = self._attachment_account_id_resolver(prepared.attachment_id)
+        if account_id is None:
+            raise MentorAttachmentUnavailableError
+        effect_id = uuid5(
+            NAMESPACE_URL,
+            'shifu:intelligence:mentor-attachment-vision:'
+            f'{prepared.attachment_id}:{prepared.generation}:{page_number}',
+        )
+        with self._account_activity_provider.external_effect(
+            account_id,
+            effect_id,
+            'intelligence.mentor-attachment.vision',
+            allow_durable_result_recovery=cached_result is not None,
+        ) as admitted:
+            current_account_id = self._attachment_account_id_resolver(
+                prepared.attachment_id
+            )
+            if current_account_id != account_id:
+                raise MentorAttachmentUnavailableError
+            if cached_result is not None:
+                return cached_result
+            if not admitted:
+                raise MentorAttachmentUnavailableError
+            with (
+                inference_guard_scope(lambda: self._assert_claim_current(execution)),
+                inference_usage_scope(usage_prefix, self._usage_recorder),
+            ):
+                output = self._vision_agent.analyze(
+                    image,
+                    media_type=image_media_type,
+                    attachment_id=prepared.attachment_id,
+                    page_number=page_number,
+                    usage_recorder=self._usage_recorder,
+                )
+            result = MentorAttachmentVisionResult(
+                page_number=page_number,
+                legible=output.legible,
+                description=output.description,
+            )
+            self._record_vision_result_use_case.execute(
+                prepared.attachment_id,
+                prepared.generation,
+                prepared.execution_owner,
+                result,
+            )
+            return result
+
     def _assert_claim_current(self, execution: _Execution) -> None:
         if not self._renew_claim_use_case.execute(
             execution.request.attachment_id,
@@ -425,12 +496,20 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
         prepared = execution.prepared
         extraction = execution.extraction
         try:
-            status = self._complete_use_case.execute(
-                prepared.attachment_id,
-                prepared.generation,
-                prepared.execution_owner,
-                extraction,
+            account_id = self._require_attachment_account_id(
+                self._attachment_account_id_resolver(prepared.attachment_id)
             )
+            with self._account_activity_provider.activity(account_id):
+                self._assert_attachment_account_id(
+                    account_id,
+                    self._attachment_account_id_resolver(prepared.attachment_id),
+                )
+                status = self._complete_use_case.execute(
+                    prepared.attachment_id,
+                    prepared.generation,
+                    prepared.execution_owner,
+                    extraction,
+                )
         except Exception:
             try:
                 self._release_claim_use_case.execute(
@@ -452,3 +531,16 @@ class AgnoPrepareMentorAttachmentWorkflow(Workflow):
                 separators=(',', ':'),
             )
         )
+
+    @staticmethod
+    def _require_attachment_account_id(account_id: str | None) -> str:
+        if account_id is None:
+            raise MentorAttachmentUnavailableError
+        return account_id
+
+    @staticmethod
+    def _assert_attachment_account_id(
+        expected_account_id: str, current_account_id: str | None
+    ) -> None:
+        if current_account_id != expected_account_id:
+            raise MentorAttachmentUnavailableError

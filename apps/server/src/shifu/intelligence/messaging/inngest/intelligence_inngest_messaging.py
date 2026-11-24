@@ -8,15 +8,22 @@ from shifu.intelligence.core.use_cases import (
     PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
+    PurgePlanningSessionsForAccountUseCase,
     RecordMentorActionOutcomeUseCase,
 )
 from shifu.intelligence.messaging.inngest.jobs import (
     PurgeAiQuotaOnAccountDeletedJob,
+    PurgeIntelligenceOnAccountErasureJob,
     PurgeLearnerMemoriesOnAccountDeletedJob,
     PurgeMentorActionProposalsOnAccountDeletedJob,
     PurgeMentorAttachmentsOnAccountDeletedJob,
     PurgeMentorSummariesOnAccountDeletedJob,
     RecordMentorActionOutcomeJob,
+)
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    AccountErasureAcknowledgementProvider,
+    AccountErasureTargetProvider,
 )
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
@@ -29,10 +36,19 @@ class IntelligenceInngestMessaging:
         purge_mentor_attachments_use_case: PurgeMentorAttachmentsUseCase,
         purge_mentor_summaries_use_case: PurgeMentorSummariesForAccountUseCase,
         purge_learner_memories_use_case: PurgeLearnerMemoriesForAccountUseCase,
-        purge_mentor_action_proposals_use_case: PurgeMentorActionProposalsForAccountUseCase,
+        purge_mentor_action_proposals_use_case: (
+            PurgeMentorActionProposalsForAccountUseCase
+        ),
         record_mentor_action_outcome_use_case: RecordMentorActionOutcomeUseCase,
         purge_ai_quota_use_case: PurgeAiQuotaForAccountUseCase,
+        purge_planning_sessions_use_case: PurgePlanningSessionsForAccountUseCase,
         account_deleted_event_name: str,
+        account_erasure_requested_event_name: str,
+        account_erasure_target_provider: AccountErasureTargetProvider,
+        account_erasure_acknowledgement_provider: (
+            AccountErasureAcknowledgementProvider
+        ),
+        account_activity_provider: AccountActivityProvider,
         mentor_action_resolved_event_name: str,
         telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
@@ -84,10 +100,35 @@ class IntelligenceInngestMessaging:
             ),
             cast(
                 'Function[object]',
+                PurgeIntelligenceOnAccountErasureJob.handle(
+                    inngest,
+                    account_erasure_requested_event_name=(
+                        account_erasure_requested_event_name
+                    ),
+                    account_erasure_target_provider=(account_erasure_target_provider),
+                    account_erasure_acknowledgement_provider=(
+                        account_erasure_acknowledgement_provider
+                    ),
+                    purge_mentor_attachments_use_case=(
+                        purge_mentor_attachments_use_case
+                    ),
+                    purge_mentor_summaries_use_case=(purge_mentor_summaries_use_case),
+                    purge_learner_memories_use_case=(purge_learner_memories_use_case),
+                    purge_mentor_action_proposals_use_case=(
+                        purge_mentor_action_proposals_use_case
+                    ),
+                    purge_ai_quota_use_case=purge_ai_quota_use_case,
+                    purge_planning_sessions_use_case=purge_planning_sessions_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
                 RecordMentorActionOutcomeJob.handle(
                     inngest,
                     record_mentor_action_outcome_use_case,
                     outcome_event_name=mentor_action_resolved_event_name,
+                    account_activity_provider=account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),

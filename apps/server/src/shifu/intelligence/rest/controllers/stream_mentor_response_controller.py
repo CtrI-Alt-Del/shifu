@@ -25,6 +25,7 @@ from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.core.domain.errors import AppError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
+from shifu.shared.core.interfaces import AccountActivityProvider
 from shifu.shared.pipes import SharedPipe
 
 _EVENT_ADAPTER = TypeAdapter[MentorResponseEvent](MentorResponseEvent)
@@ -47,7 +48,12 @@ class StreamMentorResponseController:
         def _(
             session_id: Annotated[str, Field(pattern=r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$')],
             user: Annotated[
-                AuthenticatedUser, Depends(SharedPipe.get_authenticated_user)
+                AuthenticatedUser,
+                Depends(SharedPipe.get_authenticated_user_unscoped),
+            ],
+            activity: Annotated[
+                AccountActivityProvider,
+                Depends(SharedPipe.get_account_activity_provider),
             ],
             database: Annotated[
                 IntelligenceDatabase, Depends(IntelligencePipe.get_database)
@@ -77,10 +83,17 @@ class StreamMentorResponseController:
                 ),
             )
             cursor = last_event_id if last_event_id is not None else after_sequence
-            initial = use_case.execute(user.account_id, session_id, cursor)
+            with activity.activity(user.account_id, actor=user):
+                initial = use_case.execute(user.account_id, session_id, cursor)
             return StreamingResponse(
                 _stream(
-                    use_case, recovery, user.account_id, session_id, cursor, initial
+                    use_case,
+                    recovery,
+                    activity,
+                    user,
+                    session_id,
+                    cursor,
+                    initial,
                 ),
                 media_type='text/event-stream',
                 headers={
@@ -93,41 +106,52 @@ class StreamMentorResponseController:
 async def _stream(
     use_case: ReadMentorResponseEventsUseCase,
     recovery: FailStaleMentorResponseUseCase,
-    account_id: str,
+    activity: AccountActivityProvider,
+    user: AuthenticatedUser,
     session_id: str,
     cursor: int,
     initial: tuple[MentorResponseEvent, ...],
 ) -> AsyncIterator[str]:
     """Poll the persisted events without holding a worker thread between polls."""
+    account_id = user.account_id
     events = initial
     idle_polls = 0
     while True:
         if events:
             idle_polls = 0
-            for event in events:
-                yield f'id:{event.sequence}\nevent:mentor.response\ndata:{_EVENT_ADAPTER.dump_json(event).decode()}\n\n'
-                cursor = event.sequence
-            if events[-1].status in _TERMINAL_STATUSES:
+            try:
+                async with activity.async_activity(account_id, actor=user):
+                    for event in events:
+                        yield f'id:{event.sequence}\nevent:mentor.response\ndata:{_EVENT_ADAPTER.dump_json(event).decode()}\n\n'
+                        cursor = event.sequence
+                    if events[-1].status in _TERMINAL_STATUSES:
+                        return
+            except AppError:
                 return
         else:
             yield ': heartbeat\n\n'
             idle_polls += 1
             if idle_polls % _RECOVERY_IDLE_POLLS == 0:
-                await _recover_stale_attempt(recovery, account_id, session_id)
+                await _recover_stale_attempt(recovery, activity, user, session_id)
             await asyncio.sleep(_POLL_SECONDS)
         try:
-            events = await run_in_threadpool(
-                use_case.execute, account_id, session_id, cursor
-            )
+            async with activity.async_activity(account_id, actor=user):
+                events = await run_in_threadpool(
+                    use_case.execute, account_id, session_id, cursor
+                )
         except AppError:
             return
 
 
 async def _recover_stale_attempt(
-    recovery: FailStaleMentorResponseUseCase, account_id: str, session_id: str
+    recovery: FailStaleMentorResponseUseCase,
+    activity: AccountActivityProvider,
+    user: AuthenticatedUser,
+    session_id: str,
 ) -> None:
     """Close an orphaned attempt; its failed event arrives on the next poll."""
     try:
-        await run_in_threadpool(recovery.execute, account_id, session_id)
+        async with activity.async_activity(user.account_id, actor=user):
+            await run_in_threadpool(recovery.execute, user.account_id, session_id)
     except Exception:  # noqa: BLE001 - recovery is best effort and never ends the stream.
         return

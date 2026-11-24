@@ -13,7 +13,10 @@ if (!port || !identityOrigin)
 // real server functions and their error classification run.
 const FAULT_SCENARIO = 'account-unavailable'
 const QUOTA_SCENARIO = 'ai-quota-exhausted'
+const ERASURE_ACK_UNAVAILABLE_SCENARIO = 'account-erasure-ack-unavailable'
+const ERASURE_TARGET_GONE_SCENARIO = 'account-erasure-target-gone'
 const PENDING_STATUS_SCENARIO = 'pending-status-unavailable'
+const PENDING_STATUS_INVALID_SCENARIO = 'pending-status-invalid'
 const GLOBAL_SCENARIO_ID = '00000000000000000000000000'
 const QUOTA_REFUSED_ROUTES = [
   /^\/intelligence\/mentor-sessions\/?$/,
@@ -23,15 +26,22 @@ const QUOTA_REFUSED_ROUTES = [
   /^\/intelligence\/planning-sessions\/[^/]+\/(?:restart|retry)\/?$/,
 ]
 const scenarios = new Map()
+const erasureOwners = new Map()
 async function readScenarioKind(request) {
   let text = ''
   for await (const chunk of request) text += chunk
   if (!text) return FAULT_SCENARIO
   try {
-    const requested = JSON.parse(text).scenario
-    if (requested === QUOTA_SCENARIO || requested === PENDING_STATUS_SCENARIO)
-      return requested
-    return FAULT_SCENARIO
+    const scenario = JSON.parse(text).scenario
+    return [
+      QUOTA_SCENARIO,
+      ERASURE_ACK_UNAVAILABLE_SCENARIO,
+      ERASURE_TARGET_GONE_SCENARIO,
+      PENDING_STATUS_SCENARIO,
+      PENDING_STATUS_INVALID_SCENARIO,
+    ].includes(scenario)
+      ? scenario
+      : FAULT_SCENARIO
   } catch {
     return FAULT_SCENARIO
   }
@@ -70,6 +80,51 @@ const server = createServer(async (request, response) => {
   } catch {
     accountId = undefined
   }
+  if (request.method === 'POST' && url.pathname === '/identity/account-deletions') {
+    const chunks = []
+    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('end', () => {
+      try {
+        const erasureId = JSON.parse(Buffer.concat(chunks).toString()).erasure_id
+        if (typeof erasureId === 'string' && accountId) {
+          erasureOwners.set(erasureId, accountId)
+        }
+      } catch {
+        // Invalid requests are handled by the real Identity API.
+      }
+    })
+  }
+  const erasureTarget = /^\/identity\/internal\/account-erasures\/([^/]+)\/target$/.exec(
+    url.pathname,
+  )
+  const erasureAcknowledgement =
+    /^\/identity\/internal\/account-erasures\/([^/]+)\/acknowledgements$/.exec(
+      url.pathname,
+    )
+  const erasureOwnerId = erasureTarget?.[1] ?? erasureAcknowledgement?.[1]
+  const erasureOwner = erasureOwnerId ? erasureOwners.get(erasureOwnerId) : undefined
+  const erasureScenario = erasureOwner ? scenarios.get(erasureOwner) : undefined
+  if (erasureTarget && erasureScenario?.kind === ERASURE_TARGET_GONE_SCENARIO) {
+    request.resume()
+    response.writeHead(404, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(JSON.stringify({ code: 'not_found' }))
+    return
+  }
+  if (
+    erasureAcknowledgement &&
+    erasureScenario?.kind === ERASURE_ACK_UNAVAILABLE_SCENARIO
+  ) {
+    request.resume()
+    response.writeHead(503, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(JSON.stringify({ code: 'service_unavailable' }))
+    return
+  }
   let pendingHandle
   let bufferedBody
   if (url.pathname === '/identity/pending-confirmations/status') {
@@ -100,6 +155,17 @@ const server = createServer(async (request, response) => {
         message: 'Serviço temporariamente indisponível.',
       }),
     )
+    return
+  }
+  if (
+    scenario?.kind === PENDING_STATUS_INVALID_SCENARIO &&
+    url.pathname === '/identity/pending-confirmations/status'
+  ) {
+    response.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(JSON.stringify({ state: 'unknown', hasPendingContext: true }))
     return
   }
   if (

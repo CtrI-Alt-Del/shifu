@@ -1,3 +1,12 @@
+from .account_activity_provider import (
+    AccountActivityProvider as AccountActivityProvider,
+)
+from .account_erasure_acknowledgement_provider import (
+    AccountErasureAcknowledgementProvider as AccountErasureAcknowledgementProvider,
+)
+from .account_erasure_target_provider import (
+    AccountErasureTargetProvider as AccountErasureTargetProvider,
+)
 from .account_time_zone_provider import (
     AccountTimeZoneProvider as AccountTimeZoneProvider,
 )

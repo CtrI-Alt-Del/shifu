@@ -166,6 +166,7 @@ function actionOf(
 describe('useSkillActionCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     queryClient = new QueryClient()
     vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined)
     useMentorContextMock.mockReturnValue({
@@ -192,7 +193,10 @@ describe('useSkillActionCard', () => {
       isPending: false,
     } as unknown as ReturnType<typeof useDeclineMentorActionProposalAction>)
   })
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
 
   describe('proposal', () => {
     it('presents an addition with its destination, justification and the two buttons', () => {

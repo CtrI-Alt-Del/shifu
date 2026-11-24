@@ -6,6 +6,7 @@ from shifu.intelligence.core.domain.errors import (
 from shifu.intelligence.core.domain.structures import MentorAttachmentFile
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     FileStorageProvider,
     IdentifierProvider,
     MentorAccessProvider,
@@ -19,13 +20,28 @@ class ReadMentorAttachmentFileUseCase:
         identifier_provider: IdentifierProvider,
         access_provider: MentorAccessProvider,
         storage_provider: FileStorageProvider,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._database = database
         self._identifier_provider = identifier_provider
         self._access_provider = access_provider
         self._storage_provider = storage_provider
+        self._account_activity_provider = account_activity_provider
 
     def execute(
+        self,
+        account_id: str,
+        session_id: str,
+        attachment_id: str,
+        *,
+        preview: bool,
+    ) -> MentorAttachmentFile:
+        with self._account_activity_provider.activity(account_id):
+            return self._execute_under_activity(
+                account_id, session_id, attachment_id, preview=preview
+            )
+
+    def _execute_under_activity(
         self,
         account_id: str,
         session_id: str,
@@ -75,6 +91,8 @@ class ReadMentorAttachmentFileUseCase:
             if (
                 session is None
                 or current is None
+                or current.account_id != account_id
+                or current.session_id != session_id
                 or current.generation != original_generation
                 or current.status
                 not in {MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL}

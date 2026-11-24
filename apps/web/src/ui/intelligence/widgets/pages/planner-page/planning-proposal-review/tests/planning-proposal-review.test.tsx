@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { useEffect, type ComponentType, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -251,7 +258,13 @@ describe('PlanningProposalReview', () => {
     expect(
       within(graph).getByRole('article', { name: 'Habilidade Python essencial' }),
     ).toHaveStyle({ width: '318px' })
-    expect(flowInstance.setViewport).toHaveBeenLastCalledWith({ x: 16, y: 16, zoom: 1 })
+    await waitFor(() =>
+      expect(flowInstance.setViewport).toHaveBeenLastCalledWith({
+        x: 16,
+        y: 16,
+        zoom: 1,
+      }),
+    )
   })
 
   it('tells the learner when the graph layout fell back to the grid', async () => {

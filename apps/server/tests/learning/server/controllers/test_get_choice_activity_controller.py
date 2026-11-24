@@ -43,9 +43,12 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
-    TestCasesEvaluationPart,
+    TestCasesEvaluationPart as CasesEvaluationPart,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.identity.database.sqlalchemy.identity_database import (
+    SqlalchemyIdentityDatabase,
+)
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.learning.core.domain.enums import (
@@ -100,6 +103,9 @@ class _TestAuthenticationProvider:
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
             time_zone='America/Sao_Paulo',
+            session_id='choice-activity-test-session',
+            token_access_version=1,
+            account_access_version=1,
         )
 
 
@@ -117,6 +123,11 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    identity_database = SqlalchemyIdentityDatabase(postgres_database.engine)
+    with identity_database.transaction() as repositories:
+        for account in seed.accounts:
+            if repositories.accounts.find_by_id(account.id) is None:
+                repositories.accounts.add(account)
     curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
@@ -366,9 +377,7 @@ class TestGetChoiceActivityController:
                     activity.evaluation_rule,
                     parts=(
                         *activity.evaluation_rule.parts[:2],
-                        TestCasesEvaluationPart(
-                            question_key='q3', weight_percentage=40
-                        ),
+                        CasesEvaluationPart(question_key='q3', weight_percentage=40),
                     ),
                 )
             database = SqlalchemyCurriculumDatabase(postgres_database.engine)
@@ -566,7 +575,7 @@ class TestGetChoiceActivityController:
             activity.evaluation_rule,
             parts=(
                 *activity.evaluation_rule.parts[:2],
-                TestCasesEvaluationPart(question_key='q3', weight_percentage=40),
+                CasesEvaluationPart(question_key='q3', weight_percentage=40),
             ),
         )
         database = SqlalchemyCurriculumDatabase(postgres_database.engine)

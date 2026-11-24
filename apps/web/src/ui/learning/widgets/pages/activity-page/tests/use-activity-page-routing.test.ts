@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createCsrfMiddleware: () => ({}),
   createStart: () => ({}),
   createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({

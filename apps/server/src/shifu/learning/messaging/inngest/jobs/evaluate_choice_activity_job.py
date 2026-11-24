@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
+from contextlib import ExitStack
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
@@ -16,6 +17,7 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
+from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
 )
@@ -29,6 +31,9 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from shifu.learning.core.domain.entities import ActivityEvaluation
     from shifu.learning.core.interfaces import LearningDatabase
+    from shifu.shared.core.interfaces.account_activity_provider import (
+        AccountActivityProvider,
+    )
     from shifu.shared.core.interfaces import (
         ClockProvider,
         CurriculumContentProvider,
@@ -86,6 +91,7 @@ class EvaluateChoiceActivityJob:
         | None = None,
         max_code_assessment_input_bytes: int = 262144,
         *,
+        account_activity_provider: AccountActivityProvider,
         telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         async def on_failure(context: Context) -> None:
@@ -104,12 +110,15 @@ class EvaluateChoiceActivityJob:
                 )
             except (ValidationError, ValueError):
                 return
-            await context.step.run(
-                'mark_evaluation_failed',
-                EvaluateChoiceActivityJob._mark_failed,
-                learning_database,
-                payload,
-            )
+
+            async def mark_failed(payload: EvaluationJobPayload) -> None:
+                await EvaluateChoiceActivityJob._mark_failed_for_account(
+                    learning_database,
+                    account_activity_provider,
+                    payload,
+                )
+
+            await context.step.run('mark_evaluation_failed', mark_failed, payload)
 
         @inngest.create_function(
             fn_id=EvaluateChoiceActivityJob.FUNCTION_ID,
@@ -138,18 +147,22 @@ class EvaluateChoiceActivityJob:
             if not is_current:
                 return
 
+            async def evaluate(payload: EvaluationJobPayload) -> None:
+                await EvaluateChoiceActivityJob._evaluate_for_account(
+                    learning_database,
+                    account_activity_provider,
+                    clock_provider,
+                    curriculum_content_provider,
+                    code_rubric_assessor_provider_factory,
+                    max_code_assessment_input_bytes,
+                    payload,
+                    telemetry_provider,
+                    context.run_id,
+                    context.event.id,
+                )
+
             await context.step.run(
-                'evaluate_and_apply_official_effect',
-                EvaluateChoiceActivityJob._evaluate,
-                learning_database,
-                clock_provider,
-                curriculum_content_provider,
-                code_rubric_assessor_provider_factory,
-                max_code_assessment_input_bytes,
-                payload,
-                telemetry_provider,
-                context.run_id,
-                context.event.id,
+                'evaluate_and_apply_official_effect', evaluate, payload
             )
 
         return _
@@ -181,6 +194,124 @@ class EvaluateChoiceActivityJob:
             learning_database,
             payload,
         )
+
+    @staticmethod
+    async def _resolve_account_id(
+        learning_database: LearningDatabase,
+        payload: EvaluationJobPayload,
+    ) -> str | None:
+        return await asyncio.to_thread(
+            EvaluateChoiceActivityJob._resolve_account_id_sync,
+            learning_database,
+            payload,
+        )
+
+    @staticmethod
+    def _resolve_account_id_sync(
+        learning_database: LearningDatabase,
+        payload: EvaluationJobPayload,
+    ) -> str | None:
+        with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(payload['attempt_id'])
+            if (
+                attempt is None
+                or attempt.skill_experience_id != payload['skill_experience_id']
+                or attempt.activity_id != payload['activity_id']
+            ):
+                return None
+            experience = repositories.skill_experiences.find_by_id(
+                payload['skill_experience_id']
+            )
+            if experience is None or experience.id != attempt.skill_experience_id:
+                return None
+            goal = repositories.goals.find_by_id(experience.goal_id)
+            return goal.account_id if goal is not None else None
+
+    @staticmethod
+    async def _evaluate_for_account(
+        learning_database: LearningDatabase,
+        account_activity_provider: AccountActivityProvider,
+        clock_provider: ClockProvider,
+        curriculum_content_provider: CurriculumContentProvider | None,
+        code_rubric_assessor_provider_factory: Callable[[], CodeRubricAssessorProvider]
+        | None,
+        max_code_assessment_input_bytes: int,
+        payload: EvaluationJobPayload,
+        telemetry_provider: TelemetryProvider,
+        run_id: str,
+        event_id: str,
+    ) -> None:
+        account_id = await EvaluateChoiceActivityJob._resolve_account_id(
+            learning_database,
+            payload,
+        )
+        if account_id is None:
+            return
+
+        with ExitStack() as account_activity:
+            try:
+                account_activity.enter_context(
+                    account_activity_provider.activity(account_id)
+                )
+            except AuthorizationError:
+                return
+
+            current_account_id = await EvaluateChoiceActivityJob._resolve_account_id(
+                learning_database,
+                payload,
+            )
+            if current_account_id != account_id:
+                return
+            if not await EvaluateChoiceActivityJob._is_current(
+                learning_database,
+                payload,
+            ):
+                return
+
+            await EvaluateChoiceActivityJob._evaluate(
+                learning_database,
+                clock_provider,
+                curriculum_content_provider,
+                code_rubric_assessor_provider_factory,
+                max_code_assessment_input_bytes,
+                payload,
+                telemetry_provider,
+                run_id,
+                event_id,
+            )
+
+    @staticmethod
+    async def _mark_failed_for_account(
+        learning_database: LearningDatabase,
+        account_activity_provider: AccountActivityProvider,
+        payload: EvaluationJobPayload,
+    ) -> None:
+        account_id = await EvaluateChoiceActivityJob._resolve_account_id(
+            learning_database,
+            payload,
+        )
+        if account_id is None:
+            return
+
+        with ExitStack() as account_activity:
+            try:
+                account_activity.enter_context(
+                    account_activity_provider.activity(account_id)
+                )
+            except AuthorizationError:
+                return
+
+            if (
+                await EvaluateChoiceActivityJob._resolve_account_id(
+                    learning_database,
+                    payload,
+                )
+            ) != account_id:
+                return
+            await EvaluateChoiceActivityJob._mark_failed(
+                learning_database,
+                payload,
+            )
 
     @staticmethod
     def _is_current_sync(

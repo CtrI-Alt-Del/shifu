@@ -23,7 +23,11 @@ if TYPE_CHECKING:
         CommunicationDatabase,
         SecretEnvelopeProvider,
     )
-    from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+    from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
+        ClockProvider,
+        IdentifierProvider,
+    )
 
 
 class PasswordRecoveryWorkflow:
@@ -35,6 +39,7 @@ class PasswordRecoveryWorkflow:
         id_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         secret_envelope_provider: SecretEnvelopeProvider,
+        account_activity_provider: AccountActivityProvider,
         action_origin: str,
     ) -> None:
         self._queue = QueueCommunicationUseCase(
@@ -42,6 +47,7 @@ class PasswordRecoveryWorkflow:
             id_provider=id_provider,
             clock_provider=clock_provider,
             secret_envelope_provider=secret_envelope_provider,
+            account_activity_provider=account_activity_provider,
         )
         self._action_origin = action_origin.rstrip('/')
 

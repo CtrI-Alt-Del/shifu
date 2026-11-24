@@ -14,6 +14,18 @@ class EventsRepository(Protocol):
         self, event: Event[Payload], *, available_at: datetime | None = None
     ) -> None: ...
 
+    def remove_by_account_id_and_names(
+        self, account_id: str, event_names: set[str]
+    ) -> int:
+        """Remove outbox payloads owned by an account for the named events."""
+        ...
+
+    def remove_by_payload_values(
+        self, event_name: str, field_name: str, values: set[str]
+    ) -> int:
+        """Remove rows for one event when a payload field matches owned IDs."""
+        ...
+
     def listen(self, on_event: Callable[[str], None]) -> EventsRepositoryListener: ...
 
     def find_unrouted(self, *, now: datetime, limit: int) -> list[OutboxEvent]: ...

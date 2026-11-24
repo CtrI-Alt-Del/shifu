@@ -1,9 +1,14 @@
+from typing import TYPE_CHECKING, Any, cast
+
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from shifu.communication.core.domain.entities import DeliveryAttempt
 from shifu.communication.database.sqlalchemy.mappers import DeliveryAttemptMapper
 from shifu.communication.database.sqlalchemy.models import DeliveryAttemptModel
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 
 class SqlalchemyDeliveryAttemptsRepository:
@@ -43,6 +48,19 @@ class SqlalchemyDeliveryAttemptsRepository:
             .where(DeliveryAttemptModel.communication_id == communication_id)
             .values(provider_message_id=None, failure_code=None)
         )
+
+    def remove_many_by_communication_ids(self, communication_ids: set[str]) -> int:
+        if not communication_ids:
+            return 0
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                delete(DeliveryAttemptModel).where(
+                    DeliveryAttemptModel.communication_id.in_(communication_ids)
+                )
+            ),
+        )
+        return result.rowcount or 0
 
     def remove_all(self) -> None:
         self._session.execute(delete(DeliveryAttemptModel))

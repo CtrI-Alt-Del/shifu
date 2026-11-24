@@ -1,4 +1,5 @@
 from dataclasses import field
+from typing import ClassVar
 
 from shifu.shared.core.domain.events import Event
 from shifu.shared.core.domain.structures import structure
@@ -11,4 +12,5 @@ class CommunicationQueuedPayload:
 
 @structure
 class CommunicationQueuedEvent(Event[CommunicationQueuedPayload]):
-    name: str = field(default='communication/communication.queued', init=False)
+    EVENT_NAME: ClassVar[str] = 'communication/communication.queued'
+    name: str = field(default=EVENT_NAME, init=False)

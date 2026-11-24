@@ -21,6 +21,7 @@ from shifu.gamification.messaging.inngest.jobs import (
     CreateProfileOnAccountActivatedJob,
     FanOutDueStreakRemindersJob,
     PurgeProfileOnAccountDeletedJob,
+    PurgeProfileOnAccountErasureJob,
     RecognizeActivityXpOnActivityEvaluatedJob,
     RecognizeCompetencyMasteredJob,
     RecognizeDiagnosticCompletedJob,
@@ -30,11 +31,14 @@ from shifu.gamification.messaging.inngest.jobs import (
     RequestStreakReminderJob,
 )
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    AccountErasureAcknowledgementProvider,
     ActiveAccountProvider,
+    AccountErasureTargetProvider,
     ClockProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
 )
-from shifu.shared.core.interfaces import IdentifierProvider
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
@@ -49,6 +53,12 @@ class GamificationInngestMessaging:
         gamification_database: GamificationDatabase,
         curriculum_content_provider: CurriculumContentProvider,
         clock_provider: ClockProvider,
+        account_activity_provider: AccountActivityProvider,
+        account_erasure_requested_event_name: str,
+        account_erasure_target_provider: AccountErasureTargetProvider,
+        account_erasure_acknowledgement_provider: (
+            AccountErasureAcknowledgementProvider
+        ),
         active_account_provider: ActiveAccountProvider,
         id_provider: IdentifierProvider | None = None,
         telemetry_provider: TelemetryProvider,
@@ -103,6 +113,22 @@ class GamificationInngestMessaging:
                     inngest,
                     create_profile_use_case,
                     clock_provider,
+                    account_activity_provider,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgeProfileOnAccountErasureJob.handle(
+                    inngest,
+                    delete_profile_use_case,
+                    account_erasure_requested_event_name=(
+                        account_erasure_requested_event_name
+                    ),
+                    account_erasure_target_provider=(account_erasure_target_provider),
+                    account_erasure_acknowledgement_provider=(
+                        account_erasure_acknowledgement_provider
+                    ),
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -120,6 +146,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_diagnostic_use_case,
                     clock_provider,
+                    account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -129,6 +156,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_competency_use_case,
                     clock_provider,
+                    account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -138,6 +166,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_skill_use_case,
                     clock_provider,
+                    account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -147,6 +176,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_practice_day_use_case,
                     clock_provider,
+                    account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -156,6 +186,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_practice_day_use_case,
                     clock_provider,
+                    account_activity_provider,
                     telemetry_provider=telemetry_provider,
                 ),
             ),
@@ -165,6 +196,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_activity_xp_use_case,
                     clock_provider,
+                    account_activity_provider,
                 ),
             ),
             cast(

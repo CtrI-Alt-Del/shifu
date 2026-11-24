@@ -1,0 +1,28 @@
+{
+  "template": "account-erasure-alert",
+  "version": 1,
+  "subject": "Alerta de limpeza de conta pendente no Shifu",
+  "text": "Uma limpeza de dados de conta ultrapassou o prazo de 24 horas.\nIdentificador da eliminação: {{erasure_id}}\nMódulo: {{module}}\nFalha: {{failure_code}}\nEncerramento: {{closed_at}}\nPrazo: {{due_at}}",
+  "placeholders": [
+    {
+      "name": "erasure_id",
+      "type": "uuid"
+    },
+    {
+      "name": "module",
+      "type": "module"
+    },
+    {
+      "name": "failure_code",
+      "type": "failure-code"
+    },
+    {
+      "name": "closed_at",
+      "type": "timestamp"
+    },
+    {
+      "name": "due_at",
+      "type": "timestamp"
+    }
+  ]
+}

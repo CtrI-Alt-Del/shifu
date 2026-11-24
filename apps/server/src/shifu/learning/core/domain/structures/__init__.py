@@ -1,4 +1,10 @@
 from .activity_answer import ActivityAnswer as ActivityAnswer
+from .activity_rubric_assessment_decision import (
+    ActivityRubricAssessmentDecision as ActivityRubricAssessmentDecision,
+)
+from .activity_rubric_assessment_decision import (
+    ActivityRubricKind as ActivityRubricKind,
+)
 from .goal_confirmation import GoalConfirmation as GoalConfirmation
 from .activity_recommendation import ActivityRecommendation as ActivityRecommendation
 from .adaptive_activity import AdaptiveActivity as AdaptiveActivity

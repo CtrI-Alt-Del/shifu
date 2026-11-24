@@ -22,6 +22,7 @@ from shifu.intelligence.rest.schemas.mentor_context_hint_schema import (
 from shifu.intelligence.rest.schemas.mentor_session_schemas import MentorSessionSchemas
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     ClockProvider,
     IdentifierProvider,
     MentorAccessProvider,
@@ -86,6 +87,10 @@ class CreateMentorSessionController:
                 GenerateMentorTitleProvider,
                 Depends(IntelligencePipe.get_generate_mentor_title_provider),
             ],
+            account_activity_provider: Annotated[
+                AccountActivityProvider,
+                Depends(SharedPipe.get_account_activity_provider),
+            ],
             quota_policy: Annotated[
                 AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
             ],
@@ -102,6 +107,7 @@ class CreateMentorSessionController:
                 access_provider,
                 quota_policy,
                 quota_calendar,
+                account_activity_provider,
             ).execute(
                 user.account_id,
                 str(request.submission_key),

@@ -29,6 +29,7 @@ DEFAULT_CONFIRMATION_ACTION_ORIGIN = 'http://localhost:7000'
 DEFAULT_EMAIL_TIMEOUT_SECONDS = 10.0
 DEFAULT_WEB_PUSH_TIMEOUT_SECONDS = 10.0
 DEFAULT_LOCAL_BFF_SHARED_SECRET = 'shifu-local-bff-shared-secret-change-me'
+DEFAULT_BFF_BASE_URL = 'http://localhost:7000'
 DEFAULT_SERVER_LOG_LEVEL: TelemetryLevel = 'INFO'
 DEFAULT_RELEASE_VERSION = 'local-dev'
 ServerAppMode = Literal['dev', 'local', 'staging', 'production']
@@ -70,6 +71,7 @@ class EnvironmentSettings(BaseModel):
         le=60,
     )
     confirmation_action_origin: str = DEFAULT_CONFIRMATION_ACTION_ORIGIN
+    bff_base_url: str = DEFAULT_BFF_BASE_URL
     bff_shared_secret: str = DEFAULT_LOCAL_BFF_SHARED_SECRET
     communication_encryption_keys: tuple[str, ...] = ()
     web_push_vapid_private_key: str | None = None
@@ -103,6 +105,9 @@ class EnvironmentSettings(BaseModel):
 
         if not self.confirmation_action_origin.startswith(('http://', 'https://')):
             raise ValueError('Confirmation action origin must be an HTTP URL')
+
+        if not self.bff_base_url.startswith(('http://', 'https://')):
+            raise ValueError('BFF base URL must be an HTTP URL')
 
         if self.email_provider == 'resend' and (
             not self.resend_api_key or not self.resend_from
@@ -197,6 +202,10 @@ class EnvironmentSettings(BaseModel):
                 'confirmation_action_origin': values.get(
                     'SHIFU_CONFIRMATION_ACTION_ORIGIN',
                     DEFAULT_CONFIRMATION_ACTION_ORIGIN,
+                ),
+                'bff_base_url': values.get(
+                    'SHIFU_BFF_BASE_URL',
+                    DEFAULT_BFF_BASE_URL,
                 ),
                 'bff_shared_secret': values.get(
                     'SHIFU_BFF_SHARED_SECRET',

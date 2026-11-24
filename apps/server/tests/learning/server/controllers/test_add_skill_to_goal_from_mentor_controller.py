@@ -41,6 +41,7 @@ class TestAddSkillToGoalFromMentorController:
         redis_fixture: RedisFixture,
     ) -> None:
         self.engine = postgres_database.engine
+        Fixture.seed_identity_accounts(self.engine)
         self.database = SqlalchemyLearningDatabase(self.engine)
         self.goal = GoalFaker.fake(account_id=Fixture.ACCOUNT_ID)
         self.skill = SkillFaker.fake()

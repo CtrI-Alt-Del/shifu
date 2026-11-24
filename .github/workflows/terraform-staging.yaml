@@ -113,7 +113,14 @@ jobs:
             -backend-config="use_lockfile=true"
 
       - name: Plan
-        run: terraform plan -input=false -lock-timeout=5m -out=staging.tfplan
+        run: |
+          plan_args=(-input=false -lock-timeout=5m -out=staging.tfplan)
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            # Keep PR plans at the current disabled staging state until TLS is available.
+            # The Terraform tests separately assert that enabling services remains blocked.
+            plan_args+=(-var=services_enabled=false)
+          fi
+          terraform plan "${plan_args[@]}"
 
       - name: Show the plan
         run: |

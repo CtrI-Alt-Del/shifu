@@ -1,4 +1,6 @@
 import secrets
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack
 from typing import Annotated, cast
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -18,6 +20,7 @@ from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
     AuthenticationProvider,
     ClockProvider,
     IdentifierProvider,
@@ -84,7 +87,45 @@ class IdentityPipe:
         return AuthenticationPipe.get_authentication_provider(request)
 
     @staticmethod
-    def get_authenticated_user(
+    def get_account_activity_provider(request: Request) -> AccountActivityProvider:
+        return request.app.state.account_activity_provider
+
+    @staticmethod
+    async def get_authenticated_user(
+        credentials: Annotated[
+            HTTPAuthorizationCredentials | None,
+            Depends(_BEARER_SCHEME),
+        ],
+        provider: Annotated[
+            AuthenticationProvider,
+            Depends(get_authentication_provider),
+        ],
+        activity_provider: Annotated[
+            AccountActivityProvider,
+            Depends(get_account_activity_provider),
+        ],
+    ) -> AsyncIterator[AuthenticatedUser]:
+        user = IdentityPipe.get_authenticated_user_unscoped(
+            credentials=credentials,
+            provider=provider,
+        )
+        stack = AsyncExitStack()
+        if credentials is None or credentials.scheme.lower() != 'bearer':
+            raise IdentityPipe._unauthorized()
+        try:
+            await stack.enter_async_context(
+                activity_provider.async_activity(user.account_id, actor=user)
+            )
+        except AuthorizationError as error:
+            await stack.aclose()
+            raise IdentityPipe._unauthorized() from error
+        try:
+            yield user
+        finally:
+            await stack.aclose()
+
+    @staticmethod
+    def get_authenticated_user_unscoped(
         credentials: Annotated[
             HTTPAuthorizationCredentials | None,
             Depends(_BEARER_SCHEME),
@@ -96,7 +137,6 @@ class IdentityPipe:
     ) -> AuthenticatedUser:
         if credentials is None or credentials.scheme.lower() != 'bearer':
             raise IdentityPipe._unauthorized()
-
         try:
             return provider.authenticate(credentials.credentials)
         except AuthorizationError as error:

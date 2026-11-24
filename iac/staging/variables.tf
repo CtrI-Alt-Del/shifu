@@ -143,7 +143,7 @@ variable "server_image_tag" {
 }
 
 variable "services_enabled" {
-  description = "Enable one Web and one server task only after secrets and migration are ready."
+  description = "Enable Web and server tasks. Staging currently blocks this until BFF-to-API shared-secret traffic supports end-to-end HTTPS."
   type        = bool
   default     = false
 }

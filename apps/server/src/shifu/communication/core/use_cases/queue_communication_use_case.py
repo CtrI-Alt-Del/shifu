@@ -10,7 +10,11 @@ from shifu.communication.core.interfaces import (
     CommunicationDatabase,
     SecretEnvelopeProvider,
 )
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.interfaces import (
+    AccountActivityProvider,
+    ClockProvider,
+    IdentifierProvider,
+)
 
 
 class QueueCommunicationUseCase:
@@ -22,6 +26,7 @@ class QueueCommunicationUseCase:
         id_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         secret_envelope_provider: SecretEnvelopeProvider,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._communication_database = communication_database
         # The request already owns the communication identity.  The identifier
@@ -31,8 +36,19 @@ class QueueCommunicationUseCase:
         self._id_provider = id_provider
         self._clock_provider = clock_provider
         self._secret_envelope_provider = secret_envelope_provider
+        self._account_activity_provider = account_activity_provider
 
     def execute(self, request: CommunicationRequest) -> Communication:
+        if request.account_id is None:
+            return self._persist(request)
+
+        with self._account_activity_provider.activity(
+            request.account_id,
+            allow_pending_confirmation=True,
+        ):
+            return self._persist(request)
+
+    def _persist(self, request: CommunicationRequest) -> Communication:
         with self._communication_database.transaction() as repositories:
             existing = repositories.communications.find_by_id(request.communication_id)
 
@@ -76,8 +92,8 @@ class QueueCommunicationUseCase:
             )
             return communication
 
-    @staticmethod
     def _validate_idempotent_replay(
+        self,
         request: CommunicationRequest,
         existing: Communication,
     ) -> None:
@@ -88,4 +104,23 @@ class QueueCommunicationUseCase:
             raise InvalidCommunicationError
 
         if existing.idempotency_key != request.idempotency_key:
+            raise InvalidCommunicationError
+
+        if (
+            existing.account_id != request.account_id
+            or existing.type is not request.type
+            or existing.channel is not request.channel
+            or existing.recipient_email != request.recipient_email
+            or existing.recipient_name != request.recipient_name
+            or existing.expires_at != request.expires_at
+        ):
+            raise InvalidCommunicationError
+
+        existing_values = (
+            self._secret_envelope_provider.decrypt(existing.encrypted_content)
+            if existing.encrypted_content is not None
+            else existing.content
+        )
+        requested_values = request.message_values or request.content
+        if existing_values != requested_values:
             raise InvalidCommunicationError

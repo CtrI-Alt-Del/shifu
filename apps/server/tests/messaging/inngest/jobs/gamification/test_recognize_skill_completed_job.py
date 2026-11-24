@@ -16,6 +16,9 @@ from shifu.learning.core.domain.events import (
     SkillCompletedPayload,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from tests.messaging.inngest.jobs.gamification.account_activity_test_support import (
+    seed_active_account,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -32,6 +35,7 @@ class TestRecognizeSkillCompletedJob:
     ) -> None:
         ids = SystemIdentifierProvider()
         account_id = ids.generate()
+        seed_active_account(inngest_fixture, account_id)
         skill_id = ids.generate()
         engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
         try:

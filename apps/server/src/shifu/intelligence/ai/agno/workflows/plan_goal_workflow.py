@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from json import dumps, loads
 from typing import TYPE_CHECKING, ClassVar, Literal, TypeGuard, cast
+from uuid import NAMESPACE_URL, uuid5
 
 from agno.metrics import RunMetrics
 from agno.run.base import RunStatus
@@ -56,7 +58,7 @@ from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.messaging.agentos.workflow_helpers import copy_agent
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Generator, Sequence
 
     from agno.agent import Agent
     from agno.run.agent import RunOutput
@@ -73,7 +75,10 @@ if TYPE_CHECKING:
         ReportPlanningProgressUseCase,
         RetrievePlanningSkillsUseCase,
     )
-    from shifu.shared.core.interfaces import IdentifierProvider
+    from shifu.shared.core.interfaces import (
+        AccountActivityProvider,
+        IdentifierProvider,
+    )
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
         AgentOSHandoffStore,
     )
@@ -176,6 +181,7 @@ class PlanGoalWorkflow(Workflow):
         proposal_agent: PlanningProposalAgent,
         identifier_provider: IdentifierProvider,
         handoffs: AgentOSHandoffStore,
+        account_activity_provider: AccountActivityProvider,
     ) -> None:
         self._prepare = prepare_use_case
         self._complete = complete_use_case
@@ -187,6 +193,7 @@ class PlanGoalWorkflow(Workflow):
         self._proposal = proposal_agent
         self._identifiers = identifier_provider
         self._handoffs = handoffs
+        self._account_activity = account_activity_provider
         super().__init__(
             id=self.ID,
             name='Plan Goal',
@@ -239,6 +246,7 @@ class PlanGoalWorkflow(Workflow):
             proposal_agent=copy_agent(self._proposal),
             identifier_provider=self._identifiers,
             handoffs=self._handoffs,
+            account_activity_provider=self._account_activity,
         )
         workflow.db = self.db
         if update:
@@ -257,34 +265,42 @@ class PlanGoalWorkflow(Workflow):
         # The intent of a generation is classified once; answers never change it.
         if context.answered_batches or context.classification is not None:
             return self._store(state, 'continue')
-        self._report(context, PlanningOperationStage.ANALYZING)
         try:
-            classification = self._classify.execute(
-                PlanningQuery(intent=context.intent)
-            )
-        except ServiceUnavailableError:
+            with self._external_effect_scope(state, 'classify', 0) as admitted:
+                self._require_effect_admitted(admitted)
+                self._report(context, PlanningOperationStage.ANALYZING)
+                classification = self._classify.execute(
+                    PlanningQuery(intent=context.intent)
+                )
+                state.classification = classification.kind
+                if classification.kind is PlanningIntentKind.OUT_OF_SCOPE:
+                    return self._finish(
+                        state,
+                        PlanningOperationResult.out_of_scope(
+                            classification=state.classification
+                        ),
+                    )
+                return self._store(state, 'continue')
+        except Exception:  # noqa: BLE001 - remote failures fail closed.
             return self._finish(state, PlanningOperationResult.failed())
-        state.classification = classification.kind
-        if classification.kind is PlanningIntentKind.OUT_OF_SCOPE:
-            return self._finish(
-                state,
-                PlanningOperationResult.out_of_scope(
-                    classification=state.classification
-                ),
-            )
-        return self._store(state, 'continue')
 
     def _retrieve_and_interview(self, step_input: StepInput) -> StepOutput:
         state = self._consume(step_input)
         context = state.context
         if context is None or state.result is not None:
             return self._store(state, 'done')
-        self._report(context, PlanningOperationStage.RETRIEVING)
         try:
-            retrieval = self._retrieve.execute(
-                PlanningQuery(intent=context.intent, answers=context.answers)
-            )
-        except ServiceUnavailableError:
+            with self._account_activity.activity(context.account_id):
+                current = self._prepare.execute(
+                    context.planning_id, context.operation_id, context.generation
+                )
+                if not self._same_context(context, current):
+                    return self._finish(state, self._failed(state))
+                self._report(context, PlanningOperationStage.RETRIEVING)
+                retrieval = self._retrieve.execute(
+                    PlanningQuery(intent=context.intent, answers=context.answers)
+                )
+        except Exception:  # noqa: BLE001 - stale or unavailable data fails closed.
             return self._finish(state, self._failed(state))
         state.candidates = retrieval.candidates
         state.consulted_curriculum = True
@@ -292,85 +308,105 @@ class PlanGoalWorkflow(Workflow):
             return self._finish(state, self._unsupported(state))
         if len(context.answered_batches) >= MAX_BATCHES:
             return self._store(state, 'continue')
-        self._report(context, PlanningOperationStage.INTERVIEWING)
         try:
-            output = PlanningInterviewOutput.model_validate(
-                self._run_agent(self._interview, self._interview_payload(state), state),
-                strict=True,
-            )
+            with self._external_effect_scope(
+                state, 'interview', len(context.answered_batches)
+            ) as admitted:
+                self._require_effect_admitted(admitted)
+                self._report(context, PlanningOperationStage.INTERVIEWING)
+                output = PlanningInterviewOutput.model_validate(
+                    self._run_agent(
+                        self._interview,
+                        self._interview_payload(state),
+                        state,
+                    ),
+                    strict=True,
+                )
+                batch = self._batch_from(output) if output.needs_clarification else None
+                if batch is not None:
+                    return self._finish(
+                        state,
+                        PlanningOperationResult.for_batch(
+                            batch, classification=state.classification
+                        ),
+                    )
+                return self._store(state, 'continue')
         except Exception:  # noqa: BLE001 - private model failures fail closed.
             return self._finish(state, self._failed(state))
-        batch = self._batch_from(output) if output.needs_clarification else None
-        if batch is not None:
-            return self._finish(
-                state,
-                PlanningOperationResult.for_batch(
-                    batch, classification=state.classification
-                ),
-            )
-        return self._store(state, 'continue')
 
     def _compose_and_validate(self, step_input: StepInput) -> StepOutput:
         state = self._consume(step_input)
         context = state.context
         if context is None or state.result is not None:
             return self._store(state, 'done')
-        if state.drafts == 0:
-            self._report(context, PlanningOperationStage.COMPOSING)
         try:
-            output = PlanningProposalOutput.model_validate(
-                self._run_agent(self._proposal, self._proposal_payload(state), state),
-                strict=True,
-            )
+            with self._external_effect_scope(
+                state, 'proposal', state.drafts
+            ) as admitted:
+                self._require_effect_admitted(admitted)
+                if state.drafts == 0:
+                    self._report(context, PlanningOperationStage.COMPOSING)
+                output = PlanningProposalOutput.model_validate(
+                    self._run_agent(
+                        self._proposal,
+                        self._proposal_payload(state),
+                        state,
+                    ),
+                    strict=True,
+                )
+                state.drafts += 1
+                if not output.supported:
+                    return self._finish(state, self._unsupported(state))
+                names = {
+                    candidate.skill_id: candidate.name for candidate in state.candidates
+                }
+                draft = PlanningProposalDraft(
+                    title=output.title,
+                    description=output.description,
+                    skills=tuple(
+                        PlanningProposalDraftSkill(
+                            skill_id=skill.skill_id,
+                            justification=skill.justification,
+                        )
+                        for skill in output.skills
+                    ),
+                )
+                problems = draft.problems(names)
+                if not problems:
+                    proposal = PlanningProposal(
+                        title=' '.join(draft.title.split()),
+                        description=' '.join(draft.description.split()),
+                        skills=tuple(
+                            PlanningProposalSkill(
+                                skill_id=skill.skill_id,
+                                name=names[skill.skill_id],
+                                justification=' '.join(skill.justification.split()),
+                            )
+                            for skill in draft.skills
+                        ),
+                        relations=self._relations(
+                            state.candidates,
+                            tuple(skill.skill_id for skill in draft.skills),
+                        ),
+                    )
+                    return self._finish(
+                        state,
+                        PlanningOperationResult.for_proposal(
+                            proposal, classification=state.classification
+                        ),
+                    )
+                # The learner never sees this draft; the composer gets the problems instead.
+                state.problems = problems
+                if state.drafts >= MAX_DRAFTS:
+                    return self._finish(
+                        state,
+                        PlanningOperationResult.validation_failed(
+                            classification=state.classification
+                        ),
+                    )
+                return self._store(state, 'retry')
         except Exception:  # noqa: BLE001 - private model failures fail closed.
             return self._finish(state, self._failed(state))
-        state.drafts += 1
-        if not output.supported:
-            return self._finish(state, self._unsupported(state))
-        names = {candidate.skill_id: candidate.name for candidate in state.candidates}
-        draft = PlanningProposalDraft(
-            title=output.title,
-            description=output.description,
-            skills=tuple(
-                PlanningProposalDraftSkill(
-                    skill_id=skill.skill_id, justification=skill.justification
-                )
-                for skill in output.skills
-            ),
-        )
-        problems = draft.problems(names)
-        if not problems:
-            proposal = PlanningProposal(
-                title=' '.join(draft.title.split()),
-                description=' '.join(draft.description.split()),
-                skills=tuple(
-                    PlanningProposalSkill(
-                        skill_id=skill.skill_id,
-                        name=names[skill.skill_id],
-                        justification=' '.join(skill.justification.split()),
-                    )
-                    for skill in draft.skills
-                ),
-                relations=self._relations(
-                    state.candidates, tuple(skill.skill_id for skill in draft.skills)
-                ),
-            )
-            return self._finish(
-                state,
-                PlanningOperationResult.for_proposal(
-                    proposal, classification=state.classification
-                ),
-            )
-        # The learner never sees this draft; the composer gets the problems instead.
-        state.problems = problems
-        if state.drafts >= MAX_DRAFTS:
-            return self._finish(
-                state,
-                PlanningOperationResult.validation_failed(
-                    classification=state.classification
-                ),
-            )
-        return self._store(state, 'retry')
 
     def _publish_result(self, step_input: StepInput) -> StepOutput:
         state = self._consume(step_input)
@@ -378,9 +414,15 @@ class PlanGoalWorkflow(Workflow):
         if context is None:
             return StepOutput(content='skipped')
         result = state.result or self._failed(state)
-        applied = self._complete.execute(
-            context.planning_id, context.operation_id, context.generation, result
-        )
+        with self._account_activity.activity(context.account_id):
+            current = self._prepare.execute(
+                context.planning_id, context.operation_id, context.generation
+            )
+            if not self._same_context(context, current):
+                return StepOutput(content='discarded')
+            applied = self._complete.execute(
+                context.planning_id, context.operation_id, context.generation, result
+            )
         return StepOutput(content=result.kind.value if applied else 'discarded')
 
     def _report(
@@ -420,6 +462,62 @@ class PlanGoalWorkflow(Workflow):
                 'ai_quota_usage_report_failed kind=planning_operation request_id=%s',
                 context.operation_id,
             )
+
+    @staticmethod
+    def _require_effect_admitted(admitted: bool) -> None:
+        if not admitted:
+            raise ServiceUnavailableError(_UNAVAILABLE)
+
+    @contextmanager
+    def _external_effect_scope(
+        self,
+        state: _ExecutionState,
+        phase: Literal['classify', 'interview', 'proposal'],
+        iteration: int,
+    ) -> Generator[bool]:
+        context = state.context
+        if context is None:
+            yield False
+            return
+
+        current = self._prepare.execute(
+            context.planning_id, context.operation_id, context.generation
+        )
+        if current is None or not self._same_context(context, current):
+            yield False
+            return
+        effect_id = uuid5(
+            NAMESPACE_URL,
+            'shifu:intelligence:plan-goal:'
+            f'{context.planning_id}:{context.operation_id}:'
+            f'{context.generation}:{phase}:{iteration}',
+        )
+        with self._account_activity.external_effect(
+            current.account_id, effect_id, f'intelligence.plan-goal.{phase}'
+        ) as admitted:
+            # Re-read the Redis operation while account closure is excluded.
+            verified = self._prepare.execute(
+                context.planning_id, context.operation_id, context.generation
+            )
+            if not self._same_context(context, verified):
+                raise ServiceUnavailableError(_UNAVAILABLE)
+            yield admitted
+
+    @staticmethod
+    def _same_context(
+        expected: PlanningOperationContext,
+        actual: PlanningOperationContext | None,
+    ) -> bool:
+        return (
+            actual is not None
+            and actual.account_id == expected.account_id
+            and actual.planning_id == expected.planning_id
+            and actual.operation_id == expected.operation_id
+            and actual.generation == expected.generation
+            and actual.intent == expected.intent
+            and actual.answered_batches == expected.answered_batches
+            and actual.classification == expected.classification
+        )
 
     def _run_agent(
         self, agent: Agent, payload: dict[str, object], state: _ExecutionState

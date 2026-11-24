@@ -76,11 +76,17 @@ MENTOR_ACCOUNT = AuthenticatedUser(
     account_id='01JACCOUNT000000000000TEST',
     display_name='Learner Test',
     time_zone=None,
+    session_id='mentor-session',
+    token_access_version=1,
+    account_access_version=1,
 )
 OTHER_ACCOUNT = AuthenticatedUser(
     account_id='01JOTHER000000000000TEST',
     display_name='Other Learner',
     time_zone=None,
+    session_id='other-mentor-session',
+    token_access_version=1,
+    account_access_version=1,
 )
 BASE_TIME = datetime(2026, 3, 1, 12, tzinfo=UTC)
 ABSENT_MEMORY_ID = '01J00000000000000000000999'
@@ -182,9 +188,22 @@ class IntelligenceFixture:
 
     def mentor_app(self, account: AuthenticatedUser = MENTOR_ACCOUNT) -> FastAPI:
         """The Mentor application with controlled access and a stubbed title."""
+        with SqlalchemyIdentityDatabase(
+            engine=self.postgres.engine
+        ).transaction() as repositories:
+            if repositories.accounts.find_by_id(account.account_id) is None:
+                repositories.accounts.add(
+                    AccountFaker.fake(
+                        id=account.account_id,
+                        access_version=account.account_access_version or 1,
+                    )
+                )
         app = FastAPIApp.register(self.postgres.engine)
         configure_mentor_access(app)
         app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: account
+        app.dependency_overrides[SharedPipe.get_authenticated_user_unscoped] = lambda: (
+            account
+        )
         app.dependency_overrides[
             IntelligencePipe.get_generate_mentor_title_provider
         ] = MentorTitleProviderStub

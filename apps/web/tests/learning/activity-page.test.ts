@@ -48,6 +48,29 @@ async function entranceFrames(page: Page) {
   return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
 }
 
+async function installDraftCapabilityRoutes(page: Page) {
+  const capability = 'playwright-browser-data-capability-000000000000000000000000'
+  await page.route('**/api/identity/browser-data-capabilities', (route) =>
+    route.fulfill({
+      body: JSON.stringify({ capability }),
+      contentType: 'application/json',
+      headers: { 'cache-control': 'no-store' },
+      status: 201,
+    }),
+  )
+  await page.route('**/api/identity/browser-data-validations', async (route) => {
+    const body = route.request().postDataJSON() as { capability?: string }
+    await route.fulfill({
+      body: JSON.stringify({
+        state: body.capability === capability ? 'active' : 'revoked',
+      }),
+      contentType: 'application/json',
+      headers: { 'cache-control': 'no-store' },
+      status: 200,
+    })
+  })
+}
+
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
 const competencyPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}`
@@ -315,6 +338,7 @@ test('assesses and submits an HTML/CSS/JavaScript question through the protected
   authenticatedPage,
   bff,
 }) => {
+  await installDraftCapabilityRoutes(authenticatedPage)
   const htmlSource = '<main><h1>Minha página</h1></main>'
   const htmlActivity = {
     ...activity,
@@ -1034,6 +1058,7 @@ test('keeps the integrated route usable on mobile when practice is unavailable',
   bff,
   activeAccount,
 }) => {
+  await installDraftCapabilityRoutes(authenticatedPage)
   await authenticatedPage.setViewportSize({ width: 390, height: 844 })
   await authenticatedPage.addInitScript(() => {
     Object.defineProperty(window, 'crossOriginIsolated', {
